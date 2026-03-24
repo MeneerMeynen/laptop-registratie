@@ -1,0 +1,19 @@
+{% for student in students %}
+{% set is_old = latest_import_at and student.last_import and student.last_import < latest_import_at %}
+<label
+    class="manage-row"
+    data-manage-filter="{{ student.instellingsnummer }} {{ student.naam }} {{ student.voornaam }} {{ student.klas }} {{ student.klascode }} {{ student.klasnummer }} {{ student.gebruikersnaam }} {{ student.pointer }} {{ student.stamnummer }}"
+    data-old-import="{{ 'true' if is_old else 'false' }}"
+>
+    <input class="manage-checkbox" type="checkbox" value="{{ student.stamnummer }}">
+    <span>
+        <span class="manage-name">{{ student.naam }}, {{ student.voornaam }}</span>
+        <span class="manage-meta">{{ student.klas }} | {{ student.stamnummer }} | {{ student.gebruikersnaam }}</span>
+        {% if is_old %}
+        <span class="badge badge-old">Uitgeschreven</span>
+        {% endif %}
+    </span>
+</label>
+{% else %}
+<p style="padding:16px; color:var(--muted);">Geen leerlingen gevonden.</p>
+{% endfor %}

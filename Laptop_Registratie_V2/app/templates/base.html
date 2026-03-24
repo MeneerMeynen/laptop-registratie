@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Laptop Registratie{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- HTMX – declarative AJAX swaps (import, delete) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+    <!-- Alpine.js – lightweight reactivity (tabs, selection, filtering, linking) -->
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <!-- bwip-js: multi-symbology barcode renderer (Data Matrix, Code 128, …) -->
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
+    <!-- Barcode renderer -->
+    <script src="/static/js/barcodes.js"></script>
+</head>
+<body>
+{% block content %}{% endblock %}
+</body>
+</html>

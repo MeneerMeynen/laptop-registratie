@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main x-data="laptopApp()" x-init="init()">
+
+    <h1>Laptop Registratie</h1>
+    <p class="lead">Selecteer een leerling, scan de barcode van de laptop en bevestig de koppeling.</p>
+
+    <!-- ── Tab navigation ────────────────────────────────────── -->
+    <nav class="tab-menu" role="tablist" aria-label="Schermen">
+        <button type="button"
+                class="tab-button"
+                :class="{ active: activeTab === 'registreer' }"
+                :aria-selected="activeTab === 'registreer'"
+                @click="setTab('registreer')"
+                role="tab">
+            Registreer laptops
+        </button>
+        <button type="button"
+                class="tab-button"
+                :class="{ active: activeTab === 'beheer' }"
+                :aria-selected="activeTab === 'beheer'"
+                @click="setTab('beheer')"
+                role="tab">
+            Beheer studenten
+        </button>
+    </nav>
+
+    <!-- ══ TAB 1: Registreer laptops ═════════════════════════ -->
+    <section x-show="activeTab === 'registreer'" x-cloak>
+        <div class="layout">
+
+            <!-- Barcode navigation sidebar -->
+            <aside class="panel barcode-panel" aria-label="Navigatie barcodes">
+                <div class="barcode-card">
+                    <span class="barcode-card-label">Navigatie omhoog</span>
+                    <span class="barcode-card-code">
+                        <canvas class="barcode-canvas" data-barcode="1UP" aria-label="Data Matrix barcode 1UP"></canvas>
+                    </span>
+                    <span class="barcode-caption">1UP</span>
+                    <span class="barcode-card-help">Verplaatst de selectie één leerling omhoog.</span>
+                </div>
+                <div class="barcode-card">
+                    <span class="barcode-card-label">Navigatie omlaag</span>
+                    <span class="barcode-card-code">
+                        <canvas class="barcode-canvas" data-barcode="1DOWN" aria-label="Data Matrix barcode 1DOWN"></canvas>
+                    </span>
+                    <span class="barcode-caption">1DOWN</span>
+                    <span class="barcode-card-help">Verplaatst de selectie één leerling omlaag.</span>
+                </div>
+                <div class="barcode-card">
+                    <span class="barcode-card-label">Eigen laptop</span>
+                    <span class="barcode-card-code">
+                        <canvas class="barcode-canvas" data-barcode="eigen laptop" aria-label="Data Matrix barcode eigen laptop"></canvas>
+                    </span>
+                    <span class="barcode-caption">eigen laptop</span>
+                    <span class="barcode-card-help">Vult automatisch het serienummer in als eigen laptop.</span>
+                </div>
+            </aside>
+
+            <!-- Main form -->
+            <section class="panel">
+                <form @submit.prevent="submitLink">
+
+                    <!-- Student picker -->
+                    <div class="field">
+                        <label for="student-filter">Leerling</label>
+                        <input
+                            id="student-filter"
+                            class="filter-input"
+                            type="text"
+                            placeholder="Filter op naam, klas, stamnummer, serienummer…"
+                            autocomplete="off"
+                            x-model="laptopSearch"
+                            @input="filterStudents"
+                        >
+                        <div id="student-list" class="student-picker" role="listbox" aria-label="Selecteer een leerling">
+                            {% include "partials/student_list.html" %}
+                        </div>
+                        <div class="filter-summary" x-text="filterSummary"></div>
+                        <div class="selected-student" x-text="selectedLabel"></div>
+                    </div>
+
+                    <!-- Serial / barcode input -->
+                    <div class="field">
+                        <label for="serial_number">Laptop barcode / serienummer</label>
+                        <input
+                            id="serial_number"
+                            type="text"
+                            autocomplete="off"
+                            x-model="serialValue"
+                            @input="handleScanInput"
+                        >
+                    </div>
+
+                    <button type="submit">Link laptop</button>
+
+                    <!-- Status feedback -->
+                    <div class="status"
+                         :class="{ error: linkStatus.type === 'error', success: linkStatus.type === 'success' }"
+                         x-text="linkStatus.text"
+                         aria-live="polite">
+                    </div>
+                </form>
+            </section>
+
+        </div>
+    </section>
+
+    <!-- ══ TAB 2: Beheer studenten ════════════════════════════ -->
+    <section x-show="activeTab === 'beheer'" x-cloak>
+        <section class="panel import-panel">
+            <h2>Beheer studenten</h2>
+            <p class="import-help">
+                Upload een CSV-bestand. Bestaande studenten worden bijgewerkt, nieuwe worden toegevoegd.
+                Studenten die niet in de laatste import zitten, krijgen de badge <strong>Uitgeschreven</strong>.
+            </p>
+
+            <!-- CSV import form – HTMX posts, response updates both student lists -->
+            <form
+                hx-post="/ui/students/import"
+                hx-encoding="multipart/form-data"
+                hx-target="#import-result"
+                hx-swap="innerHTML"
+                @htmx:after-request="onImportComplete"
+            >
+                <div class="field">
+                    <label for="student-import-file">CSV-bestand</label>
+                    <input id="student-import-file" class="file-input" name="file" type="file" accept=".csv,text/csv" required>
+                </div>
+                <button type="submit">Importeer studenten</button>
+                <div id="import-result" class="status" aria-live="polite"></div>
+            </form>
+
+            <!-- Search + filter toolbar -->
+            <div class="manage-tools">
+                <input
+                    id="manage-search"
+                    class="filter-input"
+                    type="text"
+                    placeholder="Zoek op naam, klas, stamnummer, gebruikersnaam…"
+                    autocomplete="off"
+                    x-model="manageSearch"
+                    @input="filterManage"
+                >
+                <button
+                    type="button"
+                    class="manage-filter-button"
+                    :class="{ active: showUitgeschreven }"
+                    @click="toggleUitgeschreven"
+                    x-text="showUitgeschreven ? 'Toon alle leerlingen' : 'Toon uitgeschreven'">
+                </button>
+            </div>
+
+            <!-- Student list (HTMX refresh target after import/delete) -->
+            <div id="manage-student-list" class="manage-list">
+                {% include "partials/manage_student_list.html" %}
+            </div>
+
+            <!-- Bulk actions -->
+            <div style="display:grid; grid-template-columns: 1fr auto; gap:12px; margin-top:12px;">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    style="margin-top:0"
+                    @click="selectAllVisible">
+                    Selecteer alle
+                </button>
+                <button
+                    type="button"
+                    class="btn-danger"
+                    style="margin-top:0; width:auto; padding:12px 18px;"
+                    @click="deleteSelected">
+                    Verwijder geselecteerde
+                </button>
+            </div>
+
+            <div class="status"
+                 :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
+                 x-text="manageStatus.text"
+                 aria-live="polite">
+            </div>
+        </section>
+    </section>
+
+</main>
+
+<script>
+function laptopApp() {
+    return {
+        // ── State ──────────────────────────────────────────────
+        activeTab:        'registreer',
+        selectedStamnummer: null,
+        selectedLabel:    'Geen leerling geselecteerd.',
+        laptopSearch:     '',
+        serialValue:      '',
+        linkStatus:       { text: '', type: '' },
+        manageSearch:     '',
+        showUitgeschreven: false,
+        manageStatus:     { text: '', type: '' },
+        _visibleCount:    0,
+
+        // ── Lifecycle ──────────────────────────────────────────
+        init() {
+            this.activeTab        = sessionStorage.getItem('activeTab') || 'registreer';
+            this.manageSearch     = sessionStorage.getItem('manageSearch') || '';
+            this.showUitgeschreven = sessionStorage.getItem('showUitgeschreven') === 'true';
+
+            this.$nextTick(() => {
+                this._countVisible();
+                this.filterManage();
+                renderAllBarcodes();
+            });
+        },
+
+        // ── Tabs ───────────────────────────────────────────────
+        setTab(tab) {
+            this.activeTab = tab;
+            sessionStorage.setItem('activeTab', tab);
+        },
+
+        // ── Student list filtering (laptop tab) ────────────────
+        filterStudents() {
+            const q = this.laptopSearch.trim().toLowerCase();
+            let count = 0;
+            document.querySelectorAll('.student-option').forEach(el => {
+                const match = !q || el.dataset.filter.toLowerCase().includes(q);
+                el.hidden = !match;
+                if (match) count++;
+            });
+            this._visibleCount = count;
+        },
+
+        get filterSummary() {
+            return `${this._visibleCount} leerling(en) zichtbaar`;
+        },
+
+        _countVisible() {
+            this._visibleCount = document.querySelectorAll('.student-option:not([hidden])').length;
+        },
+
+        // ── Student selection ───────────────────────────────────
+        selectStudent(stamnummer, label) {
+            // Remove active class from previous
+            document.querySelectorAll('.student-option.active').forEach(el => {
+                el.classList.remove('active');
+                el.setAttribute('aria-selected', 'false');
+            });
+            // Set active on new
+            const option = document.querySelector(`.student-option[data-stamnummer="${stamnummer}"]`);
+            if (option) {
+                option.classList.add('active');
+                option.setAttribute('aria-selected', 'true');
+            }
+            this.selectedStamnummer = stamnummer;
+            this.selectedLabel = `Geselecteerd: ${label}`;
+        },
+
+        // ── Navigation barcode handling ─────────────────────────
+        handleScanInput() {
+            const val = this.serialValue.trim().toUpperCase();
+            if (val === '1UP')           { this.moveSelection(-1); this.serialValue = ''; }
+            else if (val === '1DOWN')    { this.moveSelection(1);  this.serialValue = ''; }
+            else if (val === 'EIGEN LAPTOP') { this.serialValue = 'eigen laptop'; }
+        },
+
+        moveSelection(step) {
+            const opts = [...document.querySelectorAll('.student-option:not([hidden])')];
+            if (!opts.length) return;
+            const idx = opts.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
+            const next = idx === -1
+                ? opts[step > 0 ? 0 : opts.length - 1]
+                : opts[Math.min(Math.max(idx + step, 0), opts.length - 1)];
+            this.selectStudent(next.dataset.stamnummer, next.dataset.label);
+            next.scrollIntoView({ block: 'nearest' });
+        },
+
+        // ── Laptop linking ──────────────────────────────────────
+        async submitLink() {
+            if (!this.selectedStamnummer) {
+                this.linkStatus = { text: 'Selecteer eerst een leerling.', type: 'error' };
+                return;
+            }
+            const serial = this.serialValue.trim();
+            if (!serial) {
+                this.linkStatus = { text: 'Voer een serienummer in.', type: 'error' };
+                return;
+            }
+            // Let navigation barcodes be handled by handleScanInput on submit too
+            const upper = serial.toUpperCase();
+            if (upper === '1UP' || upper === '1DOWN') {
+                this.handleScanInput();
+                return;
+            }
+            await this._doLink(false);
+        },
+
+        async _doLink(overwrite) {
+            this.linkStatus = { text: 'Bezig met koppelen…', type: '' };
+            const res = await fetch('/api/laptops/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    stamnummer:         this.selectedStamnummer,
+                    serial_number:      this.serialValue.trim(),
+                    overwrite_existing: overwrite,
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                const detail = data.detail;
+                if (detail?.requires_confirmation) {
+                    const serials = (detail.existing_serials || []).join(', ');
+                    const newSerial = this.serialValue.trim();
+                    if (confirm(`Leerling heeft al laptop(s): ${serials}.\nOverschrijven met "${newSerial}"?`)) {
+                        await this._doLink(true);
+                        return;
+                    }
+                    this.linkStatus = { text: 'Koppeling geannuleerd.', type: '' };
+                    document.getElementById('serial_number').focus();
+                    return;
+                }
+                this.linkStatus = { text: detail?.message || detail || 'Koppelen mislukt.', type: 'error' };
+                return;
+            }
+
+            // ── Success: update student row in the list ─────────
+            const option = document.querySelector(`.student-option[data-stamnummer="${data.stamnummer}"]`);
+            if (option) {
+                const serialEl = option.querySelector('.student-option-serial');
+                if (serialEl) {
+                    const display = data.eigen_laptop ? 'Eigen laptop' : (data.serial_number || 'Niet gekoppeld');
+                    serialEl.textContent = `Laptop serienummer: ${display}`;
+                }
+                // Eigen laptop badge
+                let ownBadge = option.querySelector('.badge-own');
+                if (data.eigen_laptop && !ownBadge) {
+                    ownBadge = document.createElement('span');
+                    ownBadge.className = 'badge badge-own';
+                    ownBadge.textContent = 'Eigen laptop';
+                    option.appendChild(ownBadge);
+                } else if (!data.eigen_laptop && ownBadge) {
+                    ownBadge.remove();
+                }
+                // Update filter data
+                const baseFilter = option.dataset.baseFilter || '';
+                const serialStr = data.eigen_laptop ? 'eigen laptop eigen toestel' : (data.serial_number || '');
+                option.dataset.filter = `${baseFilter} ${serialStr}`.trim();
+            }
+
+            const statusSerial = data.eigen_laptop ? 'eigen laptop' : data.serial_number;
+            this.linkStatus = { text: `✓ Laptop "${statusSerial}" gekoppeld.`, type: 'success' };
+
+            // ── Auto-advance to next visible student ───────────
+            const visible = [...document.querySelectorAll('.student-option:not([hidden])')];
+            const currentIdx = visible.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
+            if (currentIdx !== -1 && currentIdx < visible.length - 1) {
+                const next = visible[currentIdx + 1];
+                this.selectStudent(next.dataset.stamnummer, next.dataset.label);
+                next.scrollIntoView({ block: 'nearest' });
+            }
+
+            this.serialValue = '';
+            this.$nextTick(() => document.getElementById('serial_number').focus());
+        },
+
+        // ── After HTMX import response ──────────────────────────
+        onImportComplete(event) {
+            // Refresh both student lists from the server after a successful import
+            if (event.detail.successful) {
+                htmx.ajax('GET', '/ui/students/list', { target: '#student-list', swap: 'innerHTML' });
+                htmx.ajax('GET', '/ui/students/manage', { target: '#manage-student-list', swap: 'innerHTML' });
+                this.$nextTick(() => {
+                    this._countVisible();
+                    this.filterManage();
+                });
+            }
+        },
+
+        // ── Manage tab filtering ────────────────────────────────
+        filterManage() {
+            const q = this.manageSearch.trim().toLowerCase();
+            sessionStorage.setItem('manageSearch', this.manageSearch);
+            sessionStorage.setItem('showUitgeschreven', String(this.showUitgeschreven));
+
+            document.querySelectorAll('.manage-row').forEach(row => {
+                const matchesQ = !q || row.dataset.manageFilter.toLowerCase().includes(q);
+                const matchesOld = !this.showUitgeschreven || row.dataset.oldImport === 'true';
+                row.hidden = !(matchesQ && matchesOld);
+            });
+        },
+
+        toggleUitgeschreven() {
+            this.showUitgeschreven = !this.showUitgeschreven;
+            this.filterManage();
+        },
+
+        // ── Manage: select all visible ──────────────────────────
+        selectAllVisible() {
+            document.querySelectorAll('.manage-row:not([hidden]) .manage-checkbox').forEach(cb => {
+                cb.checked = true;
+            });
+        },
+
+        // ── Manage: delete selected ─────────────────────────────
+        async deleteSelected() {
+            const checked = [...document.querySelectorAll('.manage-checkbox:checked')];
+            const stamnummers = checked.map(cb => cb.value);
+            if (!stamnummers.length) {
+                this.manageStatus = { text: 'Selecteer eerst minstens één leerling.', type: 'error' };
+                return;
+            }
+            if (!confirm(`Wil je ${stamnummers.length} leerling(en) verwijderen?`)) return;
+
+            this.manageStatus = { text: 'Leerlingen worden verwijderd…', type: '' };
+
+            const res = await fetch('/api/students', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stamnummers }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                this.manageStatus = { text: data.detail || 'Verwijderen mislukt.', type: 'error' };
+                return;
+            }
+
+            this.manageStatus = { text: `✓ ${data.deleted} leerling(en) verwijderd.`, type: 'success' };
+
+            // Refresh both lists
+            htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',         swap: 'innerHTML' });
+            htmx.ajax('GET', '/ui/students/manage',  { target: '#manage-student-list', swap: 'innerHTML' });
+            this.$nextTick(() => { this._countVisible(); this.filterManage(); });
+        },
+    };
+}
+</script>
+{% endblock %}

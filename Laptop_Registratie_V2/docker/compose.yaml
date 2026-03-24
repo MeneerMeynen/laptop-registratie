@@ -1,0 +1,52 @@
+services:
+  app:
+    build: ..
+    ports:
+      - "8000:8000"
+    environment:
+      # Override DATABASE_URL so the app always reaches the 'db' service inside Docker.
+      # This takes precedence over any .env file value (which uses localhost for local dev).
+      DATABASE_URL: mysql+pymysql://root:***REMOVED***@db:3306/laptops
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - laptop-net
+
+  test:
+    build: ..
+    environment:
+      DATABASE_URL: mysql+pymysql://root:***REMOVED***@db:3306/laptops_test
+      PYTHONPATH: /app
+    command: pytest -v
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - laptop-net
+
+  db:
+    image: mariadb:lts
+    container_name: mariadb-laptop
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ***REMOVED***
+      MYSQL_DATABASE: laptops
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - laptop-net
+
+volumes:
+  mariadb_data:
+
+networks:
+  laptop-net:
