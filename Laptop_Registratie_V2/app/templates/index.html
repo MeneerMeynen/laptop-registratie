@@ -24,6 +24,14 @@
                 role="tab">
             Beheer studenten
         </button>
+        <button type="button"
+                class="tab-button"
+                :class="{ active: activeTab === 'laptops' }"
+                :aria-selected="activeTab === 'laptops'"
+                @click="setTab('laptops')"
+                role="tab">
+            Laptops
+        </button>
     </nav>
 
     <!-- ══ TAB 1: Registreer laptops ═════════════════════════ -->
@@ -183,6 +191,129 @@
         </section>
     </section>
 
+    <!-- ══ TAB 3: Laptops ════════════════════════════════════ -->
+    <section x-show="activeTab === 'laptops'" x-cloak>
+        <section class="panel issues-panel">
+            <h2>Laptop problemen</h2>
+
+            <!-- Toolbar -->
+            <div class="issues-toolbar">
+                <input
+                    type="text"
+                    class="filter-input"
+                    style="margin-bottom:0;"
+                    placeholder="Zoek op serienummer of naam leerling…"
+                    autocomplete="off"
+                    x-model="issueSearch"
+                    @input.debounce.300ms="refreshIssueList()"
+                >
+                <button
+                    type="button"
+                    class="manage-filter-button"
+                    style="margin:0;"
+                    :class="{ active: showClosed }"
+                    @click="showClosed = !showClosed; refreshIssueList()"
+                    x-text="showClosed ? 'Toon alleen open' : 'Toon gesloten'">
+                </button>
+                <button
+                    type="button"
+                    style="width:auto; margin:0; padding:12px 18px;"
+                    @click="openNewIssueModal()">
+                    + Nieuw probleem
+                </button>
+            </div>
+
+            <!-- Issues list (HTMX refresh target) -->
+            <div id="laptop-issues-list" class="issues-list">
+                <p class="no-issues">Selecteer de tab om problemen te laden.</p>
+            </div>
+
+            <!-- Status feedback -->
+            <div class="status"
+                 :class="{ error: issueStatus.type === 'error', success: issueStatus.type === 'success' }"
+                 x-text="issueStatus.text"
+                 aria-live="polite">
+            </div>
+        </section>
+    </section>
+
+    <!-- ── New issue modal ─────────────────────────────────── -->
+    <div class="modal-overlay" x-show="showNewIssueModal" x-cloak @click.self="closeNewIssueModal()">
+        <div class="modal-box">
+            <h3>Nieuw probleem melden</h3>
+            <div class="field">
+                <label for="new-issue-serial">Serienummer laptop</label>
+                <input
+                    id="new-issue-serial"
+                    type="text"
+                    list="laptop-suggestions"
+                    autocomplete="off"
+                    placeholder="Typ serienummer of naam leerling…"
+                    x-model="newIssueSerial"
+                    @input.debounce.300ms="fetchLaptopSuggestions()"
+                >
+                <datalist id="laptop-suggestions">
+                    <template x-for="s in newIssueSuggestions" :key="s.serial_number">
+                        <option :value="s.serial_number"
+                                :label="(s.voornaam || '') + ' ' + (s.naam || '')">
+                        </option>
+                    </template>
+                </datalist>
+            </div>
+            <div class="field">
+                <label for="new-issue-description">Beschrijving probleem</label>
+                <textarea
+                    id="new-issue-description"
+                    x-model="newIssueDescription"
+                    placeholder="Beschrijf het technisch probleem…"></textarea>
+            </div>
+            <div class="field">
+                <label for="new-issue-date">Datum</label>
+                <input id="new-issue-date" type="date" x-model="newIssueDate">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" style="width:auto;" @click="closeNewIssueModal()">Annuleer</button>
+                <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Edit issue modal ────────────────────────────────── -->
+    <div class="modal-overlay" x-show="showEditIssueModal" x-cloak @click.self="closeEditIssueModal()">
+        <div class="modal-box">
+            <h3>Probleem bewerken</h3>
+            <p class="import-help" x-show="editIssueSerial">
+                Laptop: <strong x-text="editIssueSerial"></strong>
+            </p>
+            <div class="field">
+                <label for="edit-issue-description">Beschrijving probleem</label>
+                <textarea id="edit-issue-description" x-model="editIssueDescription"></textarea>
+            </div>
+            <div class="field">
+                <label for="edit-issue-date">Datum</label>
+                <input id="edit-issue-date" type="date" x-model="editIssueDate">
+            </div>
+            <div class="field">
+                <label for="edit-issue-status">Status</label>
+                <select id="edit-issue-status" x-model="editIssueStatus">
+                    <option value="open">Open</option>
+                    <option value="gesloten">Gesloten</option>
+                </select>
+            </div>
+            <div class="field" x-show="editIssueStatus === 'gesloten'">
+                <label for="edit-issue-solution">Oplossing</label>
+                <textarea
+                    id="edit-issue-solution"
+                    x-model="editIssueSolution"
+                    placeholder="Beschrijf de oplossing…"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" style="width:auto;" @click="closeEditIssueModal()">Annuleer</button>
+                <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
 </main>
 
 <script>
@@ -199,6 +330,22 @@ function laptopApp() {
         showUitgeschreven: false,
         manageStatus:     { text: '', type: '' },
         _visibleCount:    0,
+        // Issues tab
+        issueSearch:          '',
+        showClosed:           false,
+        issueStatus:          { text: '', type: '' },
+        showNewIssueModal:    false,
+        newIssueSerial:       '',
+        newIssueDescription:  '',
+        newIssueDate:         new Date().toISOString().slice(0, 10),
+        newIssueSuggestions:  [],
+        showEditIssueModal:   false,
+        editIssueId:          null,
+        editIssueSerial:      '',
+        editIssueDescription: '',
+        editIssueDate:        '',
+        editIssueStatus:      'open',
+        editIssueSolution:    '',
 
         // ── Lifecycle ──────────────────────────────────────────
         init() {
@@ -211,6 +358,12 @@ function laptopApp() {
                 this.filterManage();
                 renderAllBarcodes();
             });
+
+            // Load issues list when switching to the laptops tab
+            this.$watch('activeTab', (tab) => {
+                if (tab === 'laptops') this.refreshIssueList();
+            });
+            if (this.activeTab === 'laptops') this.refreshIssueList();
         },
 
         // ── Tabs ───────────────────────────────────────────────
@@ -433,6 +586,111 @@ function laptopApp() {
             htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',         swap: 'innerHTML' });
             htmx.ajax('GET', '/ui/students/manage',  { target: '#manage-student-list', swap: 'innerHTML' });
             this.$nextTick(() => { this._countVisible(); this.filterManage(); });
+        },
+
+        // ── Laptop issues ───────────────────────────────────────
+        refreshIssueList() {
+            const params = new URLSearchParams({
+                search:        this.issueSearch,
+                include_closed: this.showClosed,
+            });
+            htmx.ajax('GET', `/ui/laptop-issues?${params}`, {
+                target: '#laptop-issues-list',
+                swap:   'innerHTML',
+            });
+        },
+
+        openNewIssueModal() {
+            this.newIssueSerial      = '';
+            this.newIssueDescription = '';
+            this.newIssueDate        = new Date().toISOString().slice(0, 10);
+            this.newIssueSuggestions = [];
+            this.showNewIssueModal   = true;
+            this.$nextTick(() => document.getElementById('new-issue-serial').focus());
+        },
+
+        closeNewIssueModal() { this.showNewIssueModal = false; },
+
+        async fetchLaptopSuggestions() {
+            const q = this.newIssueSerial.trim();
+            if (q.length < 2) { this.newIssueSuggestions = []; return; }
+            const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
+            this.newIssueSuggestions = res.ok ? await res.json() : [];
+        },
+
+        async submitNewIssue() {
+            const serial = this.newIssueSerial.trim();
+            const desc   = this.newIssueDescription.trim();
+            if (!serial) { this.issueStatus = { text: 'Serienummer is verplicht.', type: 'error' }; return; }
+            if (!desc)   { this.issueStatus = { text: 'Beschrijving is verplicht.', type: 'error' }; return; }
+
+            const res = await fetch('/api/laptop-issues', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    serial_number: serial,
+                    description:   desc,
+                    reported_date: this.newIssueDate,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' };
+                return;
+            }
+
+            this.issueStatus = { text: '✓ Probleem gemeld.', type: 'success' };
+            this.closeNewIssueModal();
+            this.refreshIssueList();
+        },
+
+        startEditIssue(dataset) {
+            this.editIssueId          = parseInt(dataset.issueId);
+            this.editIssueSerial      = dataset.serial;
+            this.editIssueDescription = dataset.description;
+            this.editIssueDate        = dataset.date;
+            this.editIssueStatus      = dataset.status;
+            this.editIssueSolution    = dataset.solution || '';
+            this.showEditIssueModal   = true;
+        },
+
+        closeEditIssueModal() { this.showEditIssueModal = false; },
+
+        async submitEditIssue() {
+            const res = await fetch(`/api/laptop-issues/${this.editIssueId}`, {
+                method:  'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    description:   this.editIssueDescription.trim(),
+                    reported_date: this.editIssueDate,
+                    status:        this.editIssueStatus,
+                    solution:      this.editIssueStatus === 'gesloten'
+                                       ? (this.editIssueSolution.trim() || null)
+                                       : null,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' };
+                return;
+            }
+
+            this.issueStatus = { text: '✓ Probleem opgeslagen.', type: 'success' };
+            this.closeEditIssueModal();
+            this.refreshIssueList();
+        },
+
+        async deleteIssue(id) {
+            if (!confirm('Wil je dit probleem verwijderen?')) return;
+            const res = await fetch(`/api/laptop-issues/${id}`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 204) {
+                this.issueStatus = { text: 'Verwijderen mislukt.', type: 'error' };
+                return;
+            }
+            this.issueStatus = { text: '✓ Probleem verwijderd.', type: 'success' };
+            this.refreshIssueList();
         },
     };
 }

@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Laptop Registratie V2 (Docker)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": [
+        "compose",
+        "-f", "Laptop_Registratie_V2/docker/compose.yaml",
+        "up", "--build"
+      ],
+      "port": 8000
+    }
+  ]
+}

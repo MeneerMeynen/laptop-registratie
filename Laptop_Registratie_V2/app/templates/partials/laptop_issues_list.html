@@ -1,0 +1,48 @@
+{% if issues %}
+{% for issue in issues %}
+<div class="issue-card{% if issue.status == 'gesloten' %} issue-closed{% endif %}">
+    <div class="issue-header">
+        <div class="issue-header-left">
+            <span class="issue-serial">{{ issue.serial_number }}</span>
+            {% if issue.voornaam or issue.naam %}
+            <span class="issue-student">— {{ issue.voornaam or '' }} {{ issue.naam or '' }}</span>
+            {% else %}
+            <span class="issue-student issue-unlinked">— niet gekoppeld</span>
+            {% endif %}
+        </div>
+        <div class="issue-header-right">
+            <span class="issue-date">{{ issue.reported_date.strftime('%d/%m/%Y') }}</span>
+            <span class="badge {% if issue.status == 'open' %}badge-issue-open{% else %}badge-issue-closed{% endif %}">
+                {{ issue.status }}
+            </span>
+        </div>
+    </div>
+    <div class="issue-description">{{ issue.description }}</div>
+    {% if issue.solution %}
+    <div class="issue-solution"><strong>Oplossing:</strong> {{ issue.solution }}</div>
+    {% endif %}
+    <div class="issue-actions">
+        <button
+            type="button"
+            class="btn-small btn-secondary"
+            data-issue-id="{{ issue.id }}"
+            data-serial="{{ issue.serial_number | e }}"
+            data-description="{{ issue.description | e }}"
+            data-date="{{ issue.reported_date }}"
+            data-status="{{ issue.status }}"
+            data-solution="{{ issue.solution | e if issue.solution else '' }}"
+            @click="startEditIssue($el.dataset)">
+            Bewerken
+        </button>
+        <button
+            type="button"
+            class="btn-small btn-danger"
+            @click="deleteIssue({{ issue.id }})">
+            Verwijderen
+        </button>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<p class="no-issues">Geen problemen gevonden.</p>
+{% endif %}

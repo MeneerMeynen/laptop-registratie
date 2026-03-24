@@ -260,6 +260,123 @@ button:hover { background: var(--accent-dark); }
 .btn-secondary       { background: var(--muted); }
 .btn-secondary:hover { background: #4b5563; }
 
+/* ── Laptop issues tab ─────────────────────────────────────── */
+.issues-panel { max-width: 900px; }
+
+.issues-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.issues-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 60px;
+}
+
+.issue-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+}
+
+.issue-card.issue-closed { opacity: 0.7; }
+
+.issue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.issue-header-left  { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.issue-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.issue-serial      { font-weight: 700; }
+.issue-student     { color: var(--muted); }
+.issue-unlinked    { font-style: italic; }
+.issue-date        { color: var(--muted); font-size: .9rem; }
+.issue-description { line-height: 1.5; }
+
+.issue-solution {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(15,118,110,.06);
+    border-radius: 8px;
+    font-size: .95rem;
+    line-height: 1.5;
+}
+
+.issue-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.badge-issue-open   { background: rgba(245,158,11,.18); color: #b45309; }
+.badge-issue-closed { background: rgba(15,118,110,.12); color: var(--accent-dark); }
+
+.btn-small {
+    width: auto;
+    padding: 6px 14px;
+    margin: 0;
+    font-size: .9rem;
+    border-radius: 8px;
+}
+
+.no-issues { text-align: center; color: var(--muted); padding: 32px; margin: 0; }
+
+/* ── Modal overlay ─────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+}
+
+.modal-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .2);
+}
+
+.modal-box h3 { margin-top: 0; }
+
+.modal-actions { display: flex; gap: 12px; margin-top: 16px; }
+.modal-actions button { margin: 0; }
+
+textarea {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    font: inherit;
+    padding: 12px 14px;
+    resize: vertical;
+    min-height: 80px;
+    background: #fff;
+}
+
+select {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    font: inherit;
+    padding: 12px 14px;
+    background: #fff;
+    cursor: pointer;
+}
+
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 840px) {
     .layout { grid-template-columns: 1fr; }

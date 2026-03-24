@@ -1,0 +1,12 @@
+fastapi<1.0,>=0.115
+sqlalchemy<3.0,>=2.0
+jinja2<4.0,>=3.1
+python-multipart<1.0,>=0.0.20
+pymysql<2.0,>=1.1
+uvicorn<1.0,>=0.35
+alembic<2.0,>=1.14
+pydantic-settings<3.0,>=2.0
+
+[test]
+pytest<9.0,>=8.0
+httpx<1.0,>=0.28
