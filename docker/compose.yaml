@@ -1,6 +1,6 @@
 services:
   app:
-    build: ..
+    build: ../Laptop_Registratie_V2
     ports:
       - "8000:8000"
     environment:
@@ -15,7 +15,7 @@ services:
       - laptop-net
 
   test:
-    build: ..
+    build: ../Laptop_Registratie_V2
     environment:
       DATABASE_URL: mysql+pymysql://root:***REMOVED***@db:3306/laptops_test
       PYTHONPATH: /app

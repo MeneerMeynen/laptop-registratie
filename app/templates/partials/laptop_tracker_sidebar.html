@@ -1,0 +1,61 @@
+<div id="lt-global-stats" hx-swap-oob="innerHTML">
+    <div class="lt-stat-card">
+        <div class="lt-stat-icon lt-icon-aangemeld">
+            <div class="lt-stat-dot" style="background:#D97706;"></div>
+        </div>
+        <div>
+            <div class="lt-stat-label">Aangemeld</div>
+            <div class="lt-stat-value lt-val-aangemeld">{{ stats.aangemeld }}</div>
+        </div>
+    </div>
+    <div class="lt-stat-card">
+        <div class="lt-stat-icon lt-icon-open">
+            <div class="lt-stat-dot" style="background:#E24B4A;"></div>
+        </div>
+        <div>
+            <div class="lt-stat-label">Open</div>
+            <div class="lt-stat-value lt-val-open">{{ stats.open }}</div>
+        </div>
+    </div>
+    <div class="lt-stat-card">
+        <div class="lt-stat-icon lt-icon-closed">
+            <div class="lt-stat-dot" style="background:#1D9E75;"></div>
+        </div>
+        <div>
+            <div class="lt-stat-label">Gesloten</div>
+            <div class="lt-stat-value lt-val-closed">{{ stats.gesloten }}</div>
+        </div>
+    </div>
+</div>
+
+{% if laptops %}
+{% for laptop in laptops %}
+<div class="lt-item"
+     data-serial="{{ laptop.serial_number | e }}"
+     @click="selectLaptop('{{ laptop.serial_number | e }}')">
+    <span class="lt-dot {% if laptop.open_count > 0 or laptop.aangemeld_count > 0 %}lt-dot-open{% else %}lt-dot-closed{% endif %}"></span>
+    <div class="lt-item-body">
+        <div class="lt-item-serial">{{ laptop.serial_number }}</div>
+        <div class="lt-item-user">
+            {% if laptop.voornaam or laptop.naam %}
+                {{ laptop.voornaam or '' }} {{ laptop.naam or '' }}{% if laptop.klas %} · {{ laptop.klas }}{% endif %}
+            {% else %}
+                Niet gekoppeld
+            {% endif %}
+        </div>
+    </div>
+    {% if laptop.aangemeld_count > 0 or laptop.open_count > 0 %}
+    <div class="lt-item-badges">
+        {% if laptop.aangemeld_count > 0 %}
+        <span class="lt-item-badge lt-item-badge-aangemeld">{{ laptop.aangemeld_count }}</span>
+        {% endif %}
+        {% if laptop.open_count > 0 %}
+        <span class="lt-item-badge lt-item-badge-open">{{ laptop.open_count }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="lt-empty">Geen laptops met problemen gevonden.</p>
+{% endif %}

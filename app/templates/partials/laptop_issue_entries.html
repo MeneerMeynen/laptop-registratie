@@ -1,0 +1,7 @@
+{% for entry in entries %}
+<div class="lt-entry">
+    <span class="lt-entry-dot"></span>
+    <span class="lt-entry-text">{{ entry.text }}</span>
+    <span class="lt-entry-time">{{ entry.created_at.strftime('%-d %b %H:%M') }}</span>
+</div>
+{% endfor %}

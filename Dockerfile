@@ -17,10 +17,10 @@ RUN adduser --disabled-password --gecos "" appuser
 COPY --from=builder /install /usr/local
 
 # Copy application source
-COPY app/ ./app/
-COPY alembic/ ./alembic/
+COPY app ./app/
+COPY alembic ./alembic/
 COPY alembic.ini .
-COPY tests/ ./tests/
+COPY tests ./tests/
 COPY docker/entrypoint.sh ./entrypoint.sh
 
 RUN chown -R appuser:appuser /app && chmod +x entrypoint.sh

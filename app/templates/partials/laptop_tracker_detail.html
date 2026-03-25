@@ -1,0 +1,184 @@
+{% set active_issues = issues | selectattr('status', 'ne', 'gesloten') | list %}
+{% set closed_issues = issues | selectattr('status', 'equalto', 'gesloten') | list %}
+
+<div class="lt-topbar">
+    <div>
+        <div class="lt-device-id">{{ serial }}</div>
+        <div class="lt-device-sub">
+            {% if student %}
+                {{ student.voornaam or '' }} {{ student.naam or '' }}{% if student.klas %} · {{ student.klas }}{% endif %}
+            {% else %}
+                Niet gekoppeld aan een leerling
+            {% endif %}
+        </div>
+    </div>
+    <div class="lt-topbar-right">
+        {% if aangemeld_count > 0 %}
+        <span class="lt-badge-aangemeld">{{ aangemeld_count }} aangemeld</span>
+        {% endif %}
+        {% if open_count > 0 %}
+        <span class="lt-badge-open">{{ open_count }} open</span>
+        {% endif %}
+        <button class="lt-btn-new" type="button" @click="openNewIssueModal('{{ serial | e }}')">
+            + Defect melden
+        </button>
+    </div>
+</div>
+
+<div class="lt-content">
+
+    <!-- Toestelinfo -->
+    <div class="lt-section">
+        <div class="lt-section-head">Toestelinfo</div>
+        <div class="lt-info-grid">
+            <div class="lt-info-row">
+                <span class="lt-info-label">Serienummer</span>
+                <span class="lt-info-val">{{ serial }}</span>
+            </div>
+            <div class="lt-info-row">
+                <span class="lt-info-label">Toegewezen aan</span>
+                <span class="lt-info-val">
+                    {% if student %}{{ student.voornaam or '' }} {{ student.naam or '' }}{% else %}—{% endif %}
+                </span>
+            </div>
+            <div class="lt-info-row">
+                <span class="lt-info-label">Klas</span>
+                <span class="lt-info-val">{{ student.klas if student and student.klas else '—' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Defectgeschiedenis -->
+    <div class="lt-section" x-data="{ showClosed: false }">
+        <div class="lt-section-head">
+            <span>Defectgeschiedenis</span>
+            {% if closed_issues %}
+            <button type="button" class="lt-toggle-btn"
+                    @click="showClosed = !showClosed"
+                    x-text="showClosed ? 'Verberg gesloten' : 'Toon gesloten ({{ closed_issues | length }})'">
+            </button>
+            {% endif %}
+        </div>
+
+        {% if not issues %}
+        <p class="lt-empty-issues">Geen problemen geregistreerd.</p>
+        {% else %}
+
+        <!-- Active issues (aangemeld / open) -->
+        {% for issue in active_issues %}
+        <div class="lt-issue-card">
+            <div class="lt-issue-card-header">
+                <div class="lt-issue-header-left">
+                    <div class="lt-issue-title">{{ issue.description }}</div>
+                    {% if issue.category %}
+                    <span class="lt-category-badge">{{ issue.category }}</span>
+                    {% endif %}
+                </div>
+                <div class="lt-issue-card-meta">
+                    <span class="lt-pill {% if issue.status == 'open' %}lt-pill-open{% elif issue.status == 'aangemeld' %}lt-pill-aangemeld{% else %}lt-pill-closed{% endif %}">
+                        <span class="lt-pill-dot {% if issue.status == 'open' %}lt-pdot-open{% elif issue.status == 'aangemeld' %}lt-pdot-aangemeld{% else %}lt-pdot-closed{% endif %}"></span>
+                        {{ 'Open' if issue.status == 'open' else ('Aangemeld' if issue.status == 'aangemeld' else 'Gesloten') }}
+                    </span>
+                    <span class="lt-date-cell">{{ issue.reported_date.strftime('%-d %b %Y') }}</span>
+                    <button type="button" class="lt-icon-btn lt-icon-btn-edit"
+                        title="Bewerken"
+                        data-issue-id="{{ issue.id }}"
+                        data-serial="{{ issue.serial_number | e }}"
+                        data-description="{{ issue.description | e }}"
+                        data-date="{{ issue.reported_date }}"
+                        data-status="{{ issue.status }}"
+                        data-category="{{ issue.category | e if issue.category else '' }}"
+                        data-solution="{{ issue.solution | e if issue.solution else '' }}"
+                        @click="startEditIssue($el.dataset)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="overflow:visible"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                    <button type="button" class="lt-icon-btn lt-icon-btn-delete"
+                        title="Verwijderen"
+                        @click="deleteIssue({{ issue.id }})">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="overflow:visible"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {% if issue.solution %}
+            <div class="lt-issue-solution-text">{{ issue.solution }}</div>
+            {% endif %}
+
+            <div class="lt-entries" id="entries-{{ issue.id }}">
+                {% with entries = issue.entries %}
+                {% include "partials/laptop_issue_entries.html" %}
+                {% endwith %}
+            </div>
+
+            <form class="lt-entry-form"
+                  hx-post="/ui/laptop-issues/{{ issue.id }}/entries"
+                  hx-target="#entries-{{ issue.id }}"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="this.reset()">
+                <input type="text" name="text"
+                       placeholder="Voeg opvolging toe… (bv. 'aangemeld bij herstel partner')"
+                       autocomplete="off" required>
+                <button type="submit">+ Toevoegen</button>
+            </form>
+        </div>
+        {% endfor %}
+
+        {% if not active_issues %}
+        <p class="lt-empty-issues" x-show="!showClosed">
+            Alle problemen zijn gesloten.
+            <a href="#" class="lt-link" @click.prevent="showClosed = true">Toon gesloten problemen</a>
+        </p>
+        {% endif %}
+
+        <!-- Closed issues (hidden by default) -->
+        {% for issue in closed_issues %}
+        <div class="lt-issue-card lt-issue-card-closed" x-show="showClosed" x-cloak>
+            <div class="lt-issue-card-header">
+                <div class="lt-issue-header-left">
+                    <div class="lt-issue-title lt-issue-title-closed">{{ issue.description }}</div>
+                    {% if issue.category %}
+                    <span class="lt-category-badge">{{ issue.category }}</span>
+                    {% endif %}
+                </div>
+                <div class="lt-issue-card-meta">
+                    <span class="lt-pill lt-pill-closed">
+                        <span class="lt-pill-dot lt-pdot-closed"></span>
+                        Gesloten
+                    </span>
+                    <span class="lt-date-cell">{{ issue.reported_date.strftime('%-d %b %Y') }}</span>
+                    <button type="button" class="lt-icon-btn lt-icon-btn-edit"
+                        title="Bewerken"
+                        data-issue-id="{{ issue.id }}"
+                        data-serial="{{ issue.serial_number | e }}"
+                        data-description="{{ issue.description | e }}"
+                        data-date="{{ issue.reported_date }}"
+                        data-status="{{ issue.status }}"
+                        data-category="{{ issue.category | e if issue.category else '' }}"
+                        data-solution="{{ issue.solution | e if issue.solution else '' }}"
+                        @click="startEditIssue($el.dataset)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="overflow:visible"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                    <button type="button" class="lt-icon-btn lt-icon-btn-delete"
+                        title="Verwijderen"
+                        @click="deleteIssue({{ issue.id }})">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="overflow:visible"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {% if issue.solution %}
+            <div class="lt-issue-solution-text">{{ issue.solution }}</div>
+            {% endif %}
+
+            <div class="lt-entries" id="entries-{{ issue.id }}">
+                {% with entries = issue.entries %}
+                {% include "partials/laptop_issue_entries.html" %}
+                {% endwith %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% endif %}
+    </div>
+
+</div>
