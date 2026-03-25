@@ -12,7 +12,9 @@
       "Bash(grep -E '\\\\.\\(py|html|css|js|md|json|txt|ini|yaml|yml\\)$')",
       "Bash(find /Users/toon/code/laptop-registratie/Laptop_Registratie_V2 -type f -name test_*.py -o -name *_test.py)",
       "Bash(find /Users/toon/code/laptop-registratie/Laptop_Registratie_V2 -type f ! -path */.*)",
-      "Bash(docker volume:*)"
+      "Bash(docker volume:*)",
+      "Bash(docker compose:*)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

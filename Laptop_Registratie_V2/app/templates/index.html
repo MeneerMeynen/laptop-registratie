@@ -193,48 +193,55 @@
 
     <!-- ══ TAB 3: Laptops ════════════════════════════════════ -->
     <section x-show="activeTab === 'laptops'" x-cloak>
-        <section class="panel issues-panel">
-            <h2>Laptop problemen</h2>
 
-            <!-- Toolbar -->
-            <div class="issues-toolbar">
-                <input
-                    type="text"
-                    class="filter-input"
-                    style="margin-bottom:0;"
-                    placeholder="Zoek op serienummer of naam leerling…"
-                    autocomplete="off"
-                    x-model="issueSearch"
-                    @input.debounce.300ms="refreshIssueList()"
-                >
-                <button
-                    type="button"
-                    class="manage-filter-button"
-                    style="margin:0;"
-                    :class="{ active: showClosed }"
-                    @click="showClosed = !showClosed; refreshIssueList()"
-                    x-text="showClosed ? 'Toon alleen open' : 'Toon gesloten'">
-                </button>
-                <button
-                    type="button"
-                    style="width:auto; margin:0; padding:12px 18px;"
-                    @click="openNewIssueModal()">
-                    + Nieuw probleem
-                </button>
+        <div id="lt-global-stats" class="lt-global-stats"></div>
+
+        <div class="lt-app">
+            <!-- Sidebar -->
+            <div class="lt-sidebar">
+                <div class="lt-sidebar-header">
+                    <div class="lt-sidebar-title-row">
+                        <div class="lt-sidebar-title">Laptops</div>
+                    </div>
+                    <input
+                        class="lt-search"
+                        type="text"
+                        placeholder="Zoek op serienummer…"
+                        autocomplete="off"
+                        x-model="ltSearch"
+                        @input.debounce.300ms="refreshLaptopSidebar()"
+                    >
+                </div>
+                <div id="lt-sidebar-list" class="lt-list">
+                    <p class="lt-empty">Laden…</p>
+                </div>
             </div>
 
-            <!-- Issues list (HTMX refresh target) -->
-            <div id="laptop-issues-list" class="issues-list">
-                <p class="no-issues">Selecteer de tab om problemen te laden.</p>
+            <!-- Main detail pane -->
+            <div class="lt-main">
+                <div id="lt-detail">
+                    <div class="lt-detail-placeholder">
+                        <p>Selecteer een laptop uit de lijst.</p>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <!-- Status feedback -->
+        <!-- Export + status feedback row -->
+        <div style="display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
+            <a href="/api/laptop-issues/export?include_closed=true"
+               class="lt-export-btn"
+               download="laptop-defecten.csv">
+                ↓ Exporteer CSV
+            </a>
             <div class="status"
                  :class="{ error: issueStatus.type === 'error', success: issueStatus.type === 'success' }"
                  x-text="issueStatus.text"
-                 aria-live="polite">
+                 aria-live="polite"
+                 style="margin:0; flex:1;">
             </div>
-        </section>
+        </div>
+
     </section>
 
     <!-- ── New issue modal ─────────────────────────────────── -->
@@ -268,6 +275,19 @@
                     placeholder="Beschrijf het technisch probleem…"></textarea>
             </div>
             <div class="field">
+                <label for="new-issue-category">Categorie</label>
+                <select id="new-issue-category" x-model="newIssueCategory">
+                    <option value="">— Geen categorie —</option>
+                    <option>Scherm</option>
+                    <option>Toetsenbord</option>
+                    <option>Software</option>
+                    <option>Oplader</option>
+                    <option>Batterij</option>
+                    <option>Luidspreker</option>
+                    <option>Overig</option>
+                </select>
+            </div>
+            <div class="field">
                 <label for="new-issue-date">Datum</label>
                 <input id="new-issue-date" type="date" x-model="newIssueDate">
             </div>
@@ -296,8 +316,22 @@
             <div class="field">
                 <label for="edit-issue-status">Status</label>
                 <select id="edit-issue-status" x-model="editIssueStatus">
+                    <option value="aangemeld">Aangemeld</option>
                     <option value="open">Open</option>
                     <option value="gesloten">Gesloten</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="edit-issue-category">Categorie</label>
+                <select id="edit-issue-category" x-model="editIssueCategory">
+                    <option value="">— Geen categorie —</option>
+                    <option>Scherm</option>
+                    <option>Toetsenbord</option>
+                    <option>Software</option>
+                    <option>Oplader</option>
+                    <option>Batterij</option>
+                    <option>Luidspreker</option>
+                    <option>Overig</option>
                 </select>
             </div>
             <div class="field" x-show="editIssueStatus === 'gesloten'">
@@ -330,14 +364,15 @@ function laptopApp() {
         showUitgeschreven: false,
         manageStatus:     { text: '', type: '' },
         _visibleCount:    0,
-        // Issues tab
-        issueSearch:          '',
-        showClosed:           false,
+        // Laptop tracker tab
+        ltSearch:             '',
+        ltSelectedSerial:     null,
         issueStatus:          { text: '', type: '' },
         showNewIssueModal:    false,
         newIssueSerial:       '',
         newIssueDescription:  '',
         newIssueDate:         new Date().toISOString().slice(0, 10),
+        newIssueCategory:     '',
         newIssueSuggestions:  [],
         showEditIssueModal:   false,
         editIssueId:          null,
@@ -346,6 +381,7 @@ function laptopApp() {
         editIssueDate:        '',
         editIssueStatus:      'open',
         editIssueSolution:    '',
+        editIssueCategory:    '',
 
         // ── Lifecycle ──────────────────────────────────────────
         init() {
@@ -359,11 +395,22 @@ function laptopApp() {
                 renderAllBarcodes();
             });
 
-            // Load issues list when switching to the laptops tab
+            // Load sidebar when switching to the laptops tab
             this.$watch('activeTab', (tab) => {
-                if (tab === 'laptops') this.refreshIssueList();
+                if (tab === 'laptops') this.refreshLaptopSidebar();
             });
-            if (this.activeTab === 'laptops') this.refreshIssueList();
+            if (this.activeTab === 'laptops') this.refreshLaptopSidebar();
+
+            // Loading indicators for HTMX requests on tracker panes
+            document.body.addEventListener('htmx:beforeRequest', (e) => {
+                const id = e.detail.target?.id;
+                if (id === 'lt-sidebar-list') {
+                    e.detail.target.innerHTML = '<div class="lt-loading"><div class="lt-spinner"></div></div>';
+                }
+                if (id === 'lt-detail') {
+                    e.detail.target.innerHTML = '<div class="lt-loading"><div class="lt-spinner"></div></div>';
+                }
+            });
         },
 
         // ── Tabs ───────────────────────────────────────────────
@@ -411,10 +458,10 @@ function laptopApp() {
 
         // ── Navigation barcode handling ─────────────────────────
         handleScanInput() {
-            const val = this.serialValue.trim().toUpperCase();
-            if (val === '1UP')           { this.moveSelection(-1); this.serialValue = ''; }
-            else if (val === '1DOWN')    { this.moveSelection(1);  this.serialValue = ''; }
-            else if (val === 'EIGEN LAPTOP') { this.serialValue = 'eigen laptop'; }
+            const val = this.serialValue.trim().replace(/\s+/g, ' ').toUpperCase();
+            if (val === '1UP')                { this.moveSelection(-1); this.serialValue = ''; }
+            else if (val === '1DOWN')         { this.moveSelection(1);  this.serialValue = ''; }
+            else if (val === 'EIGEN LAPTOP')  { this.serialValue = 'eigen laptop'; }
         },
 
         moveSelection(step) {
@@ -588,22 +635,40 @@ function laptopApp() {
             this.$nextTick(() => { this._countVisible(); this.filterManage(); });
         },
 
-        // ── Laptop issues ───────────────────────────────────────
-        refreshIssueList() {
-            const params = new URLSearchParams({
-                search:        this.issueSearch,
-                include_closed: this.showClosed,
-            });
-            htmx.ajax('GET', `/ui/laptop-issues?${params}`, {
-                target: '#laptop-issues-list',
+        // ── Laptop tracker ──────────────────────────────────────
+        refreshLaptopSidebar() {
+            const params = new URLSearchParams({ search: this.ltSearch });
+            htmx.ajax('GET', `/ui/laptop-tracker/sidebar?${params}`, {
+                target: '#lt-sidebar-list',
                 swap:   'innerHTML',
             });
         },
 
-        openNewIssueModal() {
-            this.newIssueSerial      = '';
+        selectLaptop(serial) {
+            this.ltSelectedSerial = serial;
+            document.querySelectorAll('.lt-item').forEach(el => el.classList.remove('lt-item-active'));
+            const item = document.querySelector(`.lt-item[data-serial="${CSS.escape(serial)}"]`);
+            if (item) item.classList.add('lt-item-active');
+            htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(serial)}`, {
+                target: '#lt-detail',
+                swap:   'innerHTML',
+            });
+        },
+
+        refreshLaptopDetail() {
+            if (this.ltSelectedSerial) {
+                htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(this.ltSelectedSerial)}`, {
+                    target: '#lt-detail',
+                    swap:   'innerHTML',
+                });
+            }
+        },
+
+        openNewIssueModal(serial = '') {
+            this.newIssueSerial      = serial;
             this.newIssueDescription = '';
             this.newIssueDate        = new Date().toISOString().slice(0, 10);
+            this.newIssueCategory    = '';
             this.newIssueSuggestions = [];
             this.showNewIssueModal   = true;
             this.$nextTick(() => document.getElementById('new-issue-serial').focus());
@@ -631,6 +696,7 @@ function laptopApp() {
                     serial_number: serial,
                     description:   desc,
                     reported_date: this.newIssueDate,
+                    category:      this.newIssueCategory || null,
                 }),
             });
 
@@ -642,7 +708,8 @@ function laptopApp() {
 
             this.issueStatus = { text: '✓ Probleem gemeld.', type: 'success' };
             this.closeNewIssueModal();
-            this.refreshIssueList();
+            this.refreshLaptopDetail();
+            this.refreshLaptopSidebar();
         },
 
         startEditIssue(dataset) {
@@ -652,6 +719,7 @@ function laptopApp() {
             this.editIssueDate        = dataset.date;
             this.editIssueStatus      = dataset.status;
             this.editIssueSolution    = dataset.solution || '';
+            this.editIssueCategory    = dataset.category || '';
             this.showEditIssueModal   = true;
         },
 
@@ -665,6 +733,7 @@ function laptopApp() {
                     description:   this.editIssueDescription.trim(),
                     reported_date: this.editIssueDate,
                     status:        this.editIssueStatus,
+                    category:      this.editIssueCategory || null,
                     solution:      this.editIssueStatus === 'gesloten'
                                        ? (this.editIssueSolution.trim() || null)
                                        : null,
@@ -679,7 +748,8 @@ function laptopApp() {
 
             this.issueStatus = { text: '✓ Probleem opgeslagen.', type: 'success' };
             this.closeEditIssueModal();
-            this.refreshIssueList();
+            this.refreshLaptopDetail();
+            this.refreshLaptopSidebar();
         },
 
         async deleteIssue(id) {
@@ -690,7 +760,8 @@ function laptopApp() {
                 return;
             }
             this.issueStatus = { text: '✓ Probleem verwijderd.', type: 'success' };
-            this.refreshIssueList();
+            this.refreshLaptopDetail();
+            this.refreshLaptopSidebar();
         },
     };
 }

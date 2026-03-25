@@ -12,4 +12,5 @@ class LaptopIssue(Base):
     reported_date = Column(Date, nullable=False)
     status = Column(String(20), nullable=False, server_default="open")
     solution = Column(Text, nullable=True)
+    category = Column(String(50), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("NOW()"))

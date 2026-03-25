@@ -8,6 +8,7 @@ class LaptopIssueCreate(BaseModel):
     serial_number: str
     description: str
     reported_date: date
+    category: Optional[str] = None
 
 
 class LaptopIssueUpdate(BaseModel):
@@ -15,6 +16,7 @@ class LaptopIssueUpdate(BaseModel):
     reported_date: Optional[date] = None
     status: Optional[str] = None
     solution: Optional[str] = None
+    category: Optional[str] = None
 
 
 class LaptopIssueRead(BaseModel):
@@ -24,6 +26,7 @@ class LaptopIssueRead(BaseModel):
     reported_date: date
     status: str
     solution: Optional[str] = None
+    category: Optional[str] = None
     naam: Optional[str] = None
     voornaam: Optional[str] = None
     stamnummer: Optional[str] = None
