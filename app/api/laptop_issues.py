@@ -26,6 +26,7 @@ from app.services.laptop_issue_service import (
     update_entry,
     update_issue,
 )
+from app.services.laptop_service import get_assignment_history
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -153,6 +154,7 @@ def laptop_tracker_detail(
 ):
     issues = get_issues_for_serial(db, serial)
     student = get_student_for_serial(db, serial)
+    history = get_assignment_history(db, serial)
     open_count = sum(1 for i in issues if i["status"] == "open")
     gesloten_count = sum(1 for i in issues if i["status"] == "gesloten")
     aangemeld_count = sum(1 for i in issues if i["status"] == "aangemeld")
@@ -163,6 +165,7 @@ def laptop_tracker_detail(
             "serial": serial,
             "student": student,
             "issues": issues,
+            "history": history,
             "open_count": open_count,
             "gesloten_count": gesloten_count,
             "aangemeld_count": aangemeld_count,

@@ -260,6 +260,22 @@ button:hover { background: var(--accent-dark); }
 .btn-secondary       { background: var(--muted); }
 .btn-secondary:hover { background: #4b5563; }
 
+.btn-unlink {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    margin-top: 8px;
+    transition: background 0.12s;
+}
+.btn-unlink:hover { background: #b91c1c; }
+
 /* ── Laptop issues tab ─────────────────────────────────────── */
 .issues-panel { max-width: 900px; }
 
@@ -715,6 +731,21 @@ select {
 .lt-info-row:nth-last-child(-n+2) { border-bottom: none; }
 .lt-info-label { font-size: 12px; color: var(--muted); }
 .lt-info-val   { font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* Assignment history (uitleengeschiedenis) */
+.lt-history-list { padding: 4px 16px; }
+.lt-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+.lt-history-row:last-child { border-bottom: none; }
+.lt-history-active .lt-history-student { font-weight: 700; }
+.lt-history-dates { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.lt-history-now { color: var(--accent); font-weight: 600; }
 
 /* Issue cards (defectgeschiedenis) */
 .lt-issue-card {

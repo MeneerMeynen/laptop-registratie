@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.laptop import Laptop
@@ -21,7 +21,10 @@ def list_issues(db: Session, search: str = "", include_closed: bool = False) -> 
             Student.voornaam,
             Student.stamnummer,
         )
-        .outerjoin(Laptop, Laptop.serial_number == LaptopIssue.serial_number)
+        .outerjoin(
+            Laptop,
+            and_(Laptop.serial_number == LaptopIssue.serial_number, Laptop.unlinked_at.is_(None)),
+        )
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .order_by(LaptopIssue.reported_date.desc(), LaptopIssue.id.desc())
     )
@@ -127,7 +130,10 @@ def list_laptops_with_issues(
             Student.voornaam,
             Student.klas,
         )
-        .outerjoin(Laptop, Laptop.serial_number == counts.c.serial_number)
+        .outerjoin(
+            Laptop,
+            and_(Laptop.serial_number == counts.c.serial_number, Laptop.unlinked_at.is_(None)),
+        )
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .order_by(counts.c.open_count.desc(), counts.c.serial_number)
     )
@@ -256,7 +262,7 @@ def get_student_for_serial(db: Session, serial: str) -> dict | None:
     """Return the student linked to a laptop serial number, or None."""
     row = db.execute(
         select(Student.naam, Student.voornaam, Student.klas, Student.stamnummer, Laptop.linked_at)
-        .join(Laptop, Laptop.stamnummer == Student.stamnummer)
+        .join(Laptop, and_(Laptop.stamnummer == Student.stamnummer, Laptop.unlinked_at.is_(None)))
         .where(Laptop.serial_number == serial)
     ).first()
     if not row:
@@ -293,6 +299,7 @@ def search_laptops_for_autocomplete(db: Session, q: str) -> list[dict]:
         select(Laptop.serial_number, Student.naam, Student.voornaam, Student.stamnummer)
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .where(Laptop.serial_number.isnot(None))
+        .where(Laptop.unlinked_at.is_(None))
         .where(
             or_(
                 Laptop.serial_number.ilike(pattern),

@@ -1,6 +1,6 @@
 services:
   app:
-    build: ..
+    build: .
     ports:
       - "8000:8000"
     environment:
@@ -15,7 +15,7 @@ services:
       - laptop-net
 
   test:
-    build: ..
+    build: .
     environment:
       DATABASE_URL: mysql+pymysql://root:***REMOVED***@db:3306/laptops_test
       PYTHONPATH: /app

@@ -53,6 +53,25 @@
         </div>
     </div>
 
+    <!-- Uitleengeschiedenis -->
+    {% if history %}
+    <div class="lt-section">
+        <div class="lt-section-head">Uitleengeschiedenis</div>
+        <div class="lt-history-list">
+            {% for a in history %}
+            <div class="lt-history-row {% if a.is_active %}lt-history-active{% endif %}">
+                <div class="lt-history-student">{{ a.voornaam }} {{ a.naam }}{% if a.klas %} · {{ a.klas }}{% endif %}</div>
+                <div class="lt-history-dates">
+                    {% if a.linked_at %}{{ a.linked_at.strftime('%-d %b %Y') }}{% else %}?{% endif %}
+                    &rarr;
+                    {% if a.unlinked_at %}{{ a.unlinked_at.strftime('%-d %b %Y') }}{% else %}<span class="lt-history-now">heden</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Defectgeschiedenis -->
     <div class="lt-section" x-data="{ showClosed: false }">
         <div class="lt-section-head">

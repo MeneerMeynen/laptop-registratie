@@ -1,5 +1,5 @@
 {% for student in students %}
-{% set laptop = student.laptops[0] if student.laptops else none %}
+{% set laptop = student.laptops | selectattr('is_active') | first | default(none, true) %}
 {% set serial_display %}{% if laptop %}{% if laptop.eigen_laptop %}Eigen laptop{% else %}{{ laptop.serial_number or 'Niet gekoppeld' }}{% endif %}{% else %}Niet gekoppeld{% endif %}{% endset %}
 {% set filter_extra %}{% if laptop %}{% if laptop.eigen_laptop %}eigen laptop eigen toestel{% else %}{{ laptop.serial_number or '' }}{% endif %}{% endif %}{% endset %}
 {% set base_filter %}{{ student.instellingsnummer }} {{ student.naam }} {{ student.voornaam }} {{ student.klas }} {{ student.klascode }} {{ student.klasnummer }} {{ student.gebruikersnaam }} {{ student.pointer }} {{ student.stamnummer }}{% endset %}
@@ -7,6 +7,7 @@
     type="button"
     class="student-option"
     data-stamnummer="{{ student.stamnummer }}"
+    data-laptop-id="{{ laptop.id if laptop and laptop.is_active and not laptop.eigen_laptop else '' }}"
     data-label="{{ student.naam }}, {{ student.voornaam }} – {{ student.klas }} ({{ student.stamnummer }})"
     data-base-filter="{{ base_filter }}"
     data-filter="{{ base_filter }} {{ filter_extra }}"

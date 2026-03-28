@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -14,3 +16,5 @@ class LaptopLinkResponse(BaseModel):
     serial_number: str | None  # None for eigen laptop
     stamnummer: str
     eigen_laptop: bool
+    linked_at: datetime | None = None
+    unlinked_at: datetime | None = None

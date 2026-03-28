@@ -102,6 +102,12 @@
                     </div>
 
                     <button type="submit">Link laptop</button>
+                    <button type="button"
+                            class="btn-unlink"
+                            x-show="selectedLaptopId"
+                            @click="unlinkLaptop(selectedLaptopId)">
+                        Inleveren
+                    </button>
 
                     <!-- Status feedback -->
                     <div class="status"
@@ -396,6 +402,7 @@ function laptopApp() {
         // ── State ──────────────────────────────────────────────
         activeTab:        'registreer',
         selectedStamnummer: null,
+        selectedLaptopId:  null,
         selectedLabel:    'Geen leerling geselecteerd.',
         laptopSearch:     '',
         serialValue:      '',
@@ -494,6 +501,7 @@ function laptopApp() {
                 option.setAttribute('aria-selected', 'true');
             }
             this.selectedStamnummer = stamnummer;
+            this.selectedLaptopId = option?.dataset.laptopId ? parseInt(option.dataset.laptopId) : null;
             this.selectedLabel = `Geselecteerd: ${label}`;
         },
 
@@ -674,6 +682,21 @@ function laptopApp() {
             htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',         swap: 'innerHTML' });
             htmx.ajax('GET', '/ui/students/manage',  { target: '#manage-student-list', swap: 'innerHTML' });
             this.$nextTick(() => { this._countVisible(); this.filterManage(); });
+        },
+
+        // ── Laptop unlink (inleveren) ─────────────────────────────
+        async unlinkLaptop(laptopId) {
+            if (!confirm('Weet je zeker dat je deze laptop wilt inleveren?')) return;
+            const res = await fetch(`/api/laptops/${laptopId}/unlink`, { method: 'POST' });
+            if (res.ok) {
+                this.linkStatus = { text: '\u2713 Laptop ingeleverd.', type: 'success' };
+                this.selectedLaptopId = null;
+                htmx.ajax('GET', '/ui/students/list', { target: '#student-list', swap: 'innerHTML' });
+                this.$nextTick(() => { this._countVisible(); this.filterStudents(); });
+            } else {
+                const data = await res.json();
+                this.linkStatus = { text: data.detail || 'Inleveren mislukt.', type: 'error' };
+            }
         },
 
         // ── Laptop tracker ──────────────────────────────────────
