@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -118,6 +120,7 @@ def link_laptop_to_student(
         serial_number=None if is_own else normalized_serial,
         stamnummer=normalized_stamnummer,
         eigen_laptop=is_own,
+        linked_at=datetime.now(),
     )
     session.add(laptop)
     session.commit()

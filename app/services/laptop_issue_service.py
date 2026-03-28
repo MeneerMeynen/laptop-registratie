@@ -68,7 +68,7 @@ def create_issue(
         serial_number=serial_number.strip(),
         description=description.strip(),
         reported_date=reported_date,
-        status="open",
+        status="aangemeld",
         category=category or None,
     )
     db.add(issue)
@@ -97,8 +97,15 @@ def delete_issue(db: Session, issue_id: int) -> bool:
     return True
 
 
-def list_laptops_with_issues(db: Session, search: str = "") -> list[dict]:
-    """All laptops that have at least one issue, with student info and status counts."""
+def list_laptops_with_issues(
+    db: Session,
+    search: str = "",
+    statuses: list[str] | None = None,
+) -> list[dict]:
+    """All laptops that have at least one issue matching the given statuses."""
+    if statuses is None:
+        statuses = ["aangemeld", "open"]
+
     counts = (
         select(
             LaptopIssue.serial_number.label("serial_number"),
@@ -124,6 +131,18 @@ def list_laptops_with_issues(db: Session, search: str = "") -> list[dict]:
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .order_by(counts.c.open_count.desc(), counts.c.serial_number)
     )
+
+    status_col_map = {
+        "aangemeld": counts.c.aangemeld_count,
+        "open": counts.c.open_count,
+        "gesloten": counts.c.gesloten_count,
+    }
+    status_conditions = [status_col_map[s] > 0 for s in statuses if s in status_col_map]
+
+    if status_conditions:
+        stmt = stmt.where(or_(*status_conditions))
+    else:
+        return []  # nothing selected → empty list
 
     if search:
         q = f"%{search}%"
@@ -167,6 +186,28 @@ def add_issue_entry(db: Session, issue_id: int, text: str) -> LaptopIssueEntry:
     db.commit()
     db.refresh(entry)
     return entry
+
+
+def update_entry(db: Session, entry_id: int, text: str) -> Optional[LaptopIssueEntry]:
+    """Update the text of an entry."""
+    entry = db.get(LaptopIssueEntry, entry_id)
+    if not entry:
+        return None
+    entry.text = text.strip()
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def delete_entry(db: Session, entry_id: int) -> Optional[int]:
+    """Delete an entry and return its issue_id, or None if not found."""
+    entry = db.get(LaptopIssueEntry, entry_id)
+    if not entry:
+        return None
+    issue_id = entry.issue_id
+    db.delete(entry)
+    db.commit()
+    return issue_id
 
 
 def get_issues_for_serial(db: Session, serial: str) -> list[dict]:
@@ -214,7 +255,7 @@ def get_issues_for_serial(db: Session, serial: str) -> list[dict]:
 def get_student_for_serial(db: Session, serial: str) -> dict | None:
     """Return the student linked to a laptop serial number, or None."""
     row = db.execute(
-        select(Student.naam, Student.voornaam, Student.klas, Student.stamnummer)
+        select(Student.naam, Student.voornaam, Student.klas, Student.stamnummer, Laptop.linked_at)
         .join(Laptop, Laptop.stamnummer == Student.stamnummer)
         .where(Laptop.serial_number == serial)
     ).first()
@@ -225,6 +266,7 @@ def get_student_for_serial(db: Session, serial: str) -> dict | None:
         "voornaam": row.voornaam,
         "klas": row.klas,
         "stamnummer": row.stamnummer,
+        "linked_at": row.linked_at,
     }
 
 

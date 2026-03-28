@@ -194,7 +194,47 @@
     <!-- ══ TAB 3: Laptops ════════════════════════════════════ -->
     <section x-show="activeTab === 'laptops'" x-cloak>
 
-        <div id="lt-global-stats" class="lt-global-stats"></div>
+        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+            <button type="button" class="lt-btn-new" @click="openNewIssueModal(ltSelectedSerial || '')">
+                + Defect melden
+            </button>
+        </div>
+
+        <div class="lt-global-stats">
+            <div class="lt-stat-card lt-stat-toggle"
+                 :class="ltStatusFilter.includes('aangemeld') ? 'lt-stat-on' : 'lt-stat-off'"
+                 @click="toggleStatusFilter('aangemeld')" title="Filter op Aangemeld">
+                <div class="lt-stat-icon lt-icon-aangemeld">
+                    <div class="lt-stat-dot" style="background:#D97706;"></div>
+                </div>
+                <div>
+                    <div class="lt-stat-label">Aangemeld</div>
+                    <div class="lt-stat-value lt-val-aangemeld" id="lt-count-aangemeld">0</div>
+                </div>
+            </div>
+            <div class="lt-stat-card lt-stat-toggle"
+                 :class="ltStatusFilter.includes('open') ? 'lt-stat-on' : 'lt-stat-off'"
+                 @click="toggleStatusFilter('open')" title="Filter op Open">
+                <div class="lt-stat-icon lt-icon-open">
+                    <div class="lt-stat-dot" style="background:#E24B4A;"></div>
+                </div>
+                <div>
+                    <div class="lt-stat-label">Open</div>
+                    <div class="lt-stat-value lt-val-open" id="lt-count-open">0</div>
+                </div>
+            </div>
+            <div class="lt-stat-card lt-stat-toggle"
+                 :class="ltStatusFilter.includes('gesloten') ? 'lt-stat-on' : 'lt-stat-off'"
+                 @click="toggleStatusFilter('gesloten')" title="Filter op Gesloten">
+                <div class="lt-stat-icon lt-icon-closed">
+                    <div class="lt-stat-dot" style="background:#1D9E75;"></div>
+                </div>
+                <div>
+                    <div class="lt-stat-label">Gesloten</div>
+                    <div class="lt-stat-value lt-val-closed" id="lt-count-gesloten">0</div>
+                </div>
+            </div>
+        </div>
 
         <div class="lt-app">
             <!-- Sidebar -->
@@ -245,8 +285,9 @@
     </section>
 
     <!-- ── New issue modal ─────────────────────────────────── -->
-    <div class="modal-overlay" x-show="showNewIssueModal" x-cloak @click.self="closeNewIssueModal()">
-        <div class="modal-box">
+    <div class="modal-overlay" x-show="showNewIssueModal" x-cloak>
+        <div class="modal-box modal-box--large">
+            <span class="modal-close-btn" @click="closeNewIssueModal()" title="Sluiten" role="button" tabindex="0" @keydown.enter="closeNewIssueModal()" @keydown.space.prevent="closeNewIssueModal()">✕</span>
             <h3>Nieuw probleem melden</h3>
             <div class="field">
                 <label for="new-issue-serial">Serienummer laptop</label>
@@ -268,13 +309,6 @@
                 </datalist>
             </div>
             <div class="field">
-                <label for="new-issue-description">Beschrijving probleem</label>
-                <textarea
-                    id="new-issue-description"
-                    x-model="newIssueDescription"
-                    placeholder="Beschrijf het technisch probleem…"></textarea>
-            </div>
-            <div class="field">
                 <label for="new-issue-category">Categorie</label>
                 <select id="new-issue-category" x-model="newIssueCategory">
                     <option value="">— Geen categorie —</option>
@@ -288,19 +322,26 @@
                 </select>
             </div>
             <div class="field">
+                <label for="new-issue-description">Beschrijving probleem</label>
+                <textarea
+                    id="new-issue-description"
+                    x-model="newIssueDescription"
+                    placeholder="Beschrijf het technisch probleem…"></textarea>
+            </div>
+            <div class="field">
                 <label for="new-issue-date">Datum</label>
                 <input id="new-issue-date" type="date" x-model="newIssueDate">
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn-secondary" style="width:auto;" @click="closeNewIssueModal()">Annuleer</button>
                 <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
             </div>
         </div>
     </div>
 
     <!-- ── Edit issue modal ────────────────────────────────── -->
-    <div class="modal-overlay" x-show="showEditIssueModal" x-cloak @click.self="closeEditIssueModal()">
-        <div class="modal-box">
+    <div class="modal-overlay" x-show="showEditIssueModal" x-cloak>
+        <div class="modal-box modal-box--large">
+            <span class="modal-close-btn" @click="closeEditIssueModal()" title="Sluiten" role="button" tabindex="0" @keydown.enter="closeEditIssueModal()" @keydown.space.prevent="closeEditIssueModal()">✕</span>
             <h3>Probleem bewerken</h3>
             <p class="import-help" x-show="editIssueSerial">
                 Laptop: <strong x-text="editIssueSerial"></strong>
@@ -342,7 +383,6 @@
                     placeholder="Beschrijf de oplossing…"></textarea>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn-secondary" style="width:auto;" @click="closeEditIssueModal()">Annuleer</button>
                 <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
             </div>
         </div>
@@ -366,6 +406,7 @@ function laptopApp() {
         _visibleCount:    0,
         // Laptop tracker tab
         ltSearch:             '',
+        ltStatusFilter:       ['aangemeld', 'open'],
         ltSelectedSerial:     null,
         issueStatus:          { text: '', type: '' },
         showNewIssueModal:    false,
@@ -636,8 +677,16 @@ function laptopApp() {
         },
 
         // ── Laptop tracker ──────────────────────────────────────
+        toggleStatusFilter(status) {
+            const idx = this.ltStatusFilter.indexOf(status);
+            if (idx === -1) this.ltStatusFilter.push(status);
+            else this.ltStatusFilter.splice(idx, 1);
+            this.refreshLaptopSidebar();
+        },
+
         refreshLaptopSidebar() {
             const params = new URLSearchParams({ search: this.ltSearch });
+            this.ltStatusFilter.forEach(s => params.append('statuses', s));
             htmx.ajax('GET', `/ui/laptop-tracker/sidebar?${params}`, {
                 target: '#lt-sidebar-list',
                 swap:   'innerHTML',

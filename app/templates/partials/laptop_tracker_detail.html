@@ -19,9 +19,6 @@
         {% if open_count > 0 %}
         <span class="lt-badge-open">{{ open_count }} open</span>
         {% endif %}
-        <button class="lt-btn-new" type="button" @click="openNewIssueModal('{{ serial | e }}')">
-            + Defect melden
-        </button>
     </div>
 </div>
 
@@ -44,6 +41,14 @@
             <div class="lt-info-row">
                 <span class="lt-info-label">Klas</span>
                 <span class="lt-info-val">{{ student.klas if student and student.klas else '—' }}</span>
+            </div>
+            <div class="lt-info-row">
+                <span class="lt-info-label">Uitgeleend op</span>
+                <span class="lt-info-val">
+                    {% if student and student.linked_at %}
+                        {{ student.linked_at.strftime('%-d %b %Y') }}
+                    {% else %}—{% endif %}
+                </span>
             </div>
         </div>
     </div>

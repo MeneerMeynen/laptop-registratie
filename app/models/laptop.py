@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -18,5 +18,6 @@ class Laptop(Base):
         index=True,
     )
     eigen_laptop = Column(Boolean, default=False, nullable=False)
+    linked_at = Column(DateTime, nullable=True)
 
     student = relationship("Student", back_populates="laptops")

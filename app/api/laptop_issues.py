@@ -3,7 +3,7 @@ import csv
 import io
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.services.laptop_issue_service import (
     VALID_CATEGORIES,
     add_issue_entry,
     create_issue,
+    delete_entry,
     delete_issue,
     get_entries_for_issue,
     get_global_stats,
@@ -22,6 +23,7 @@ from app.services.laptop_issue_service import (
     list_issues,
     list_laptops_with_issues,
     search_laptops_for_autocomplete,
+    update_entry,
     update_issue,
 )
 
@@ -131,9 +133,10 @@ def laptop_issues_partial(
 def laptop_tracker_sidebar(
     request: Request,
     search: str = "",
+    statuses: list[str] = Query(default=["aangemeld", "open"]),
     db: Session = Depends(get_db),
 ):
-    laptops = list_laptops_with_issues(db, search=search)
+    laptops = list_laptops_with_issues(db, search=search, statuses=statuses)
     stats = get_global_stats(db)
     return templates.TemplateResponse(
         request,
@@ -178,6 +181,43 @@ def post_issue_entry(
     if not text.strip():
         return HTMLResponse('<p class="lt-entry-error">Opvolgingstekst mag niet leeg zijn.</p>')
     add_issue_entry(db, issue_id, text)
+    entries = get_entries_for_issue(db, issue_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/laptop_issue_entries.html",
+        {"entries": entries},
+    )
+
+
+@router.patch("/ui/laptop-issues/entries/{entry_id}", response_class=HTMLResponse)
+def patch_issue_entry(
+    request: Request,
+    entry_id: int,
+    text: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    if not text.strip():
+        return HTMLResponse('<p class="lt-entry-error">Tekst mag niet leeg zijn.</p>')
+    entry = update_entry(db, entry_id, text)
+    if not entry:
+        return HTMLResponse('<p class="lt-entry-error">Opvolging niet gevonden.</p>')
+    entries = get_entries_for_issue(db, entry.issue_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/laptop_issue_entries.html",
+        {"entries": entries},
+    )
+
+
+@router.delete("/ui/laptop-issues/entries/{entry_id}", response_class=HTMLResponse)
+def delete_issue_entry(
+    request: Request,
+    entry_id: int,
+    db: Session = Depends(get_db),
+):
+    issue_id = delete_entry(db, entry_id)
+    if issue_id is None:
+        return HTMLResponse('<p class="lt-entry-error">Opvolging niet gevonden.</p>')
     entries = get_entries_for_issue(db, issue_id)
     return templates.TemplateResponse(
         request,

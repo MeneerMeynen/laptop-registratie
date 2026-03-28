@@ -1,32 +1,6 @@
-<div id="lt-global-stats" hx-swap-oob="innerHTML">
-    <div class="lt-stat-card">
-        <div class="lt-stat-icon lt-icon-aangemeld">
-            <div class="lt-stat-dot" style="background:#D97706;"></div>
-        </div>
-        <div>
-            <div class="lt-stat-label">Aangemeld</div>
-            <div class="lt-stat-value lt-val-aangemeld">{{ stats.aangemeld }}</div>
-        </div>
-    </div>
-    <div class="lt-stat-card">
-        <div class="lt-stat-icon lt-icon-open">
-            <div class="lt-stat-dot" style="background:#E24B4A;"></div>
-        </div>
-        <div>
-            <div class="lt-stat-label">Open</div>
-            <div class="lt-stat-value lt-val-open">{{ stats.open }}</div>
-        </div>
-    </div>
-    <div class="lt-stat-card">
-        <div class="lt-stat-icon lt-icon-closed">
-            <div class="lt-stat-dot" style="background:#1D9E75;"></div>
-        </div>
-        <div>
-            <div class="lt-stat-label">Gesloten</div>
-            <div class="lt-stat-value lt-val-closed">{{ stats.gesloten }}</div>
-        </div>
-    </div>
-</div>
+<span id="lt-count-aangemeld" hx-swap-oob="innerHTML">{{ stats.aangemeld }}</span>
+<span id="lt-count-open"      hx-swap-oob="innerHTML">{{ stats.open }}</span>
+<span id="lt-count-gesloten"  hx-swap-oob="innerHTML">{{ stats.gesloten }}</span>
 
 {% if laptops %}
 {% for laptop in laptops %}
