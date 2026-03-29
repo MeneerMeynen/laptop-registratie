@@ -124,3 +124,37 @@ def test_multiple_students_can_each_have_eigen_laptop(client, db_session):
 
     assert r1.status_code == 200
     assert r2.status_code == 200
+
+
+# ── Unlink (INLEVEREN) ────────────────────────────────────────────────────────
+
+def _unlink(client, laptop_id: int):
+    return client.post(f"/api/laptops/{laptop_id}/unlink")
+
+
+def test_unlink_sets_unlinked_at(client, db_session):
+    """Scanning INLEVEREN must set unlinked_at on the laptop record."""
+    _add_student(db_session, "S100")
+    laptop_id = _link(client, "S100", "UNL-001").json()["id"]
+
+    resp = _unlink(client, laptop_id)
+
+    assert resp.status_code == 200
+    assert resp.json()["unlinked_at"] is not None
+
+
+def test_unlink_returns_404_for_unknown_laptop(client, db_session):
+    resp = _unlink(client, 99999)
+
+    assert resp.status_code == 404
+
+
+def test_unlink_already_unlinked_returns_409(client, db_session):
+    """Inleveren a laptop that is already ingeleverd must return 409."""
+    _add_student(db_session, "S110")
+    laptop_id = _link(client, "S110", "UNL-002").json()["id"]
+    _unlink(client, laptop_id)
+
+    resp = _unlink(client, laptop_id)
+
+    assert resp.status_code == 409

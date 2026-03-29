@@ -7,6 +7,10 @@ uvicorn<1.0,>=0.35
 alembic<2.0,>=1.14
 pydantic-settings<3.0,>=2.0
 
+[e2e]
+pytest<9.0,>=8.0
+pytest-playwright<1.0,>=0.6
+
 [test]
 pytest<9.0,>=8.0
 httpx<1.0,>=0.28

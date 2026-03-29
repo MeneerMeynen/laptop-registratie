@@ -45,6 +45,24 @@ services:
     networks:
       - laptop-net
 
+  test-e2e:
+    image: mcr.microsoft.com/playwright/python:v1.58.0-jammy
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      PYTHONPATH: /app
+    command: >
+      bash -c "pip install --quiet pytest pytest-playwright &&
+               pytest tests/e2e/ -v --base-url http://app:8000 --confcutdir=tests/e2e"
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+    networks:
+      - laptop-net
+
 volumes:
   mariadb_data:
 

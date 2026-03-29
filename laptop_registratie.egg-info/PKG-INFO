@@ -14,3 +14,6 @@ Requires-Dist: pydantic-settings<3.0,>=2.0
 Provides-Extra: test
 Requires-Dist: pytest<9.0,>=8.0; extra == "test"
 Requires-Dist: httpx<1.0,>=0.28; extra == "test"
+Provides-Extra: e2e
+Requires-Dist: pytest<9.0,>=8.0; extra == "e2e"
+Requires-Dist: pytest-playwright<1.0,>=0.6; extra == "e2e"

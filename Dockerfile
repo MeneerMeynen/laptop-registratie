@@ -21,7 +21,7 @@ COPY app ./app/
 COPY alembic ./alembic/
 COPY alembic.ini .
 COPY tests ./tests/
-COPY docker/entrypoint.sh ./entrypoint.sh
+COPY entrypoint.sh ./entrypoint.sh
 
 RUN chown -R appuser:appuser /app && chmod +x entrypoint.sh
 USER appuser

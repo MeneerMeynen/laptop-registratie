@@ -72,7 +72,7 @@ p.lead { margin-top: 0; color: var(--muted); max-width: 60ch; }
 /* ── Grid layout ───────────────────────────────────────────── */
 .layout {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 220px 1fr 220px;
     gap: 24px;
     align-items: stretch;
 }
@@ -208,6 +208,24 @@ button:hover { background: var(--accent-dark); }
 }
 
 .barcode-card-help { color: var(--muted); font-size: .95rem; }
+
+.barcode-card-link {
+    border-color: rgba(15,118,110,.5);
+    background: linear-gradient(180deg, rgba(240,252,250,.95), rgba(220,248,244,.92));
+}
+.barcode-card-link .barcode-caption { color: var(--accent-dark); }
+
+.barcode-card-clear {
+    border-color: rgba(100,116,139,.35);
+    background: linear-gradient(180deg, rgba(248,250,252,.95), rgba(241,245,249,.92));
+}
+.barcode-card-clear .barcode-caption { color: #475569; }
+
+.barcode-card-unlink {
+    border-color: rgba(220,38,38,.35);
+    background: linear-gradient(180deg, rgba(255,245,245,.95), rgba(254,226,226,.92));
+}
+.barcode-card-unlink .barcode-caption { color: #b91c1c; }
 
 /* ── Manage tab ────────────────────────────────────────────── */
 .import-panel { max-width: 760px; }
@@ -422,7 +440,7 @@ select {
 }
 
 /* ── Responsive ────────────────────────────────────────────── */
-@media (max-width: 840px) {
+@media (max-width: 1024px) {
     .layout { grid-template-columns: 1fr; }
     .barcode-panel { grid-template-rows: none; }
     .barcode-card { min-height: 140px; }

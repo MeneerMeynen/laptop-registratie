@@ -72,7 +72,7 @@
 
                     <!-- Student picker -->
                     <div class="field">
-                        <label for="student-filter">Leerling</label>
+                        <label for="student-filter">leerling & laptop zoeken 🔍</label>
                         <input
                             id="student-filter"
                             class="filter-input"
@@ -117,6 +117,26 @@
                     </div>
                 </form>
             </section>
+
+            <!-- Actie barcodes (rechts) -->
+            <aside class="panel barcode-panel" aria-label="Actie barcodes">
+                <div class="barcode-card barcode-card-clear">
+                    <span class="barcode-card-label">Wissen</span>
+                    <span class="barcode-card-code">
+                        <canvas class="barcode-canvas" data-barcode="CLEAR" aria-label="Data Matrix barcode CLEAR"></canvas>
+                    </span>
+                    <span class="barcode-caption">CLEAR</span>
+                    <span class="barcode-card-help">Wist het invoerveld.</span>
+                </div>
+                <div class="barcode-card barcode-card-unlink">
+                    <span class="barcode-card-label">Inleveren</span>
+                    <span class="barcode-card-code">
+                        <canvas class="barcode-canvas" data-barcode="INLEVEREN" aria-label="Data Matrix barcode INLEVEREN"></canvas>
+                    </span>
+                    <span class="barcode-caption">INLEVEREN</span>
+                    <span class="barcode-card-help">Levert de laptop van de geselecteerde leerling in.</span>
+                </div>
+            </aside>
 
         </div>
     </section>
@@ -503,14 +523,17 @@ function laptopApp() {
             this.selectedStamnummer = stamnummer;
             this.selectedLaptopId = option?.dataset.laptopId ? parseInt(option.dataset.laptopId) : null;
             this.selectedLabel = `Geselecteerd: ${label}`;
+            this.$nextTick(() => document.getElementById('serial_number').focus());
         },
 
         // ── Navigation barcode handling ─────────────────────────
         handleScanInput() {
             const val = this.serialValue.trim().replace(/\s+/g, ' ').toUpperCase();
-            if (val === '1UP')                { this.moveSelection(-1); this.serialValue = ''; }
-            else if (val === '1DOWN')         { this.moveSelection(1);  this.serialValue = ''; }
-            else if (val === 'EIGEN LAPTOP')  { this.serialValue = 'eigen laptop'; }
+            if (val.endsWith('1UP'))                { this.moveSelection(-1); this.serialValue = ''; }
+            else if (val.endsWith('1DOWN'))         { this.moveSelection(1);  this.serialValue = ''; }
+            else if (val.endsWith('EIGEN LAPTOP'))  { this.serialValue = 'eigen laptop'; }
+            else if (val.endsWith('CLEAR'))         { this.serialValue = ''; }
+            else if (val.endsWith('INLEVEREN'))     { this.serialValue = ''; this.unlinkLaptop(this.selectedLaptopId); }
         },
 
         moveSelection(step) {
@@ -537,7 +560,7 @@ function laptopApp() {
             }
             // Let navigation barcodes be handled by handleScanInput on submit too
             const upper = serial.toUpperCase();
-            if (upper === '1UP' || upper === '1DOWN') {
+            if (['1UP', '1DOWN', 'CLEAR', 'INLEVEREN'].includes(upper)) {
                 this.handleScanInput();
                 return;
             }
