@@ -32,6 +32,14 @@
                 role="tab">
             Laptops
         </button>
+        <button type="button"
+                class="tab-button"
+                :class="{ active: activeTab === 'fotos' }"
+                :aria-selected="activeTab === 'fotos'"
+                @click="setTab('fotos')"
+                role="tab">
+            Foto's
+        </button>
     </nav>
 
     <!-- ══ TAB 1: Registreer laptops ═════════════════════════ -->
@@ -310,6 +318,55 @@
 
     </section>
 
+    <!-- ══ TAB 4: Foto's ════════════════════════════════════ -->
+    <section x-show="activeTab === 'fotos'" x-cloak>
+        <section class="panel">
+            <h2>Laptop foto's</h2>
+            <p class="import-help">
+                Bekijk foto's per laptop, of open de
+                <a href="/photos" target="_blank" style="color:var(--accent);">mobiele foto-pagina</a>
+                om foto's te maken met je telefoon.
+            </p>
+
+            <div class="field">
+                <label for="photo-search">Zoek laptop</label>
+                <input
+                    id="photo-search"
+                    type="text"
+                    list="photo-laptop-suggestions"
+                    placeholder="Typ serienummer of naam leerling..."
+                    autocomplete="off"
+                    x-model="photoSearch"
+                    @input.debounce.300ms="fetchPhotoSuggestions()"
+                    @change="loadPhotoGallery()"
+                >
+                <datalist id="photo-laptop-suggestions">
+                    <template x-for="s in photoSuggestions" :key="s.serial_number">
+                        <option :value="s.serial_number"
+                                :label="(s.voornaam || '') + ' ' + (s.naam || '')">
+                        </option>
+                    </template>
+                </datalist>
+            </div>
+
+            <button type="button" class="btn-secondary" style="margin-bottom:16px;" @click="loadPhotoGallery()">
+                Toon foto's
+            </button>
+
+            <div id="photo-gallery">
+                <div class="lt-detail-placeholder">
+                    <p>Zoek een laptop om foto's te bekijken.</p>
+                </div>
+            </div>
+
+            <div class="status"
+                 :class="{ error: photoStatus.type === 'error', success: photoStatus.type === 'success' }"
+                 x-text="photoStatus.text"
+                 aria-live="polite">
+            </div>
+        </section>
+    </section>
+
     <!-- ── New issue modal ─────────────────────────────────── -->
     <div class="modal-overlay" x-show="showNewIssueModal" x-cloak>
         <div class="modal-box modal-box--large">
@@ -450,6 +507,10 @@ function laptopApp() {
         editIssueStatus:      'open',
         editIssueSolution:    '',
         editIssueCategory:    '',
+        // Photo tab
+        photoSearch:          '',
+        photoSuggestions:    [],
+        photoStatus:          { text: '', type: '' },
 
         // ── Lifecycle ──────────────────────────────────────────
         init() {
@@ -858,7 +919,40 @@ function laptopApp() {
             this.refreshLaptopDetail();
             this.refreshLaptopSidebar();
         },
+
+        // ── Photo tab ───────────────────────────────────────────
+        async fetchPhotoSuggestions() {
+            const q = this.photoSearch.trim();
+            if (q.length < 2) { this.photoSuggestions = []; return; }
+            const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
+            this.photoSuggestions = res.ok ? await res.json() : [];
+        },
+
+        loadPhotoGallery() {
+            const serial = this.photoSearch.trim();
+            if (!serial) {
+                this.photoStatus = { text: 'Voer een serienummer in.', type: 'error' };
+                return;
+            }
+            this.photoStatus = { text: '', type: '' };
+            htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
+                target: '#photo-gallery',
+                swap:   'innerHTML',
+            });
+        },
     };
+}
+
+function deleteGalleryPhoto(photoId, serial) {
+    if (!confirm('Foto verwijderen?')) return;
+    fetch(`/api/photos/${photoId}`, { method: 'DELETE' }).then(res => {
+        if (res.ok || res.status === 204) {
+            htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
+                target: '#photo-gallery',
+                swap:   'innerHTML',
+            });
+        }
+    });
 }
 </script>
 {% endblock %}

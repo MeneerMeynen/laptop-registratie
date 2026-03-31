@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.api import laptops as laptops_api
 from app.api import laptop_issues as laptop_issues_api
+from app.api import photos as photos_api
 from app.api import students as students_api
 from app.api import ui as ui_routes
 
@@ -27,9 +28,15 @@ def create_app() -> FastAPI:
     # Static files (CSS, JS)
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
+    # Uploads directory (laptop photos)
+    uploads_dir = BASE_DIR.parent / "uploads" / "laptops"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads/laptops", StaticFiles(directory=uploads_dir), name="uploads")
+
     # Routers
     app.include_router(laptops_api.router)
     app.include_router(laptop_issues_api.router)
+    app.include_router(photos_api.router)
     app.include_router(students_api.router)
     app.include_router(ui_routes.router)
 

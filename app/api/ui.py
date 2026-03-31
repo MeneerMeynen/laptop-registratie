@@ -70,6 +70,25 @@ def students_manage_partial(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/photos", response_class=HTMLResponse)
+def photos_page(request: Request):
+    """Mobile-first photo capture workflow page."""
+    return templates.TemplateResponse(request, "photos.html")
+
+
+@router.get("/ui/photos/gallery", response_class=HTMLResponse)
+def photos_gallery_partial(request: Request, serial: str = "", db: Session = Depends(get_db)):
+    """HTMX partial: photo gallery for a given serial number."""
+    from app.services.photo_service import list_photos
+
+    photos = list_photos(db, serial) if serial else []
+    return templates.TemplateResponse(
+        request,
+        "partials/photo_gallery.html",
+        {"photos": photos, "serial_number": serial},
+    )
+
+
 @router.post("/ui/students/import", response_class=HTMLResponse)
 async def import_students_ui(
     request: Request,

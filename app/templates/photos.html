@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Laptop Foto's</title>
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <style>
+        :root {
+            --bg:          #f2efe8;
+            --panel:       #fffdf8;
+            --accent:      #0f766e;
+            --accent-dark: #134e4a;
+            --border:      #d9d2c3;
+            --text:        #1f2937;
+            --muted:       #6b7280;
+            --danger:      #b91c1c;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            min-height: 100vh;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        .app {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+
+        .app-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .app-header h1 {
+            font-size: 1.4rem;
+            margin: 0 0 4px;
+        }
+
+        .app-header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        /* Steps indicator */
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background 0.2s;
+        }
+
+        .step-dot.active {
+            background: var(--accent);
+        }
+
+        .step-dot.done {
+            background: var(--accent-dark);
+        }
+
+        /* Cards / panels */
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin: 0 0 12px;
+        }
+
+        /* Inputs */
+        .field { margin-bottom: 16px; }
+
+        .field label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--muted);
+        }
+
+        .field input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #fff;
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(15,118,110,.15);
+        }
+
+        /* Buttons */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.98); }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover { background: var(--accent-dark); }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .btn-scan {
+            background: var(--accent);
+            color: #fff;
+            padding: 16px;
+            font-size: 1.1rem;
+        }
+
+        .btn + .btn { margin-top: 10px; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Status messages */
+        .status {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        .status.error {
+            background: rgba(185,28,28,0.1);
+            color: var(--danger);
+        }
+
+        .status.success {
+            background: rgba(15,118,110,0.1);
+            color: var(--accent-dark);
+        }
+
+        .status.info {
+            background: rgba(15,118,110,0.05);
+            color: var(--muted);
+        }
+
+        /* Laptop info badge */
+        .laptop-info {
+            background: rgba(15,118,110,0.08);
+            border: 1px solid rgba(15,118,110,0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .laptop-info strong { color: var(--accent-dark); }
+
+        /* Camera */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 16px;
+        }
+
+        .camera-container video,
+        .camera-container canvas {
+            width: 100%;
+            display: block;
+        }
+
+        #scanner-video {
+            aspect-ratio: 4/3;
+            object-fit: cover;
+        }
+
+        #camera-video {
+            aspect-ratio: 4/3;
+            object-fit: cover;
+        }
+
+        .capture-btn {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 4px solid #fff;
+            background: rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .capture-btn:active {
+            background: rgba(255,255,255,0.6);
+        }
+
+        .capture-btn-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #fff;
+            transform: scale(0.85);
+            transition: transform 0.1s;
+        }
+
+        .capture-btn:active .capture-btn-inner {
+            transform: scale(0.75);
+        }
+
+        /* Native file capture button (iOS fallback) */
+        .native-capture-area {
+            text-align: center;
+            padding: 24px 16px;
+        }
+
+        .native-capture-area p {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin: 0 0 16px;
+        }
+
+        .file-capture-input {
+            display: none;
+        }
+
+        .btn-capture {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 18px;
+            font-size: 1.1rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-capture:active { transform: scale(0.98); }
+
+        /* Photo grid */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .photo-thumb {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .photo-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-thumb-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(185,28,28,0.85);
+            color: #fff;
+            border: none;
+            font-size: 14px;
+            line-height: 24px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .photo-thumb-new {
+            background: rgba(15,118,110,0.08);
+            border: 2px dashed var(--accent);
+        }
+
+        .photo-count {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        /* Scanner overlay */
+        .scanner-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .scanner-frame {
+            width: 60%;
+            aspect-ratio: 1;
+            border: 2px solid rgba(15,118,110,0.6);
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.3);
+        }
+
+        /* Finish screen */
+        .finish-screen {
+            text-align: center;
+            padding: 32px 0;
+        }
+
+        .finish-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .or-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 16px 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        [x-cloak] { display: none !important; }
+
+        /* Back to main link */
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="app" x-data="photoApp()" x-init="init()">
+
+    <a href="/" class="back-link">&larr; Terug naar registratie</a>
+
+    <div class="app-header">
+        <h1>Laptop Foto's</h1>
+        <p>Scan serienummer en maak foto's</p>
+    </div>
+
+    <!-- Steps indicator -->
+    <div class="steps">
+        <div class="step-dot" :class="step >= 1 ? (step > 1 ? 'done' : 'active') : ''"></div>
+        <div class="step-dot" :class="step >= 2 ? (step > 2 ? 'done' : 'active') : ''"></div>
+        <div class="step-dot" :class="step >= 3 ? 'active' : ''"></div>
+    </div>
+
+    <!-- ── STEP 1: Scan / enter serial number ── -->
+    <div x-show="step === 1" x-cloak>
+        <div class="card">
+            <h2>Stap 1: Identificeer laptop</h2>
+
+            <div x-show="statusMsg.text" class="status" :class="statusMsg.type" x-text="statusMsg.text"></div>
+
+            <!-- Scanner mode -->
+            <div x-show="scanMode === 'camera'" class="camera-container">
+                <video id="scanner-video" autoplay playsinline></video>
+                <div class="scanner-overlay">
+                    <div class="scanner-frame"></div>
+                </div>
+            </div>
+
+            <template x-if="scanMode === 'camera'">
+                <div>
+                    <button class="btn btn-secondary" @click="switchToManual()">Handmatig invoeren</button>
+                </div>
+            </template>
+
+            <template x-if="scanMode === 'manual'">
+                <div>
+                    <div class="field">
+                        <label for="serial-input">Serienummer</label>
+                        <input
+                            id="serial-input"
+                            type="text"
+                            placeholder="Voer serienummer in..."
+                            x-model="serialInput"
+                            @keydown.enter.prevent="confirmSerial()"
+                            autocomplete="off"
+                            autocapitalize="characters"
+                        >
+                    </div>
+                    <button class="btn btn-primary" @click="confirmSerial()">Bevestig</button>
+
+                    <div class="or-divider">of</div>
+
+                    <!-- Native barcode scan (works on iOS without HTTPS) -->
+                    <input
+                        id="barcode-photo-input"
+                        class="file-capture-input"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        @change="handleBarcodeScan($event)"
+                    >
+                    <label for="barcode-photo-input" class="btn btn-scan" style="cursor:pointer;">
+                        Scan barcode met camera
+                    </label>
+                    <div x-show="scanningBarcode" class="status info" style="margin-top:8px;">Barcode herkennen...</div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ── STEP 2: Take photos ── -->
+    <div x-show="step === 2" x-cloak>
+        <div class="laptop-info">
+            Laptop: <strong x-text="serialNumber"></strong>
+            <template x-if="laptopStudent">
+                <span> &mdash; <span x-text="laptopStudent"></span></span>
+            </template>
+        </div>
+
+        <div class="card">
+            <h2>Stap 2: Maak foto's</h2>
+
+            <div x-show="statusMsg.text" class="status" :class="statusMsg.type" x-text="statusMsg.text"></div>
+
+            <!-- Stream camera mode (desktop / HTTPS) -->
+            <template x-if="cameraMode === 'stream'">
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <button class="capture-btn" @click="capturePhoto()" title="Foto nemen">
+                        <div class="capture-btn-inner"></div>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Native file capture mode (iOS / HTTP fallback) -->
+            <template x-if="cameraMode === 'native'">
+                <div class="native-capture-area">
+                    <p>Tik op de knop om een foto te maken met je camera.</p>
+                    <input
+                        id="native-camera-input"
+                        class="file-capture-input"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        @change="handleNativeCapture($event)"
+                    >
+                    <label for="native-camera-input" class="btn-capture">
+                        Maak foto
+                    </label>
+                </div>
+            </template>
+
+            <div class="photo-count" x-text="`${sessionPhotos.length + existingPhotos.length} foto('s) totaal — ${sessionPhotos.length} nieuw`"></div>
+
+            <!-- Session photos (new) -->
+            <div class="photo-grid" x-show="sessionPhotos.length > 0">
+                <template x-for="(photo, idx) in sessionPhotos" :key="photo.id || idx">
+                    <div class="photo-thumb photo-thumb-new">
+                        <img :src="photo.url" :alt="'Foto ' + (idx + 1)">
+                        <button class="photo-thumb-delete" @click="deleteSessionPhoto(photo, idx)" title="Verwijder">&times;</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Existing photos -->
+            <div x-show="existingPhotos.length > 0" style="margin-top: 8px;">
+                <div style="font-size:0.8rem; color:var(--muted); margin-bottom:6px;">Eerder genomen:</div>
+                <div class="photo-grid">
+                    <template x-for="photo in existingPhotos" :key="photo.id">
+                        <div class="photo-thumb">
+                            <img :src="photo.url" :alt="'Foto ' + photo.id">
+                            <button class="photo-thumb-delete" @click="deleteExistingPhoto(photo)" title="Verwijder">&times;</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" @click="finish()" style="margin-top:8px;">
+                Klaar
+            </button>
+            <button class="btn btn-secondary" @click="goBackToScan()">
+                Andere laptop
+            </button>
+        </div>
+    </div>
+
+    <!-- ── STEP 3: Finished ── -->
+    <div x-show="step === 3" x-cloak>
+        <div class="card finish-screen">
+            <div class="finish-icon">&#10003;</div>
+            <h2>Opgeslagen!</h2>
+            <p style="color:var(--muted);">
+                <span x-text="sessionPhotos.length"></span> foto('s) opgeslagen voor
+                <strong x-text="serialNumber"></strong>
+            </p>
+            <button class="btn btn-primary" @click="reset()" style="margin-top:20px;">
+                Volgende laptop
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- ZXing barcode scanner library -->
+<script src="https://unpkg.com/@AymenStudios/zxing-library@0.21.4/umd/index.min.js"></script>
+
+<script>
+function photoApp() {
+    return {
+        step: 1,
+        scanMode: 'manual',  // start with manual, offer camera
+        serialInput: '',
+        serialNumber: '',
+        laptopStudent: '',
+        statusMsg: { text: '', type: '' },
+        scanningBarcode: false,
+
+        sessionPhotos: [],   // photos taken this session (already uploaded)
+        existingPhotos: [],  // photos from before
+
+        cameraMode: 'native',  // 'stream' or 'native' — detected at runtime
+
+        _scannerStream: null,
+        _cameraStream: null,
+        _codeReader: null,
+        _scannerActive: false,
+        _hasGetUserMedia: false,
+
+        init() {
+            // Detect getUserMedia support (requires HTTPS on iOS)
+            this._hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+            // Start with manual input, focus the field
+            this.$nextTick(() => {
+                const inp = document.getElementById('serial-input');
+                if (inp) inp.focus();
+            });
+        },
+
+        // ── Scanner ──────────────────────────────────────────
+        async startScanner() {
+            this.scanMode = 'camera';
+            this.statusMsg = { text: '', type: '' };
+
+            await this.$nextTick();
+            const video = document.getElementById('scanner-video');
+            if (!video) return;
+
+            try {
+                this._scannerStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } }
+                });
+                video.srcObject = this._scannerStream;
+
+                // Use ZXing for barcode detection
+                if (typeof ZXing !== 'undefined') {
+                    this._codeReader = new ZXing.BrowserMultiFormatReader();
+                    this._scannerActive = true;
+                    this._codeReader.decodeFromVideoDevice(null, 'scanner-video', (result, err) => {
+                        if (result && this._scannerActive) {
+                            this._scannerActive = false;
+                            this.serialInput = result.getText();
+                            this.confirmSerial();
+                        }
+                    });
+                }
+            } catch (e) {
+                this.statusMsg = { text: 'Camera niet beschikbaar. Voer serienummer handmatig in.', type: 'error' };
+                this.scanMode = 'manual';
+            }
+        },
+
+        stopScanner() {
+            this._scannerActive = false;
+            if (this._codeReader) {
+                this._codeReader.reset();
+                this._codeReader = null;
+            }
+            if (this._scannerStream) {
+                this._scannerStream.getTracks().forEach(t => t.stop());
+                this._scannerStream = null;
+            }
+        },
+
+        switchToManual() {
+            this.stopScanner();
+            this.scanMode = 'manual';
+            this.$nextTick(() => {
+                const inp = document.getElementById('serial-input');
+                if (inp) inp.focus();
+            });
+        },
+
+        // ── Native barcode scan (photo → decode) ────────────
+        async handleBarcodeScan(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            this.scanningBarcode = true;
+            this.statusMsg = { text: '', type: '' };
+
+            try {
+                // Load image into an HTMLImageElement
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = url;
+                });
+
+                // Draw to canvas for ZXing
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+
+                // Decode with ZXing
+                const luminance = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+                const binarizer = new ZXing.HybridBinarizer(luminance);
+                const bitmap = new ZXing.BinaryBitmap(binarizer);
+
+                // Try multiple barcode formats
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                const reader = new ZXing.MultiFormatReader();
+                reader.setHints(hints);
+
+                const result = reader.decode(bitmap);
+                const text = result.getText().trim();
+
+                if (text) {
+                    this.serialInput = text;
+                    this.statusMsg = { text: `Barcode herkend: ${text}`, type: 'success' };
+                    // Auto-confirm after short delay so user sees the result
+                    setTimeout(() => this.confirmSerial(), 600);
+                } else {
+                    this.statusMsg = { text: 'Geen barcode gevonden in de foto.', type: 'error' };
+                }
+            } catch (e) {
+                this.statusMsg = { text: 'Geen barcode gevonden. Probeer opnieuw of voer handmatig in.', type: 'error' };
+            }
+
+            this.scanningBarcode = false;
+            event.target.value = '';
+        },
+
+        // ── Confirm serial ───────────────────────────────────
+        async confirmSerial() {
+            const serial = this.serialInput.trim();
+            if (!serial) {
+                this.statusMsg = { text: 'Voer een serienummer in.', type: 'error' };
+                return;
+            }
+
+            this.stopScanner();
+            this.serialNumber = serial;
+            this.statusMsg = { text: '', type: '' };
+
+            // Fetch laptop info
+            try {
+                const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(serial)}`);
+                if (res.ok) {
+                    const results = await res.json();
+                    const match = results.find(r => r.serial_number.toLowerCase() === serial.toLowerCase());
+                    if (match) {
+                        this.laptopStudent = `${match.voornaam || ''} ${match.naam || ''}`.trim();
+                    }
+                }
+            } catch (e) { /* non-critical */ }
+
+            // Fetch existing photos
+            try {
+                const res = await fetch(`/api/photos/${encodeURIComponent(serial)}`);
+                if (res.ok) {
+                    this.existingPhotos = await res.json();
+                }
+            } catch (e) { /* non-critical */ }
+
+            this.sessionPhotos = [];
+            this.step = 2;
+            this.startCamera();
+        },
+
+        // ── Camera for photo capture ─────────────────────────
+        async startCamera() {
+            // Try getUserMedia (stream mode) first
+            if (this._hasGetUserMedia) {
+                try {
+                    this.cameraMode = 'stream';
+                    await this.$nextTick();
+                    const video = document.getElementById('camera-video');
+                    if (video) {
+                        this._cameraStream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }
+                        });
+                        video.srcObject = this._cameraStream;
+                        return; // stream mode works
+                    }
+                } catch (e) {
+                    // getUserMedia failed (HTTP on iOS, permission denied, etc.)
+                    this.stopCamera();
+                }
+            }
+
+            // Fallback: native file capture (works on iOS without HTTPS)
+            this.cameraMode = 'native';
+        },
+
+        stopCamera() {
+            if (this._cameraStream) {
+                this._cameraStream.getTracks().forEach(t => t.stop());
+                this._cameraStream = null;
+            }
+        },
+
+        // ── Capture photo (stream mode) ─────────────────────
+        async capturePhoto() {
+            const video = document.getElementById('camera-video');
+            if (!video || !video.videoWidth) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            await this._uploadBase64(dataUrl);
+        },
+
+        // ── Capture photo (native file input mode) ──────────
+        async handleNativeCapture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            this.statusMsg = { text: 'Uploaden...', type: 'info' };
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const res = await fetch(`/api/photos?serial_number=${encodeURIComponent(this.serialNumber)}`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    this.statusMsg = { text: data.detail || 'Upload mislukt.', type: 'error' };
+                    return;
+                }
+
+                const photo = await res.json();
+                this.sessionPhotos.push(photo);
+                this.statusMsg = { text: `Foto ${this.sessionPhotos.length} opgeslagen.`, type: 'success' };
+            } catch (e) {
+                this.statusMsg = { text: 'Upload mislukt. Controleer verbinding.', type: 'error' };
+            }
+
+            // Reset input so the same file can be selected again
+            event.target.value = '';
+        },
+
+        // ── Upload helper (base64, for stream mode) ─────────
+        async _uploadBase64(dataUrl) {
+            this.statusMsg = { text: 'Uploaden...', type: 'info' };
+
+            try {
+                const res = await fetch('/api/photos/base64', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        serial_number: this.serialNumber,
+                        image_data: dataUrl,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    this.statusMsg = { text: data.detail || 'Upload mislukt.', type: 'error' };
+                    return;
+                }
+
+                const photo = await res.json();
+                this.sessionPhotos.push(photo);
+                this.statusMsg = { text: `Foto ${this.sessionPhotos.length} opgeslagen.`, type: 'success' };
+            } catch (e) {
+                this.statusMsg = { text: 'Upload mislukt. Controleer verbinding.', type: 'error' };
+            }
+        },
+
+        // ── Delete photos ────────────────────────────────────
+        async deleteSessionPhoto(photo, idx) {
+            try {
+                await fetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
+            } catch (e) { /* best effort */ }
+            this.sessionPhotos.splice(idx, 1);
+        },
+
+        async deleteExistingPhoto(photo) {
+            if (!confirm('Bestaande foto verwijderen?')) return;
+            try {
+                await fetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
+                this.existingPhotos = this.existingPhotos.filter(p => p.id !== photo.id);
+            } catch (e) {
+                this.statusMsg = { text: 'Verwijderen mislukt.', type: 'error' };
+            }
+        },
+
+        // ── Finish ───────────────────────────────────────────
+        finish() {
+            this.stopCamera();
+            this.step = 3;
+        },
+
+        goBackToScan() {
+            this.stopCamera();
+            this.serialInput = '';
+            this.serialNumber = '';
+            this.laptopStudent = '';
+            this.sessionPhotos = [];
+            this.existingPhotos = [];
+            this.statusMsg = { text: '', type: '' };
+            this.step = 1;
+            this.$nextTick(() => {
+                const inp = document.getElementById('serial-input');
+                if (inp) inp.focus();
+            });
+        },
+
+        reset() {
+            this.goBackToScan();
+        },
+    };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{% if not serial_number %}
+<div class="lt-detail-placeholder">
+    <p>Zoek een laptop om foto's te bekijken.</p>
+</div>
+{% elif photos %}
+<div class="photo-gallery">
+    <div class="photo-gallery-header">
+        <strong>{{ photos|length }} foto('s)</strong> voor <strong>{{ serial_number }}</strong>
+    </div>
+    <div class="photo-gallery-grid">
+        {% for photo in photos %}
+        <div class="photo-gallery-item" data-photo-id="{{ photo.id }}">
+            <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy">
+            <div class="photo-gallery-meta">
+                {{ photo.created_at[:16].replace('T', ' ') if photo.created_at else '' }}
+            </div>
+            <button class="photo-gallery-delete"
+                    onclick="deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
+                    title="Verwijder">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="lt-detail-placeholder">
+    <p>Geen foto's voor <strong>{{ serial_number }}</strong>.</p>
+</div>
+{% endif %}
