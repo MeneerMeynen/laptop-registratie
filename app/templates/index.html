@@ -373,7 +373,7 @@
             <span class="modal-close-btn" @click="closeNewIssueModal()" title="Sluiten" role="button" tabindex="0" @keydown.enter="closeNewIssueModal()" @keydown.space.prevent="closeNewIssueModal()">✕</span>
             <h3>Nieuw probleem melden</h3>
             <div class="field">
-                <label for="new-issue-serial">Serienummer laptop</label>
+                <label for="new-issue-serial">Scan barcode ⏸⏸ Serienummer laptop</label>
                 <input
                     id="new-issue-serial"
                     type="text"
@@ -468,6 +468,14 @@
             <div class="modal-actions">
                 <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ── Photo lightbox ────────────────────────────────── -->
+    <div id="photo-lightbox" class="lightbox-overlay" onclick="closeLightbox()" style="display:none;">
+        <span class="lightbox-close" onclick="closeLightbox()" title="Sluiten">&times;</span>
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <img id="lightbox-img" src="" alt="Foto" draggable="false">
         </div>
     </div>
 
@@ -954,5 +962,112 @@ function deleteGalleryPhoto(photoId, serial) {
         }
     });
 }
+
+// ── Lightbox with zoom + pan ────────────────────────────────
+var _lb = { scale: 1, panX: 0, panY: 0, dragging: false, didDrag: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 };
+
+function _lbTransform() {
+    var img = document.getElementById('lightbox-img');
+    img.style.transform = 'scale(' + _lb.scale + ') translate(' + _lb.panX + 'px, ' + _lb.panY + 'px)';
+}
+
+function openLightbox(url) {
+    var overlay = document.getElementById('photo-lightbox');
+    var img = document.getElementById('lightbox-img');
+    img.src = url;
+    _lb.scale = 1; _lb.panX = 0; _lb.panY = 0; _lb.dragging = false;
+    _lbTransform();
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    if (_lb.dragging || _lb.didDrag) { _lb.didDrag = false; return; }
+    document.getElementById('photo-lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+(function() {
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            _lb.dragging = false;
+            document.getElementById('photo-lightbox').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Scroll-zoom
+    document.addEventListener('wheel', function(e) {
+        var overlay = document.getElementById('photo-lightbox');
+        if (overlay.style.display !== 'flex') return;
+        e.preventDefault();
+        _lb.scale += e.deltaY < 0 ? 0.2 : -0.2;
+        _lb.scale = Math.max(0.5, Math.min(_lb.scale, 8));
+        // Reset pan when zooming back to 1
+        if (_lb.scale <= 1) { _lb.panX = 0; _lb.panY = 0; }
+        _lbTransform();
+    }, { passive: false });
+
+    // Mouse drag to pan
+    document.addEventListener('mousedown', function(e) {
+        var overlay = document.getElementById('photo-lightbox');
+        if (overlay.style.display !== 'flex') return;
+        if (_lb.scale <= 1) return;
+        var content = document.querySelector('.lightbox-content');
+        if (!content.contains(e.target)) return;
+        e.preventDefault();
+        _lb.dragging = true;
+        _lb.didDrag = false;
+        _lb.startX = e.clientX;
+        _lb.startY = e.clientY;
+        _lb.startPanX = _lb.panX;
+        _lb.startPanY = _lb.panY;
+        document.getElementById('lightbox-img').style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!_lb.dragging) return;
+        e.preventDefault();
+        _lb.didDrag = true;
+        // Divide by scale so panning feels 1:1 with cursor movement
+        _lb.panX = _lb.startPanX + (e.clientX - _lb.startX) / _lb.scale;
+        _lb.panY = _lb.startPanY + (e.clientY - _lb.startY) / _lb.scale;
+        _lbTransform();
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (_lb.dragging) {
+            _lb.dragging = false;
+            document.getElementById('lightbox-img').style.cursor = '';
+        }
+    });
+
+    // Touch drag to pan (mobile)
+    document.addEventListener('touchstart', function(e) {
+        var overlay = document.getElementById('photo-lightbox');
+        if (overlay.style.display !== 'flex') return;
+        if (_lb.scale <= 1 || e.touches.length !== 1) return;
+        var content = document.querySelector('.lightbox-content');
+        if (!content.contains(e.target)) return;
+        _lb.dragging = true;
+        _lb.startX = e.touches[0].clientX;
+        _lb.startY = e.touches[0].clientY;
+        _lb.startPanX = _lb.panX;
+        _lb.startPanY = _lb.panY;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function(e) {
+        if (!_lb.dragging || e.touches.length !== 1) return;
+        e.preventDefault();
+        _lb.panX = _lb.startPanX + (e.touches[0].clientX - _lb.startX) / _lb.scale;
+        _lb.panY = _lb.startPanY + (e.touches[0].clientY - _lb.startY) / _lb.scale;
+        _lbTransform();
+    }, { passive: false });
+
+    document.addEventListener('touchend', function() {
+        _lb.dragging = false;
+    });
+})();
 </script>
 {% endblock %}

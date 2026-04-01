@@ -158,6 +158,10 @@ def laptop_tracker_detail(
     open_count = sum(1 for i in issues if i["status"] == "open")
     gesloten_count = sum(1 for i in issues if i["status"] == "gesloten")
     aangemeld_count = sum(1 for i in issues if i["status"] == "aangemeld")
+
+    from app.services.photo_service import list_photos
+    photo_count = len(list_photos(db, serial))
+
     return templates.TemplateResponse(
         request,
         "partials/laptop_tracker_detail.html",
@@ -170,6 +174,7 @@ def laptop_tracker_detail(
             "gesloten_count": gesloten_count,
             "aangemeld_count": aangemeld_count,
             "categories": VALID_CATEGORIES,
+            "photo_count": photo_count,
         },
     )
 

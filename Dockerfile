@@ -23,7 +23,7 @@ COPY alembic.ini .
 COPY tests ./tests/
 COPY entrypoint.sh ./entrypoint.sh
 
-RUN chown -R appuser:appuser /app && chmod +x entrypoint.sh
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app && chmod +x entrypoint.sh
 USER appuser
 
 CMD ["./entrypoint.sh"]

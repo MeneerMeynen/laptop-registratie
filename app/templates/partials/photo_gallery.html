@@ -10,12 +10,13 @@
     <div class="photo-gallery-grid">
         {% for photo in photos %}
         <div class="photo-gallery-item" data-photo-id="{{ photo.id }}">
-            <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy">
+            <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy"
+                 onclick="openLightbox('{{ photo.url }}')" style="cursor:zoom-in;">
             <div class="photo-gallery-meta">
                 {{ photo.created_at[:16].replace('T', ' ') if photo.created_at else '' }}
             </div>
             <button class="photo-gallery-delete"
-                    onclick="deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
+                    onclick="event.stopPropagation(); deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
                     title="Verwijder">&times;</button>
         </div>
         {% endfor %}
