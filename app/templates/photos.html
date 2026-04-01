@@ -396,9 +396,12 @@
         }
 
         .back-link:hover { text-decoration: underline; }
+
     </style>
 </head>
 <body>
+
+
 <div class="app" x-data="photoApp()" x-init="init()">
 
     <a href="/" class="back-link">&larr; Terug naar registratie</a>
@@ -454,18 +457,30 @@
 
                     <div class="or-divider">of</div>
 
-                    <!-- Native barcode scan (works on iOS without HTTPS) -->
-                    <input
-                        id="barcode-photo-input"
-                        class="file-capture-input"
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        @change="handleBarcodeScan($event)"
-                    >
-                    <label for="barcode-photo-input" class="btn btn-scan" style="cursor:pointer;">
-                        Scan barcode met camera
-                    </label>
+                    <!-- Live scanner via getUserMedia (HTTPS) -->
+                    <template x-if="_hasGetUserMedia">
+                        <button class="btn btn-scan" @click="startScanner()">
+                            Scan barcode met camera
+                        </button>
+                    </template>
+
+                    <!-- Fallback: native file input (HTTP / no camera permission) -->
+                    <template x-if="!_hasGetUserMedia">
+                        <div>
+                            <input
+                                id="barcode-photo-input"
+                                class="file-capture-input"
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                @change="handleBarcodeScan($event)"
+                            >
+                            <label for="barcode-photo-input" class="btn btn-scan" style="cursor:pointer;">
+                                Scan barcode met camera
+                            </label>
+                        </div>
+                    </template>
+
                     <div x-show="scanningBarcode" class="status info" style="margin-top:8px;">Barcode herkennen...</div>
                 </div>
             </template>
@@ -565,8 +580,25 @@
 
 </div>
 
-<!-- ZXing barcode scanner library -->
-<script src="https://unpkg.com/@AymenStudios/zxing-library@0.21.4/umd/index.min.js"></script>
+<!-- ZXing JS library (fallback for non-module environments) -->
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+
+<!-- zxing-wasm IIFE build: served locally, exposes ZXingWASM global (proper Data Matrix / WebAssembly) -->
+<script src="/static/zxing-wasm/index.js" onload="(function(){
+    try {
+        var api = window.ZXingWASM;
+        if (!api || !api.readBarcodesFromImageData) {
+            console.warn('[zxing-wasm] ZXingWASM global niet gevonden na laden');
+            return;
+        }
+        // Tell zxing-wasm where to find the .wasm file (served locally alongside the JS)
+        api.setZXingModuleOverrides({
+            locateFile: function(path) { return '/static/zxing-wasm/' + path; }
+        });
+        window.__zxingReadBarcodes = api.readBarcodesFromImageData.bind(api);
+        console.log('[zxing-wasm] geladen OK (IIFE, lokaal)');
+    } catch(e) { console.warn('[zxing-wasm] init fout:', e.message); }
+})()" onerror="console.warn('[zxing-wasm] script laden mislukt')"></script>
 
 <script>
 function photoApp() {
@@ -611,24 +643,165 @@ function photoApp() {
             if (!video) return;
 
             try {
-                this._scannerStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } }
-                });
+                // Step 1: request a temporary stream to trigger iOS camera permission prompt
+                // — iOS won't reveal device labels until permission is granted
+                let tempStream = null;
+                try {
+                    console.log('[camera] requesting temp stream for permission...');
+                    tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    console.log('[camera] permission granted');
+                } catch(e) {
+                    console.warn('[camera] temp stream failed:', e.message);
+                }
+
+                // Step 2: enumerate devices now that labels are available
+                let deviceId = null;
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const cams = devices.filter(d => d.kind === 'videoinput');
+                    console.log('[camera] cameras:', cams.map(c => c.label || '(no label)').join(' | '));
+                    // iOS labels vary by language:
+                    //   English: 'Back Camera' (1x), 'Back Dual Wide Camera', 'Back Ultra Wide Camera'
+                    //   Dutch:   'Camera aan achterzijde', 'Back Dual Wide Camera', 'Ultragroothoekcamera aan achterzijde'
+                    // Prefer the main 1x back camera; exclude wide/ultra/tele variants
+                    const isWide = c => /wide|ultra|tele|groot|breed/i.test(c.label);
+                    const main = cams.find(c => c.label === 'Back Camera')
+                               || cams.find(c => c.label === 'Camera aan achterzijde')
+                               || cams.find(c => /back camera/i.test(c.label) && !isWide(c))
+                               || cams.find(c => /^camera aan achterzijde/i.test(c.label) && !isWide(c))
+                               || cams.find(c => /achterzijde/i.test(c.label) && !isWide(c))
+                               || cams.find(c => /back/i.test(c.label) && !isWide(c));
+                    if (main) {
+                        deviceId = main.deviceId;
+                        console.log('[camera] selected:', main.label);
+                    } else {
+                        console.log('[camera] no suitable back camera found, using facingMode');
+                    }
+                } catch(e) {
+                    console.warn('[camera] enumerate failed:', e.message);
+                }
+
+                // Step 3: stop temp stream before starting the real one
+                if (tempStream) {
+                    tempStream.getTracks().forEach(t => t.stop());
+                }
+
+                // Step 4: start real stream with the chosen device
+                const constraints = deviceId
+                    ? { video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1440 } } }
+                    : { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } } };
+
+                console.log('[camera] starting stream:', JSON.stringify(constraints));
+                this._scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = this._scannerStream;
 
-                // Use ZXing for barcode detection
-                if (typeof ZXing !== 'undefined') {
-                    this._codeReader = new ZXing.BrowserMultiFormatReader();
-                    this._scannerActive = true;
+                const track = this._scannerStream.getVideoTracks()[0];
+                const settings = track?.getSettings();
+                console.log('[camera] active:', track?.label, '| w:', settings?.width, 'h:', settings?.height);
+
+                // Step 5: start decode loop — priority: BarcodeDetector → zxing-wasm → ZXing JS
+                this._scannerActive = true;
+                let frameCount = 0;
+
+                if ('BarcodeDetector' in window) {
+                    // Native browser API (Chrome, Android, desktop)
+                    console.log('[scanner] decoder: BarcodeDetector (native)');
+                    const supported = await BarcodeDetector.getSupportedFormats().catch(() => []);
+                    const formats = supported.length
+                        ? supported.filter(f => ['data_matrix','qr_code','code_128','code_39','ean_13'].includes(f))
+                        : ['data_matrix', 'qr_code', 'code_128', 'code_39'];
+                    console.log('[BarcodeDetector] formats:', formats.join(', '));
+                    const detector = new BarcodeDetector({ formats });
+                    const scan = async () => {
+                        if (!this._scannerActive) return;
+                        try {
+                            const results = await detector.detect(video);
+                            frameCount++;
+                            if (frameCount % 30 === 0) console.log(`[BarcodeDetector] frame=${frameCount}`);
+                            if (results.length > 0) {
+                                this._scannerActive = false;
+                                const val = results[0].rawValue;
+                                console.log('[BarcodeDetector] ✅', val, '| format:', results[0].format);
+                                this.serialInput = val;
+                                this.confirmSerial();
+                                return;
+                            }
+                        } catch(e) {
+                            if (frameCount % 30 === 0) console.warn('[BarcodeDetector] err:', e.message);
+                        }
+                        requestAnimationFrame(scan);
+                    };
+                    requestAnimationFrame(scan);
+
+                } else if (window.__zxingReadBarcodes) {
+                    // zxing-wasm: WebAssembly port with proper Data Matrix support (iOS Safari)
+                    console.log('[scanner] decoder: zxing-wasm (WebAssembly)');
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const scan = async () => {
+                        if (!this._scannerActive) return;
+                        frameCount++;
+                        try {
+                            if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+                                if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                                    canvas.width = video.videoWidth;
+                                    canvas.height = video.videoHeight;
+                                }
+                                ctx.drawImage(video, 0, 0);
+                                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                const results = await window.__zxingReadBarcodes(imageData, {
+                                    formats: ['DataMatrix', 'QRCode', 'Code128', 'Code39', 'EAN-13'],
+                                    tryHarder: true,
+                                });
+                                if (frameCount % 30 === 0) console.log(`[zxing-wasm] frame=${frameCount}, found=${results.length}`);
+                                if (results.length > 0) {
+                                    this._scannerActive = false;
+                                    const val = results[0].text;
+                                    console.log('[zxing-wasm] ✅', val, '| format:', results[0].format);
+                                    this.serialInput = val;
+                                    this.confirmSerial();
+                                    return;
+                                }
+                            }
+                        } catch(e) {
+                            if (frameCount % 30 === 0) console.warn('[zxing-wasm] err:', e.message);
+                        }
+                        requestAnimationFrame(scan);
+                    };
+                    requestAnimationFrame(scan);
+
+                } else if (typeof ZXing !== 'undefined') {
+                    // Last resort: ZXing JS (pure JS, limited Data Matrix support)
+                    console.warn('[scanner] decoder: ZXing JS (beperkte Data Matrix ondersteuning)');
+                    const hints = new Map();
+                    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                        ZXing.BarcodeFormat.DATA_MATRIX,
+                        ZXing.BarcodeFormat.QR_CODE,
+                        ZXing.BarcodeFormat.CODE_128,
+                        ZXing.BarcodeFormat.CODE_39,
+                        ZXing.BarcodeFormat.EAN_13,
+                    ]);
+                    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                    this._codeReader = new ZXing.BrowserMultiFormatReader(hints);
                     this._codeReader.decodeFromVideoDevice(null, 'scanner-video', (result, err) => {
+                        frameCount++;
+                        if (frameCount % 30 === 0) console.log(`[ZXing] frame=${frameCount}, err=${err?.name || 'none'}`);
                         if (result && this._scannerActive) {
                             this._scannerActive = false;
+                            console.log('[ZXing] ✅', result.getText(), '| format:', result.getBarcodeFormat());
                             this.serialInput = result.getText();
                             this.confirmSerial();
                         }
                     });
+
+                } else {
+                    console.warn('[scanner] geen decoder beschikbaar');
+                    this.statusMsg = { text: 'Decoder niet beschikbaar. Voer serienummer handmatig in.', type: 'error' };
+                    this.scanMode = 'manual';
                 }
+
             } catch (e) {
+                console.error('[camera] fout:', e.name, e.message);
                 this.statusMsg = { text: 'Camera niet beschikbaar. Voer serienummer handmatig in.', type: 'error' };
                 this.scanMode = 'manual';
             }
