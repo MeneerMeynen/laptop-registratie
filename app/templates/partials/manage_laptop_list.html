@@ -1,0 +1,48 @@
+{% for laptop in laptops %}
+<tr class="lt-manage-row" data-id="{{ laptop.id }}">
+  <td class="lt-manage-serial">
+    <span class="lt-manage-display">
+      {% if laptop.eigen_laptop %}
+        <em style="color:var(--muted)">eigen laptop</em>
+      {% else %}
+        {{ laptop.serial_number or '—' }}
+      {% endif %}
+    </span>
+    <input class="input lt-manage-edit-serial" type="text"
+           value="{{ laptop.serial_number or '' }}"
+           style="display:none;" placeholder="Serienummer">
+  </td>
+  <td class="lt-manage-student">
+    <span class="lt-manage-display">
+      {% if laptop.naam %}{{ laptop.voornaam }} {{ laptop.naam }}{% else %}—{% endif %}
+      <small style="color:var(--muted)"> {{ laptop.stamnummer }}</small>
+    </span>
+    <input class="input lt-manage-edit-stamnummer" type="text"
+           value="{{ laptop.stamnummer }}"
+           style="display:none;" placeholder="Stamnummer">
+  </td>
+  <td>{{ laptop.klas or '—' }}</td>
+  <td>
+    <span class="badge {% if laptop.is_active %}badge-active{% else %}badge-old{% endif %}">
+      {{ 'Actief' if laptop.is_active else 'Inactief' }}
+    </span>
+  </td>
+  <td style="color:var(--muted); font-size:12px;">
+    {{ laptop.linked_at.strftime('%d/%m/%Y') if laptop.linked_at else '—' }}
+  </td>
+  <td class="lt-manage-actions">
+    <button class="btn sm lt-manage-btn-edit" type="button"
+            onclick="ltManageEdit(this)">Bewerk</button>
+    <button class="btn sm lt-manage-btn-save" type="button"
+            style="display:none;"
+            onclick="ltManageSave(this, {{ laptop.id }})">Opslaan</button>
+    <button class="btn sm lt-manage-btn-cancel" type="button"
+            style="display:none;"
+            onclick="ltManageCancel(this)">Annuleer</button>
+    <button class="btn sm danger lt-manage-btn-delete" type="button"
+            onclick="ltManageDelete(this, {{ laptop.id }}, '{{ laptop.serial_number or 'eigen laptop' }}')">✕</button>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="6" style="padding:16px; color:var(--muted); text-align:center;">Geen laptops gevonden.</td></tr>
+{% endfor %}

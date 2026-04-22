@@ -1,4 +1,6 @@
+import csv
 from datetime import datetime
+from typing import TextIO
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -175,6 +177,184 @@ def get_assignment_history(session: Session, serial_number: str) -> list[dict]:
         }
         for row in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Laptop management (CRUD)
+# ---------------------------------------------------------------------------
+
+
+class LaptopDeleteError(ValueError):
+    pass
+
+
+def get_all_laptops(
+    session: Session,
+    q: str | None = None,
+    active: bool | None = None,
+) -> list[dict]:
+    """Return all laptop records with joined student info, optionally filtered."""
+    stmt = (
+        select(Laptop, Student.naam, Student.voornaam, Student.klas)
+        .join(Student, Student.stamnummer == Laptop.stamnummer)
+        .order_by(Laptop.linked_at.desc())
+    )
+    rows = session.execute(stmt).all()
+    results = []
+    for row in rows:
+        if active is not None and row.Laptop.is_active != active:
+            continue
+        serial = row.Laptop.serial_number or ""
+        if q:
+            q_lower = q.lower()
+            searchable = f"{serial} {row.Laptop.stamnummer} {row.naam or ''} {row.voornaam or ''} {row.klas or ''}".lower()
+            if q_lower not in searchable:
+                continue
+        results.append({
+            "id": row.Laptop.id,
+            "serial_number": serial,
+            "stamnummer": row.Laptop.stamnummer,
+            "eigen_laptop": row.Laptop.eigen_laptop,
+            "linked_at": row.Laptop.linked_at,
+            "unlinked_at": row.Laptop.unlinked_at,
+            "is_active": row.Laptop.is_active,
+            "naam": row.naam,
+            "voornaam": row.voornaam,
+            "klas": row.klas,
+        })
+    return results
+
+
+def create_laptop(session: Session, serial_number: str, stamnummer: str) -> Laptop:
+    """Create a new laptop record linked to an existing student."""
+    normalized_serial = serial_number.strip()
+    normalized_stamnummer = stamnummer.strip()
+
+    student = session.get(Student, normalized_stamnummer)
+    if student is None:
+        raise StudentNotFoundError(f"Student {normalized_stamnummer} bestaat niet.")
+
+    existing = session.scalars(
+        select(Laptop).where(
+            Laptop.serial_number == normalized_serial,
+            Laptop.unlinked_at.is_(None),
+        )
+    ).first()
+    if existing is not None:
+        raise LaptopAlreadyLinkedError(
+            f"Serienummer {normalized_serial} is al actief gekoppeld."
+        )
+
+    laptop = Laptop(
+        serial_number=normalized_serial,
+        stamnummer=normalized_stamnummer,
+        eigen_laptop=False,
+        linked_at=datetime.now(),
+    )
+    session.add(laptop)
+    session.commit()
+    session.refresh(laptop)
+    return laptop
+
+
+def update_laptop(
+    session: Session,
+    laptop_id: int,
+    serial_number: str | None = None,
+    stamnummer: str | None = None,
+) -> Laptop:
+    """Update serial_number and/or stamnummer of a laptop record."""
+    laptop = session.get(Laptop, laptop_id)
+    if laptop is None:
+        raise LaptopNotFoundError("Laptop niet gevonden.")
+
+    if stamnummer is not None:
+        normalized = stamnummer.strip()
+        if session.get(Student, normalized) is None:
+            raise StudentNotFoundError(f"Student {normalized} bestaat niet.")
+        laptop.stamnummer = normalized
+
+    if serial_number is not None:
+        normalized = serial_number.strip()
+        conflict = session.scalars(
+            select(Laptop).where(
+                Laptop.serial_number == normalized,
+                Laptop.unlinked_at.is_(None),
+                Laptop.id != laptop_id,
+            )
+        ).first()
+        if conflict is not None:
+            raise LaptopAlreadyLinkedError(
+                f"Serienummer {normalized} is al actief gekoppeld aan een andere leerling."
+            )
+        laptop.serial_number = normalized
+
+    session.commit()
+    session.refresh(laptop)
+    return laptop
+
+
+def delete_laptop_permanently(session: Session, laptop_id: int) -> None:
+    """Hard-delete a laptop record from the database."""
+    laptop = session.get(Laptop, laptop_id)
+    if laptop is None:
+        raise LaptopNotFoundError("Laptop niet gevonden.")
+    session.delete(laptop)
+    session.commit()
+
+
+def import_laptops_csv(session: Session, stream: TextIO) -> dict:
+    """Bulk-import laptops from a CSV stream (serial_number,stamnummer).
+
+    For each row:
+    - If the serial is already actively linked to the same student → skip (counted as updated).
+    - If the serial is new or was previously unlinked → create a new record.
+    - Errors (unknown student, missing fields) are collected without stopping the import.
+
+    Returns a dict with keys: created, updated, errors.
+    """
+    created = 0
+    updated = 0
+    errors: list[str] = []
+
+    reader = csv.DictReader(stream)
+    for i, row in enumerate(reader, start=2):
+        serial = (row.get("serial_number") or row.get("Serienummer") or "").strip()
+        stamnummer = (row.get("stamnummer") or row.get("Stamnummer") or "").strip()
+
+        if not serial or not stamnummer:
+            errors.append(f"Rij {i}: serial_number en stamnummer zijn verplicht.")
+            continue
+
+        student = session.get(Student, stamnummer)
+        if student is None:
+            errors.append(f"Rij {i}: student {stamnummer} niet gevonden.")
+            continue
+
+        active = session.scalars(
+            select(Laptop).where(
+                Laptop.serial_number == serial,
+                Laptop.unlinked_at.is_(None),
+            )
+        ).first()
+
+        if active is not None and active.stamnummer == stamnummer:
+            updated += 1
+            continue
+
+        if active is not None:
+            active.unlinked_at = datetime.now()
+
+        session.add(Laptop(
+            serial_number=serial,
+            stamnummer=stamnummer,
+            eigen_laptop=False,
+            linked_at=datetime.now(),
+        ))
+        created += 1
+
+    session.commit()
+    return {"created": created, "updated": updated, "errors": errors}
 
 
 # ---------------------------------------------------------------------------

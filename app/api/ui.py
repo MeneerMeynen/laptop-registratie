@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services.laptop_service import list_students
+from app.services.laptop_service import get_all_laptops, import_laptops_csv, list_students
 from app.services.student_import import import_students_from_stream
 
 BASE_DIR = Path(__file__).parent.parent
@@ -91,6 +91,50 @@ def photos_gallery_partial(request: Request, serial: str = "", db: Session = Dep
         request,
         "partials/photo_gallery.html",
         {"photos": photos, "serial_number": serial},
+    )
+
+
+@router.get("/ui/laptops/manage", response_class=HTMLResponse)
+def laptops_manage_partial(
+    request: Request,
+    q: str = "",
+    active: str = "all",
+    db: Session = Depends(get_db),
+):
+    """Instellingen-tab laptop list (HTMX refresh target)."""
+    active_filter: bool | None = None
+    if active == "actief":
+        active_filter = True
+    elif active == "inactief":
+        active_filter = False
+
+    laptops = get_all_laptops(db, q=q or None, active=active_filter)
+    students = list_students(db)
+    return templates.TemplateResponse(
+        request,
+        "partials/manage_laptop_list.html",
+        {"laptops": laptops, "students": students, "q": q, "active": active},
+    )
+
+
+@router.post("/ui/laptops/import", response_class=HTMLResponse)
+async def import_laptops_ui(
+    request: Request,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+):
+    if not file.filename or not file.filename.endswith(".csv"):
+        return HTMLResponse(
+            '<span class="status error">Alleen CSV-bestanden zijn toegestaan.</span>',
+            status_code=400,
+        )
+    content = (await file.read()).decode("utf-8-sig")
+    result = import_laptops_csv(db, io.StringIO(content))
+    errors_html = ""
+    if result["errors"]:
+        errors_html = f' <span style="color:var(--red)">({len(result["errors"])} fout(en))</span>'
+    return HTMLResponse(
+        f'<span class="status success">✓ {result["created"]} aangemaakt, {result["updated"]} ongewijzigd.{errors_html}</span>'
     )
 
 

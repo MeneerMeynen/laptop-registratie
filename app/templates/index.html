@@ -25,9 +25,9 @@
               :aria-selected="activeTab === 'registreer'"
               @click="setTab('registreer')">Registreer</button>
       <button type="button" role="tab"
-              :class="{ on: activeTab === 'beheer' }"
-              :aria-selected="activeTab === 'beheer'"
-              @click="setTab('beheer')">Studenten</button>
+              :class="{ on: activeTab === 'instellingen' }"
+              :aria-selected="activeTab === 'instellingen'"
+              @click="setTab('instellingen')">Instellingen</button>
       <button type="button" role="tab"
               :class="{ on: activeTab === 'fotos' }"
               :aria-selected="activeTab === 'fotos'"
@@ -348,12 +348,27 @@
 </section>
 
 <!-- ══════════════════ SCREEN 03 · STUDENTEN ══════════════════ -->
-<section x-show="activeTab === 'beheer'" x-cloak>
+<section x-show="activeTab === 'instellingen'" x-cloak>
   <div class="stu-layout">
 
     <!-- Sidebar -->
     <aside class="stu-side">
       <div class="stu-side-section">
+        <div class="h">Sectie</div>
+        <div class="stu-side-nav">
+          <div class="stu-side-item" :class="instellingenSection === 'studenten' ? 'on' : ''"
+               @click="instellingenSection = 'studenten'">
+            <span>Studenten</span>
+          </div>
+          <div class="stu-side-item" :class="instellingenSection === 'laptops' ? 'on' : ''"
+               @click="instellingenSection = 'laptops'; refreshLaptopManage()">
+            <span>Laptops</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student filters, only visible in studenten section -->
+      <div x-show="instellingenSection === 'studenten'" class="stu-side-section" style="margin-top:8px;">
         <div class="h">Overzicht</div>
         <div class="stu-side-nav">
           <div class="stu-side-item" :class="stuSideFilter === 'all' ? 'on' : ''"
@@ -388,62 +403,148 @@
     <!-- Main content -->
     <main class="stu-main">
 
-      <div class="stu-top">
-        <div>
-          <h1>Beheer studenten</h1>
-          <div class="sub">Upload CSV · zoek · filter · verwijder</div>
+      <!-- ── Studenten sectie ── -->
+      <div x-show="instellingenSection === 'studenten'">
+
+        <div class="stu-top">
+          <div>
+            <h1>Beheer studenten</h1>
+            <div class="sub">Upload CSV · zoek · filter · verwijder</div>
+          </div>
+          <div class="stu-top-actions">
+            <form hx-post="/ui/students/import"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-result"
+                  hx-swap="innerHTML"
+                  @htmx:after-request="onImportComplete"
+                  style="margin:0;">
+              <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
+                ↑ CSV import
+              </label>
+              <input id="student-import-file" name="file" type="file"
+                     accept=".csv,text/csv" required style="display:none;"
+                     onchange="this.closest('form').requestSubmit()">
+            </form>
+            <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
+          </div>
         </div>
-        <div class="stu-top-actions">
-          <!-- CSV import -->
-          <form hx-post="/ui/students/import"
-                hx-encoding="multipart/form-data"
-                hx-target="#import-result"
-                hx-swap="innerHTML"
-                @htmx:after-request="onImportComplete"
-                style="margin:0;">
-            <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
-              ↑ CSV import
-            </label>
-            <input id="student-import-file" name="file" type="file"
-                   accept=".csv,text/csv" required style="display:none;"
-                   onchange="this.closest('form').requestSubmit()">
-          </form>
-          <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
+
+        <div class="stu-search">
+          <input class="input" type="text"
+                 placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
+                 x-model="manageSearch" @input="filterManage">
+          <button type="button" class="btn sm"
+                  :class="showUitgeschreven ? 'accent' : ''"
+                  @click="toggleUitgeschreven"
+                  x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
+          <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
         </div>
-      </div>
 
-      <!-- Search + toolbar -->
-      <div class="stu-search">
-        <input class="input" type="text"
-               placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
-               x-model="manageSearch" @input="filterManage">
-        <button type="button" class="btn sm"
-                :class="showUitgeschreven ? 'accent' : ''"
-                @click="toggleUitgeschreven"
-                x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
-        <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
-      </div>
-
-      <!-- Manage list (HTMX target) -->
-      <div id="manage-student-list" class="manage-list">
-        {% include "partials/manage_student_list.html" %}
-      </div>
-
-      <!-- Bulk actions -->
-      <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
-        <button type="button" class="btn sm danger" @click="deleteSelected">
-          Verwijder geselecteerde
-        </button>
-        <div class="status"
-             :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
-             x-text="manageStatus.text" aria-live="polite"
-             style="margin:0; font-size:12px; flex:1;">
+        <div id="manage-student-list" class="manage-list">
+          {% include "partials/manage_student_list.html" %}
         </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn sm danger" @click="deleteSelected">
+            Verwijder geselecteerde
+          </button>
+          <div class="status"
+               :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
+               x-text="manageStatus.text" aria-live="polite"
+               style="margin:0; font-size:12px; flex:1;"></div>
+        </div>
+
+        <p class="import-help" style="margin-top: 14px;">
+          Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
+        </p>
+
       </div>
 
-      <p class="import-help" style="margin-top: 14px;">
-        Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
-      </p>
+      <!-- ── Laptops sectie ── -->
+      <div x-show="instellingenSection === 'laptops'">
+
+        <div class="stu-top">
+          <div>
+            <h1>Beheer laptops</h1>
+            <div class="sub">Aanmaken · CSV import · bewerken · verwijderen</div>
+          </div>
+          <div class="stu-top-actions">
+            <button type="button" class="btn sm"
+                    @click="showNewLaptopForm = !showNewLaptopForm"
+                    :class="showNewLaptopForm ? 'accent' : ''">+ Nieuw</button>
+            <form hx-post="/ui/laptops/import"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#laptop-import-result"
+                  hx-swap="innerHTML"
+                  @htmx:after-request="onLaptopImportComplete"
+                  style="margin:0;">
+              <label for="laptop-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
+                ↑ CSV import
+              </label>
+              <input id="laptop-import-file" name="file" type="file"
+                     accept=".csv,text/csv" required style="display:none;"
+                     onchange="this.closest('form').requestSubmit()">
+            </form>
+            <div id="laptop-import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <!-- Nieuw laptop formulier -->
+        <div x-show="showNewLaptopForm"
+             style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:16px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+          <div style="flex:1; min-width:160px;">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
+            <input class="input" type="text" placeholder="bijv. ABC123" x-model="newLaptopSerial" @keydown.enter="createLaptop()">
+          </div>
+          <div style="flex:1; min-width:160px;">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer</label>
+            <input class="input" type="text" placeholder="bijv. 12345" x-model="newLaptopStamnummer" @keydown.enter="createLaptop()">
+          </div>
+          <button type="button" class="btn sm accent" @click="createLaptop()">Toevoegen</button>
+          <div class="status"
+               :class="{ error: newLaptopStatus.type === 'error', success: newLaptopStatus.type === 'success' }"
+               x-text="newLaptopStatus.text" style="width:100%; margin:4px 0 0; font-size:12px;"></div>
+        </div>
+
+        <!-- Zoek + filter -->
+        <div class="stu-search">
+          <input class="input" type="text"
+                 placeholder="🔍 Zoek op serienummer, stamnummer of naam…"
+                 x-model="laptopManageSearch"
+                 @input="refreshLaptopManage()">
+          <select class="input" x-model="laptopManageFilter" @change="refreshLaptopManage()"
+                  style="width:auto; padding:0 10px;">
+            <option value="all">Alle</option>
+            <option value="actief">Actief</option>
+            <option value="inactief">Inactief</option>
+          </select>
+        </div>
+
+        <!-- Laptop tabel -->
+        <div style="overflow-x:auto; margin-top:8px;">
+          <table class="lt-manage-table">
+            <thead>
+              <tr>
+                <th>Serienummer</th>
+                <th>Leerling</th>
+                <th>Klas</th>
+                <th>Status</th>
+                <th>Gekoppeld op</th>
+                <th style="width:200px;"></th>
+              </tr>
+            </thead>
+            <tbody id="manage-laptop-list"
+                   hx-get="/ui/laptops/manage"
+                   hx-trigger="load">
+            </tbody>
+          </table>
+        </div>
+
+        <p class="import-help" style="margin-top:14px;">
+          CSV-formaat: <code>serial_number,stamnummer</code> — één laptop per rij, stamnummer verplicht.
+        </p>
+
+      </div>
 
     </main>
   </div>
@@ -640,6 +741,14 @@ function laptopApp() {
     // Studenten sidebar
     stuSideFilter:      'all',
     stuCounts:          { all: null, met: null, zonder: null, eigen: null, oud: null },
+    // Instellingen
+    instellingenSection: 'studenten',
+    laptopManageSearch: '',
+    laptopManageFilter: 'all',
+    showNewLaptopForm:  false,
+    newLaptopSerial:    '',
+    newLaptopStamnummer:'',
+    newLaptopStatus:    { text: '', type: '' },
 
     // ── Lifecycle ──────────────────────────────────────────
     toggleTheme() {
@@ -663,7 +772,7 @@ function laptopApp() {
 
       this.$watch('activeTab', (tab) => {
         if (tab === 'laptops') this.refreshLaptopSidebar();
-        if (tab === 'beheer') this.$nextTick(() => this._computeStuCounts());
+        if (tab === 'instellingen') this.$nextTick(() => this._computeStuCounts());
       });
       if (this.activeTab === 'laptops') this.refreshLaptopSidebar();
 
@@ -1150,7 +1259,100 @@ function laptopApp() {
         target: '#photo-gallery', swap: 'innerHTML',
       });
     },
+
+    // ── Laptop management (Instellingen) ───────────────────
+    refreshLaptopManage() {
+      const params = new URLSearchParams({ active: this.laptopManageFilter });
+      if (this.laptopManageSearch.trim()) params.set('q', this.laptopManageSearch.trim());
+      htmx.ajax('GET', `/ui/laptops/manage?${params}`, {
+        target: '#manage-laptop-list', swap: 'innerHTML',
+      });
+    },
+
+    onLaptopImportComplete(event) {
+      if (event.detail.successful) this.refreshLaptopManage();
+    },
+
+    async createLaptop() {
+      const serial = this.newLaptopSerial.trim();
+      const stamnummer = this.newLaptopStamnummer.trim();
+      if (!serial || !stamnummer) {
+        this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
+      }
+      this.newLaptopStatus = { text: 'Bezig…', type: '' };
+      const res = await fetch('/api/laptops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial_number: serial, stamnummer }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        this.newLaptopStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
+      }
+      this.newLaptopStatus = { text: `✓ Laptop "${serial}" aangemaakt.`, type: 'success' };
+      this.newLaptopSerial = '';
+      this.newLaptopStamnummer = '';
+      this.refreshLaptopManage();
+    },
   };
+}
+
+// ── Laptop manage table: inline edit/delete ───────────────────
+function ltManageEdit(btn) {
+  const row = btn.closest('tr');
+  row.querySelectorAll('.lt-manage-display').forEach(el => el.style.display = 'none');
+  row.querySelectorAll('.lt-manage-edit-serial, .lt-manage-edit-stamnummer').forEach(el => el.style.display = '');
+  row.querySelector('.lt-manage-btn-edit').style.display = 'none';
+  row.querySelector('.lt-manage-btn-delete').style.display = 'none';
+  row.querySelector('.lt-manage-btn-save').style.display = '';
+  row.querySelector('.lt-manage-btn-cancel').style.display = '';
+}
+
+function ltManageCancel(btn) {
+  const row = btn.closest('tr');
+  row.querySelectorAll('.lt-manage-display').forEach(el => el.style.display = '');
+  row.querySelectorAll('.lt-manage-edit-serial, .lt-manage-edit-stamnummer').forEach(el => el.style.display = 'none');
+  row.querySelector('.lt-manage-btn-edit').style.display = '';
+  row.querySelector('.lt-manage-btn-delete').style.display = '';
+  row.querySelector('.lt-manage-btn-save').style.display = 'none';
+  row.querySelector('.lt-manage-btn-cancel').style.display = 'none';
+}
+
+async function ltManageSave(btn, laptopId) {
+  const row = btn.closest('tr');
+  const serial = row.querySelector('.lt-manage-edit-serial').value.trim();
+  const stamnummer = row.querySelector('.lt-manage-edit-stamnummer').value.trim();
+  btn.textContent = '…';
+  btn.disabled = true;
+  const res = await fetch(`/api/laptops/${laptopId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serial_number: serial || null, stamnummer: stamnummer || null }),
+  });
+  btn.textContent = 'Opslaan';
+  btn.disabled = false;
+  if (!res.ok) {
+    const data = await res.json();
+    alert(data.detail || 'Opslaan mislukt.');
+    return;
+  }
+  // Refresh the full table via the Alpine component
+  Alpine.store && Alpine.store('app')?.refreshLaptopManage?.();
+  document.querySelector('[x-data]')?.__x?.$data?.refreshLaptopManage?.();
+  htmx.ajax('GET', '/ui/laptops/manage', { target: '#manage-laptop-list', swap: 'innerHTML' });
+}
+
+async function ltManageDelete(btn, laptopId, serial) {
+  if (!confirm(`Laptop "${serial}" permanent verwijderen?`)) return;
+  btn.disabled = true;
+  const res = await fetch(`/api/laptops/${laptopId}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 204) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.detail || 'Verwijderen mislukt.');
+    btn.disabled = false;
+    return;
+  }
+  htmx.ajax('GET', '/ui/laptops/manage', { target: '#manage-laptop-list', swap: 'innerHTML' });
 }
 
 function deleteGalleryPhoto(photoId, serial) {

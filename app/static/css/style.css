@@ -899,8 +899,26 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   padding: 2px 8px; border-radius: 99px;
   font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
 }
-.badge-own  { background: var(--accent-wash); color: var(--accent); border: 1px solid rgba(61,198,178,.25); }
-.badge-old  { background: var(--amber-wash);  color: var(--amber);  border: 1px solid rgba(219,163,76,.25); margin-left: 6px; }
+.badge-own    { background: var(--accent-wash); color: var(--accent); border: 1px solid rgba(61,198,178,.25); }
+.badge-old    { background: var(--amber-wash);  color: var(--amber);  border: 1px solid rgba(219,163,76,.25); margin-left: 6px; }
+.badge-active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border: 1px solid rgba(61,198,178,.25); }
+
+/* Laptop manage table */
+.lt-manage-table {
+  width: 100%; border-collapse: collapse; font-size: .85rem;
+}
+.lt-manage-table th {
+  text-align: left; padding: 8px 12px; font-size: .72rem; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.lt-manage-table td {
+  padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle;
+}
+.lt-manage-table tr:last-child td { border-bottom: none; }
+.lt-manage-table tr:hover td { background: var(--surface2); }
+.lt-manage-table .input { padding: 4px 8px; font-size: .82rem; width: 100%; }
+.lt-manage-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 
 .filter-summary  { margin: 8px 0 0; color: var(--muted-light); font-size: .78rem; }
 .selected-student { margin-top: 8px; min-height: 20px; color: var(--muted); font-weight: 500; font-size: .85rem; }
