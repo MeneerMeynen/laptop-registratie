@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Barcodes</title>
+  <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+    }
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 60px;
+    }
+    .barcode-item {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 16px;
+    }
+    canvas {
+      display: block;
+    }
+    .label {
+      font-size: 14px;
+      font-weight: bold;
+    }
+    @media print {
+      body { padding: 10px; }
+      .grid { gap: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Test Data Matrix Barcodes</h2>
+  <div class="grid" id="barcodes"></div>
+
+  <script>
+    const codes = ['11111SL3', '11112SL3', '11113SL3', '11114SL3', '11115SL3'];
+    const container = document.getElementById('barcodes');
+
+    codes.forEach(code => {
+      const item = document.createElement('div');
+      item.className = 'barcode-item';
+
+      const canvas = document.createElement('canvas');
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = code;
+
+      item.appendChild(canvas);
+      item.appendChild(label);
+      container.appendChild(item);
+
+      try {
+        bwipjs.toCanvas(canvas, {
+          bcid: 'datamatrix',
+          text: code,
+          scale: 4,
+          padding: 2,
+        });
+      } catch (e) {
+        canvas.replaceWith(Object.assign(document.createElement('div'), {
+          textContent: 'Error: ' + e.message,
+          style: 'color:red'
+        }));
+      }
+    });
+  </script>
+</body>
+</html>

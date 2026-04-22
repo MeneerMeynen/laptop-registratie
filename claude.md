@@ -1,1 +1,134 @@
-Project: Laptop Registratie AI Stack: - FastAPI - SQLAlchemy ORM - MariaDB als doel-database - HTML/CSS/JS UI geserveerd vanuit FastAPI - Pytest tests Huidige functionaliteit: - Studenten worden uit CSV geïmporteerd in tabel `students` - Laptops worden gekoppeld in tabel `laptops` - UI om leerling te selecteren, barcode/serienummer te scannen en te linken - Ondersteuning voor navigatiebarcodes: - `1UP` - `1DOWN` - `eigen laptop` - `eigen laptop` zet boolean `eigen_laptop = true` - In de UI blijft na koppelen de focus op het scanveld - Na koppelen wordt automatisch de volgende leerling geselecteerd Belangrijke database-uitbreidingen: - `students.last_import` - `laptops.eigen_laptop` Importfunctionaliteit: - Tweede tab heet `Beheer studenten` - CSV-upload via UI - Import doet upsert op `students` - Bestaande studenten worden geüpdatet - Nieuwe studenten worden toegevoegd - `last_import` wordt gezet bij insert/update - Studenten met oudere `last_import` krijgen badge `Uitgeschreven` Beheer studenten tab: - Zoekbalk aanwezig - Zoekt op: - instellingsnummer - naam - voornaam - klas - klascode - klasnummer - gebruikersnaam - pointer - stamnummer - Filterknop `Toon uitgeschreven` - Multi-select lijst - Knop `Selecteer alle` - Knop om geselecteerde leerlingen te verwijderen - Na verwijderen blijft de UI op tab `Beheer studenten` - Zoekopdracht en filter blijven behouden na refresh Belangrijke API-routes: - `GET /` - `GET /api/students` - `POST /api/laptops/link` - `POST /api/students/import` - `DELETE /api/students` Belangrijke bestanden: - `app/main.py` - `app/api/routes.py` - `app/models/student.py` - `app/models/laptop.py` - `app/services/laptop_service.py` - `app/services/student_import.py` - `app/services/student_service.py` - `app/schema_upgrade.py` - `app/templates/index.html` Teststatus: - Pytest groen - Laatste bekende status: alle tests slagen Aandachtspunten: - UI-logica zit grotendeels in `app/templates/index.html` - Voor bestaande databases worden schema-upgrades automatisch uitgevoerd - `eigen laptop` wordt intern technisch uniek afgehandeld, maar naar de UI toe als lege serial + boolean `eigen_laptop=true` Docker-layout: - `Dockerfile`, `compose.yaml` en `entrypoint.sh` staan allemaal in de projectroot - Gebruik altijd `docker compose up --build` vanuit de root, nooit `docker compose -f docker/compose.yaml` - De `docker/` map is leeg en mag verwijderd worden als er niets in staat
+# Project: Laptop Registratie
+
+## Tech stack
+- FastAPI + SQLAlchemy ORM
+- MariaDB (productie), SQLite (tests)
+- HTML/CSS/JS UI geserveerd vanuit FastAPI (templates via Jinja2)
+- Alpine.js voor reactieve UI
+- Pytest tests
+- Alembic voor databasemigraties
+
+## UI-tabs
+1. **Registreer** — leerling selecteren, barcode/serienummer scannen en koppelen
+2. **Beheer studenten** — CSV-import, zoeken, filteren, verwijderen
+3. **Laptops** — laptop issue tracker met tijdlijn per laptop
+4. **Foto's** — foto's per laptop uploaden en bekijken
+
+## Kernfunctionaliteit
+
+### Leerlingkoppeling (tab: Registreer)
+- Studenten worden uit CSV geïmporteerd in tabel `students`
+- Laptops worden gekoppeld in tabel `laptops`
+- Na koppelen blijft focus op het scanveld; volgende leerling wordt automatisch geselecteerd
+- Navigatiebarcodes: `1UP`, `1DOWN`
+- Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial, uniek per student)
+
+### Studentenbeheer (tab: Beheer studenten)
+- CSV-upload via UI, upsert op `students`
+- `students.last_import` wordt gezet bij elke import; studenten met oudere datum krijgen badge `Uitgeschreven`
+- Zoekbalk zoekt op: instellingsnummer, naam, voornaam, klas, klascode, klasnummer, gebruikersnaam, pointer, stamnummer
+- Filterknop `Toon uitgeschreven`, multi-select lijst, `Selecteer alle`, verwijderknop
+- Na verwijderen blijft de UI op tab `Beheer studenten`; zoekopdracht en filter blijven behouden
+
+### Laptop issue tracker (tab: Laptops)
+- Zoeken op serienummer, issues aanmaken/bewerken/verwijderen
+- Entries (tijdlijn) per issue toevoegen/bewerken/verwijderen
+- Status-filter, koppeling aan student, linked_at tracking
+
+### Foto's (tab: Foto's)
+- Foto's uploaden per serienummer (file upload of base64 voor iOS)
+- Foto's bekijken in gallery/lightbox, verwijderen
+- Opgeslagen in `uploads/laptops/`, geserveerd via `/uploads/laptops`
+
+## Databaseschema (belangrijkste velden)
+- `students.last_import` — tijdstip van laatste CSV-import
+- `laptops.eigen_laptop` — boolean, true als leerling eigen laptop heeft
+- Migraties via Alembic (`alembic upgrade head`)
+
+## API-routes
+
+| Router | Prefix / route | Doel |
+|--------|---------------|------|
+| `api/students.py` | `GET /api/students` | Alle studenten ophalen |
+| | `POST /api/students/import` | CSV-import |
+| | `DELETE /api/students` | Studenten verwijderen |
+| `api/laptops.py` | `POST /api/laptops/link` | Laptop koppelen |
+| | `DELETE /api/laptops/{id}/unlink` | Laptop ontkoppelen |
+| `api/photos.py` | `GET /api/photos` | Foto's per serienummer |
+| | `POST /api/photos` | Foto uploaden (file) |
+| | `POST /api/photos/base64` | Foto uploaden (base64, iOS) |
+| | `DELETE /api/photos/{id}` | Foto verwijderen |
+| `api/laptop_issues.py` | `/api/laptop-issues/…` | Issue CRUD + entries CRUD |
+| `api/ui.py` | `GET /` | Hoofdpagina |
+| | Partials voor HTMX-updates | |
+
+## Belangrijke bestanden
+- `app/main.py` — app factory, router registratie, static mounts
+- `app/api/laptops.py` — koppelen/ontkoppelen
+- `app/api/students.py` — import/verwijderen
+- `app/api/photos.py` — foto-upload en -beheer
+- `app/api/laptop_issues.py` — issue tracker
+- `app/api/ui.py` — UI-routes en partials
+- `app/models/` — Student, Laptop, LaptopIssue, LaptopIssueEntry, LaptopPhoto
+- `app/schemas/` — Pydantic schemas
+- `app/services/` — laptop_service, student_import, student_service, photo_service, laptop_issue_service
+- `app/templates/index.html` — hoofd-UI (Alpine.js, alle tabs)
+- `app/templates/photos.html` — foto-pagina
+- `alembic/` — migratiescripts
+
+## Docker
+- `Dockerfile`, `compose.yaml` en `entrypoint.sh` staan in de projectroot
+- Gebruik altijd `docker compose up --build` vanuit de root
+- `uploads/` wordt als persistent volume gemount
+
+## Tests
+- Pytest, alle tests groen
+- SQLite in-memory voor tests
+- E2e-tests (Playwright) in `tests/e2e/`
+
+## Testen via Docker in Claude-sessies
+
+De Docker stack (nginx + app + MariaDB) is de productieomgeving. Om in Claude de UI te kunnen testen via het preview paneel of met de Claude-in-Chrome tools, gebruik onderstaande workflows.
+
+### Workflow A — Preview paneel (interactieve UI-verificatie)
+
+Gebruik `preview_start` met de `app` config uit `.claude/launch.json`. Deze start `docker compose up --build` onder controle van het preview paneel en koppelt aan poort **8000** (directe FastAPI, geen HTTPS-cert vereist).
+
+**Vereisten vóór starten:**
+1. Controleer of de stack al extern draait: `docker compose ps`
+2. Als containers draaien: `docker compose down` (preview_start kan geen poort claimen die al in gebruik is)
+3. Daarna: `preview_start app`
+
+Na opstarten (ca. 15–30s, langer bij eerste build) zijn deze tools bruikbaar:
+- `preview_snapshot` — DOM-inhoud en structuur
+- `preview_click` / `preview_fill` — interacties testen
+- `preview_console_logs` / `preview_logs` / `preview_network` — fouten opsporen
+- `preview_screenshot` — visueel bewijs voor de gebruiker
+
+De MariaDB healthcheck heeft `retries: 10` met `interval: 5s`, dus de eerste startup kan tot 60s duren.
+
+### Workflow B — E2e-tests draaien in Docker
+
+Voor headless end-to-end tests (Playwright) zonder preview paneel:
+
+```bash
+docker compose run --rm test-e2e
+```
+
+De `test-e2e` service gebruikt het Playwright image en draait alle tests in `tests/e2e/` tegen `http://app:8000` binnen het Docker-netwerk. De `app`-service moet daarvoor draaien (`docker compose up -d app`).
+
+### Workflow C — Unit-tests in Docker
+
+```bash
+docker compose run --rm test
+```
+
+Draait `pytest -v` tegen een `laptops_test` database op de MariaDB container. Gebruikt dezelfde image als de app.
+
+### Poortoverzicht
+| Service | Poort | Protocol | Gebruik |
+|---------|-------|----------|---------|
+| `app`   | 8000  | HTTP     | Direct FastAPI — **gebruik deze voor preview_start** |
+| `nginx` | 80    | HTTP     | Redirect naar HTTPS |
+| `nginx` | 443   | HTTPS    | Mobiele workflow met mkcert-certs (alleen via browser) |
+| `db`    | 3306  | MySQL    | Debug-toegang tot MariaDB |

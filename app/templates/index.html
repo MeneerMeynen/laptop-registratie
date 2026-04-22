@@ -1,1073 +1,1233 @@
 {% extends "base.html" %}
 
 {% block content %}
-<main x-data="laptopApp()" x-init="init()">
+<div x-data="laptopApp()" x-init="init()">
 
-    <h1>Laptop Registratie</h1>
-    <p class="lead">Selecteer een leerling, scan de barcode van de laptop en bevestig de koppeling.</p>
+<!-- ══════════════════ TOP CHROME ══════════════════ -->
+<header class="chrome">
+  <div class="chrome-row">
 
-    <!-- ── Tab navigation ────────────────────────────────────── -->
-    <nav class="tab-menu" role="tablist" aria-label="Schermen">
-        <button type="button"
-                class="tab-button"
-                :class="{ active: activeTab === 'registreer' }"
-                :aria-selected="activeTab === 'registreer'"
-                @click="setTab('registreer')"
-                role="tab">
-            Registreer laptops
-        </button>
-        <button type="button"
-                class="tab-button"
-                :class="{ active: activeTab === 'beheer' }"
-                :aria-selected="activeTab === 'beheer'"
-                @click="setTab('beheer')"
-                role="tab">
-            Beheer studenten
-        </button>
-        <button type="button"
-                class="tab-button"
-                :class="{ active: activeTab === 'laptops' }"
-                :aria-selected="activeTab === 'laptops'"
-                @click="setTab('laptops')"
-                role="tab">
-            Laptops
-        </button>
-        <button type="button"
-                class="tab-button"
-                :class="{ active: activeTab === 'fotos' }"
-                :aria-selected="activeTab === 'fotos'"
-                @click="setTab('fotos')"
-                role="tab">
-            Foto's
-        </button>
+    <div class="brand">
+      <div class="brand-glyph">LR</div>
+      <div>
+        <div>Laptop Registratie</div>
+        <small>KA Secundair · beheer</small>
+      </div>
+    </div>
+
+    <nav class="chrome-tabs" role="tablist" aria-label="Schermen">
+      <button type="button" role="tab"
+              :class="{ on: activeTab === 'laptops' }"
+              :aria-selected="activeTab === 'laptops'"
+              @click="setTab('laptops')">Tickets</button>
+      <button type="button" role="tab"
+              :class="{ on: activeTab === 'registreer' }"
+              :aria-selected="activeTab === 'registreer'"
+              @click="setTab('registreer')">Registreer</button>
+      <button type="button" role="tab"
+              :class="{ on: activeTab === 'beheer' }"
+              :aria-selected="activeTab === 'beheer'"
+              @click="setTab('beheer')">Studenten</button>
+      <button type="button" role="tab"
+              :class="{ on: activeTab === 'fotos' }"
+              :aria-selected="activeTab === 'fotos'"
+              @click="setTab('fotos')">Foto's</button>
     </nav>
 
-    <!-- ══ TAB 1: Registreer laptops ═════════════════════════ -->
-    <section x-show="activeTab === 'registreer'" x-cloak>
-        <div class="layout">
+    <div class="scanbar" id="globalScan">
+      <span class="scan-chip">SCAN</span>
+      <input type="text" id="globalScanInput"
+             placeholder="Scan barcode of typ serienummer…"
+             autocomplete="off"
+             x-model="globalScanValue"
+             @keydown.enter="handleGlobalScan()">
+      <kbd>⌘K</kbd>
+      <button class="go" @click="openNewIssueModal(globalScanValue)">+ Defect</button>
+    </div>
 
-            <!-- Barcode navigation sidebar -->
-            <aside class="panel barcode-panel" aria-label="Navigatie barcodes">
-                <div class="barcode-card">
-                    <span class="barcode-card-label">Navigatie omhoog</span>
-                    <span class="barcode-card-code">
-                        <canvas class="barcode-canvas" data-barcode="1UP" aria-label="Data Matrix barcode 1UP"></canvas>
-                    </span>
-                    <span class="barcode-caption">1UP</span>
-                    <span class="barcode-card-help">Verplaatst de selectie één leerling omhoog.</span>
-                </div>
-                <div class="barcode-card">
-                    <span class="barcode-card-label">Navigatie omlaag</span>
-                    <span class="barcode-card-code">
-                        <canvas class="barcode-canvas" data-barcode="1DOWN" aria-label="Data Matrix barcode 1DOWN"></canvas>
-                    </span>
-                    <span class="barcode-caption">1DOWN</span>
-                    <span class="barcode-card-help">Verplaatst de selectie één leerling omlaag.</span>
-                </div>
-                <div class="barcode-card">
-                    <span class="barcode-card-label">Eigen laptop</span>
-                    <span class="barcode-card-code">
-                        <canvas class="barcode-canvas" data-barcode="eigen laptop" aria-label="Data Matrix barcode eigen laptop"></canvas>
-                    </span>
-                    <span class="barcode-caption">eigen laptop</span>
-                    <span class="barcode-card-help">Vult automatisch het serienummer in als eigen laptop.</span>
-                </div>
-            </aside>
+    <div class="chrome-right">
+      <button class="icon-btn" @click="toggleTheme()"
+              :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
+              x-text="theme === 'dark' ? '☀' : '☾'"></button>
+      <button class="icon-btn" title="Help" onclick="alert('Navigeer met barcodes 1UP / 1DOWN. Scan serienummer om te koppelen. Gebruik + Defect voor problemen.')">?</button>
+    </div>
 
-            <!-- Main form -->
-            <section class="panel">
-                <form @submit.prevent="submitLink">
+  </div>
+</header>
 
-                    <!-- Student picker -->
-                    <div class="field">
-                        <label for="student-filter">leerling & laptop zoeken 🔍</label>
-                        <input
-                            id="student-filter"
-                            class="filter-input"
-                            type="text"
-                            placeholder="Filter op naam, klas, stamnummer, serienummer…"
-                            autocomplete="off"
-                            x-model="laptopSearch"
-                            @input="filterStudents"
-                        >
-                        <div id="student-list" class="student-picker" role="listbox" aria-label="Selecteer een leerling">
-                            {% include "partials/student_list.html" %}
-                        </div>
-                        <div class="filter-summary" x-text="filterSummary"></div>
-                        <div class="selected-student" x-text="selectedLabel"></div>
-                    </div>
+<!-- ══════════════════ SCREEN 01 · TICKETS ══════════════════ -->
+<section x-show="activeTab === 'laptops'" x-cloak>
 
-                    <!-- Serial / barcode input -->
-                    <div class="field">
-                        <label for="serial_number">Laptop barcode / serienummer</label>
-                        <input
-                            id="serial_number"
-                            type="text"
-                            autocomplete="off"
-                            x-model="serialValue"
-                            @input="handleScanInput"
-                        >
-                    </div>
+  <div class="lt-new-card">
+    <button type="button" class="lt-btn-new lt-btn-new-lg"
+            @click="openNewIssueModal(ltSelectedSerial || '')">
+      + Defect melden
+    </button>
+  </div>
 
-                    <button type="submit">Link laptop</button>
-                    <button type="button"
-                            class="btn-unlink"
-                            x-show="selectedLaptopId"
-                            @click="unlinkLaptop(selectedLaptopId)">
-                        Inleveren
-                    </button>
+  <div class="lt-global-stats">
+    <div class="lt-stat-card lt-stat-toggle"
+         :class="ltStatusFilter.includes('aangemeld') ? 'lt-stat-on' : 'lt-stat-off'"
+         @click="toggleStatusFilter('aangemeld')" title="Filter op Aangemeld">
+      <div class="lt-stat-icon lt-icon-aangemeld">
+        <div class="lt-stat-dot" style="background:var(--amber);"></div>
+      </div>
+      <div>
+        <div class="lt-stat-label">Aangemeld</div>
+        <div class="lt-stat-value lt-val-aangemeld" id="lt-count-aangemeld">0</div>
+      </div>
+    </div>
+    <div class="lt-stat-card lt-stat-toggle"
+         :class="ltStatusFilter.includes('open') ? 'lt-stat-on' : 'lt-stat-off'"
+         @click="toggleStatusFilter('open')" title="Filter op Open">
+      <div class="lt-stat-icon lt-icon-open">
+        <div class="lt-stat-dot" style="background:var(--red);"></div>
+      </div>
+      <div>
+        <div class="lt-stat-label">Open</div>
+        <div class="lt-stat-value lt-val-open" id="lt-count-open">0</div>
+      </div>
+    </div>
+    <div class="lt-stat-card lt-stat-toggle"
+         :class="ltStatusFilter.includes('gesloten') ? 'lt-stat-on' : 'lt-stat-off'"
+         @click="toggleStatusFilter('gesloten')" title="Filter op Gesloten">
+      <div class="lt-stat-icon lt-icon-closed">
+        <div class="lt-stat-dot" style="background:var(--accent);"></div>
+      </div>
+      <div>
+        <div class="lt-stat-label">Gesloten</div>
+        <div class="lt-stat-value lt-val-closed" id="lt-count-gesloten">0</div>
+      </div>
+    </div>
+  </div>
 
-                    <!-- Status feedback -->
-                    <div class="status"
-                         :class="{ error: linkStatus.type === 'error', success: linkStatus.type === 'success' }"
-                         x-text="linkStatus.text"
-                         aria-live="polite">
-                    </div>
-                </form>
-            </section>
+  <div class="split">
+    <!-- Left: laptop list -->
+    <div class="col">
+      <div class="col-head">
+        <div class="ttl">Laptops</div>
+      </div>
+      <div class="filter-row">
+        <button class="chip" :class="{ on: ltStatusFilter.includes('open') }"
+                @click="toggleStatusFilter('open')">
+          <span class="d" style="background:var(--red)"></span>Open
+        </button>
+        <button class="chip" :class="{ on: ltStatusFilter.includes('aangemeld') }"
+                @click="toggleStatusFilter('aangemeld')">
+          <span class="d" style="background:var(--amber)"></span>Aangemeld
+        </button>
+        <button class="chip" :class="{ on: ltStatusFilter.includes('gesloten') }"
+                @click="toggleStatusFilter('gesloten')">
+          <span class="d" style="background:var(--accent)"></span>Gesloten
+        </button>
+      </div>
+      <div style="padding: 8px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0;">
+        <input class="input" type="text" placeholder="Zoek op serienummer of leerling…"
+               x-model="ltSearch" @input.debounce.300ms="refreshLaptopSidebar()"
+               style="height: 30px; font-size: 12px;">
+      </div>
+      <div id="lt-sidebar-list" class="lt-list-col">
+        <p class="lt-empty">Laden…</p>
+      </div>
+    </div>
 
-            <!-- Actie barcodes (rechts) -->
-            <aside class="panel barcode-panel" aria-label="Actie barcodes">
-                <div class="barcode-card barcode-card-clear">
-                    <span class="barcode-card-label">Wissen</span>
-                    <span class="barcode-card-code">
-                        <canvas class="barcode-canvas" data-barcode="CLEAR" aria-label="Data Matrix barcode CLEAR"></canvas>
-                    </span>
-                    <span class="barcode-caption">CLEAR</span>
-                    <span class="barcode-card-help">Wist het invoerveld.</span>
-                </div>
-                <div class="barcode-card barcode-card-unlink">
-                    <span class="barcode-card-label">Inleveren</span>
-                    <span class="barcode-card-code">
-                        <canvas class="barcode-canvas" data-barcode="INLEVEREN" aria-label="Data Matrix barcode INLEVEREN"></canvas>
-                    </span>
-                    <span class="barcode-caption">INLEVEREN</span>
-                    <span class="barcode-card-help">Levert de laptop van de geselecteerde leerling in.</span>
-                </div>
-            </aside>
-
+    <!-- Middle: issue detail -->
+    <div class="col detail-col">
+      <div id="lt-detail" class="col-scroll">
+        <div class="empty-pane">
+          <div style="font-size: 32px; margin-bottom: 12px; opacity: .4;">🖥</div>
+          <div style="font-weight: 600; color: var(--ink-2); margin-bottom: 4px;">Selecteer een laptop</div>
+          <div style="font-size: 12px;">Kies een laptop uit de lijst om details te zien.</div>
         </div>
-    </section>
+      </div>
+    </div>
 
-    <!-- ══ TAB 2: Beheer studenten ════════════════════════════ -->
-    <section x-show="activeTab === 'beheer'" x-cloak>
-        <section class="panel import-panel">
-            <h2>Beheer studenten</h2>
-            <p class="import-help">
-                Upload een CSV-bestand. Bestaande studenten worden bijgewerkt, nieuwe worden toegevoegd.
-                Studenten die niet in de laatste import zitten, krijgen de badge <strong>Uitgeschreven</strong>.
-            </p>
+    <!-- Right: context pane -->
+    <div class="col ctx-col">
+      <div class="ctx" x-show="!ltSelectedSerial">
+        <div class="empty-pane" style="padding: 20px;">
+          <div style="font-size: 28px; margin-bottom: 10px; opacity: .4;">📋</div>
+          <div style="font-size: 12px;">Context info verschijnt hier na selectie.</div>
+        </div>
+      </div>
+      <div class="ctx" x-show="ltSelectedSerial">
+        <div class="ctx-block">
+          <div class="h">Leerling</div>
+          <div class="student-card" x-show="ltStudentInfo">
+            <div class="av" x-text="ltStudentInitials">??</div>
+            <div style="flex:1; min-width: 0;">
+              <div class="s-name" x-text="ltStudentInfo?.naam_volledig || ltSelectedSerial"></div>
+              <div class="s-sub" x-text="ltStudentInfo?.klas || '—'"></div>
+            </div>
+          </div>
+          <div x-show="!ltStudentInfo" style="font-size: 12px; color: var(--dim);">Geen leerling gekoppeld</div>
+        </div>
+        <div class="ctx-block">
+          <div class="h">Snelle acties</div>
+          <div class="quick-actions">
+            <button class="btn sm" @click="setTab('fotos'); photoSearch = ltSelectedSerial; loadPhotoGallery()">
+              📷 Foto's bekijken
+            </button>
+            <button class="btn sm" @click="refreshLaptopDetail()">
+              🔄 Vernieuwen
+            </button>
+            <a :href="'/api/laptop-issues/export?serial=' + encodeURIComponent(ltSelectedSerial || '')"
+               class="btn sm" style="height:28px; padding: 0 10px; font-size: 12px;"
+               download>
+              📎 Exporteer historiek
+            </a>
+          </div>
+        </div>
+        <div class="ctx-block">
+          <div class="h">Export alle defecten</div>
+          <a href="/api/laptop-issues/export?include_closed=true"
+             class="btn sm" style="height:28px; padding: 0 10px; font-size: 12px; display:inline-flex;"
+             download="laptop-defecten.csv">
+            ↓ CSV exporteer
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            <!-- CSV import form – HTMX posts, response updates both student lists -->
-            <form
-                hx-post="/ui/students/import"
+  <div class="status"
+       :class="{ error: issueStatus.type === 'error', success: issueStatus.type === 'success' }"
+       x-text="issueStatus.text" aria-live="polite"
+       style="padding: 8px 20px; font-size: 13px;">
+  </div>
+
+</section>
+
+<!-- ══════════════════ SCREEN 02 · REGISTREER ══════════════════ -->
+<section x-show="activeTab === 'registreer'" x-cloak>
+  <div class="reg-wrap">
+
+    <div class="reg-grid">
+
+      <!-- Left: nav barcodes -->
+      <aside class="bc-col" aria-label="Navigatie barcodes">
+        <div class="h">Navigatie</div>
+        <div class="bc-card">
+          <canvas class="barcode-canvas" data-barcode="1UP" aria-label="Barcode 1UP"></canvas>
+          <div class="bc-cap">1UP</div>
+          <div class="bc-help">Selectie omhoog</div>
+        </div>
+        <div class="bc-card">
+          <canvas class="barcode-canvas" data-barcode="1DOWN" aria-label="Barcode 1DOWN"></canvas>
+          <div class="bc-cap">1DOWN</div>
+          <div class="bc-help">Selectie omlaag</div>
+        </div>
+        <div class="bc-card">
+          <canvas class="barcode-canvas" data-barcode="eigen laptop" aria-label="Barcode EIGEN LAPTOP"></canvas>
+          <div class="bc-cap">EIGEN LAPTOP</div>
+          <div class="bc-help">Markeer als bring-your-own</div>
+        </div>
+      </aside>
+
+      <!-- Middle: main flow -->
+      <div class="reg-main">
+
+        <!-- Step progress -->
+        <div class="reg-steps">
+          <div class="reg-step" :class="selectedStamnummer ? 'done' : ''">
+            <div class="n" x-text="selectedStamnummer ? '✓' : '1'"></div>
+            <div>
+              <b x-text="selectedStamnummer ? 'Leerling gekozen' : 'Kies leerling'"></b>
+              <span x-text="selectedStamnummer ? selectedLabel.replace('Geselecteerd: ', '') : 'Zoek en selecteer'"></span>
+            </div>
+          </div>
+          <div class="reg-step" :class="selectedStamnummer && !serialValue ? 'active' : (serialValue ? 'done' : '')">
+            <div class="n" x-text="serialValue ? '✓' : '2'"></div>
+            <div>
+              <b>Scan laptop</b>
+              <span>serienummer of "eigen laptop"</span>
+            </div>
+          </div>
+          <div class="reg-step">
+            <div class="n">3</div>
+            <div>
+              <b>Bevestig</b>
+              <span x-show="!recentLinks.length">auto → volgende leerling</span>
+              <span class="reg-step-linked" x-show="recentLinks.length" x-text="recentLinks[0]?.label"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Student search -->
+        <div class="field" style="margin-bottom: 8px;">
+          <label for="student-filter">Stap 1 · Leerling</label>
+          <input id="student-filter" class="input filter-input"
+                 type="text" placeholder="🔍 Naam, klas, stamnummer…"
+                 autocomplete="off"
+                 x-model="laptopSearch" @input="filterStudents">
+        </div>
+
+        <!-- Student list redesigned -->
+        <div class="stu-list" id="student-list-wrap">
+          <div id="student-list" role="listbox" aria-label="Selecteer een leerling">
+            {% include "partials/student_list.html" %}
+          </div>
+        </div>
+        <div class="filter-summary" x-text="filterSummary" style="margin-bottom: 10px;"></div>
+
+        <!-- Scan hero -->
+        <div class="scan-hero">
+          <div class="lbl">
+            <span class="ping"></span>Stap 2 · Scan
+          </div>
+          <div class="input-big">
+            <span class="pill teal" style="flex-shrink:0"><span class="d"></span>SCANNER</span>
+            <input type="text" id="serial_number"
+                   autocomplete="off"
+                   placeholder="Scan serienummer of typ 'eigen laptop'…"
+                   x-model="serialValue"
+                   @input="handleScanInput"
+                   @keydown.enter="submitLink()"
+                   @keydown.escape="serialValue = ''">
+          </div>
+        </div>
+
+        <div class="reg-actions">
+          <div class="hint">ENTER = link · ESC = wis · ⇥ = volgende leerling</div>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn sm"
+                    x-show="selectedLaptopId"
+                    @click="unlinkLaptop(selectedLaptopId)">Inleveren</button>
+            <button type="button" class="btn sm accent"
+                    @click="submitLink()">Link laptop</button>
+          </div>
+        </div>
+
+        <!-- Status feedback -->
+        <div class="status"
+             :class="{ error: linkStatus.type === 'error', success: linkStatus.type === 'success' }"
+             x-text="linkStatus.text" aria-live="polite">
+        </div>
+
+        <!-- Recent linked -->
+        <div class="recent" x-show="recentLinks.length > 0">
+          <div class="r-head">
+            <span class="label">Recent gekoppeld</span>
+            <button class="btn sm ghost" @click="recentLinks = []">Wis lijst</button>
+          </div>
+          <template x-for="r in recentLinks" :key="r.ts">
+            <div class="recent-row">
+              <span class="r-sn" x-text="r.serial || '—'"></span>
+              <span class="r-name" x-text="r.label"></span>
+              <span class="pill" :class="r.eigen ? 'teal' : ''" x-text="r.eigen ? 'eigen laptop' : 'gekoppeld'"></span>
+              <span class="r-time" x-text="timeAgo(r.ts)"></span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <!-- Right: action barcodes -->
+      <aside class="bc-col" aria-label="Actie barcodes">
+        <div class="h">Acties</div>
+        <div class="bc-card barcode-card-clear">
+          <canvas class="barcode-canvas" data-barcode="CLEAR" aria-label="Barcode CLEAR"></canvas>
+          <div class="bc-cap">CLEAR</div>
+          <div class="bc-help">Wist het invoerveld</div>
+        </div>
+        <div class="bc-card barcode-card-unlink danger">
+          <canvas class="barcode-canvas" data-barcode="INLEVEREN" aria-label="Barcode INLEVEREN"></canvas>
+          <div class="bc-cap">INLEVEREN</div>
+          <div class="bc-help">Koppel laptop los</div>
+        </div>
+        <a href="/barcodes" target="_blank"
+           style="display:block; padding: 10px; border: 1px dashed var(--line); border-radius: 8px; margin-top: 10px; font-size: 10px; color: var(--dim); text-align: center; line-height: 1.5; text-decoration: none; transition: border-color 140ms, color 140ms;"
+           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+           onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--dim)'">
+          🖨 Print barcodes op A5
+        </a>
+      </aside>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ SCREEN 03 · STUDENTEN ══════════════════ -->
+<section x-show="activeTab === 'beheer'" x-cloak>
+  <div class="stu-layout">
+
+    <!-- Sidebar -->
+    <aside class="stu-side">
+      <div class="stu-side-section">
+        <div class="h">Overzicht</div>
+        <div class="stu-side-nav">
+          <div class="stu-side-item" :class="stuSideFilter === 'all' ? 'on' : ''"
+               @click="setStuFilter('all', '')">
+            <span>Alle leerlingen</span>
+            <span class="count" x-text="stuCounts.all || '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'met' ? 'on' : ''"
+               @click="setStuFilter('met', '__met_laptop__')">
+            <span>Met laptop</span>
+            <span class="count" x-text="stuCounts.met || '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'zonder' ? 'on' : ''"
+               @click="setStuFilter('zonder', '__zonder_laptop__')">
+            <span>Zonder laptop</span>
+            <span class="count" style="color: var(--amber)" x-text="stuCounts.zonder || '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'eigen' ? 'on' : ''"
+               @click="setStuFilter('eigen', '__eigen_laptop__')">
+            <span>Eigen laptop</span>
+            <span class="count" x-text="stuCounts.eigen || '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'oud' ? 'on' : ''"
+               @click="setStuFilterUitgeschreven()">
+            <span>Uitgeschreven</span>
+            <span class="count" x-text="stuCounts.oud || '…'"></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="stu-main">
+
+      <div class="stu-top">
+        <div>
+          <h1>Beheer studenten</h1>
+          <div class="sub">Upload CSV · zoek · filter · verwijder</div>
+        </div>
+        <div class="stu-top-actions">
+          <!-- CSV import -->
+          <form hx-post="/ui/students/import"
                 hx-encoding="multipart/form-data"
                 hx-target="#import-result"
                 hx-swap="innerHTML"
                 @htmx:after-request="onImportComplete"
-            >
-                <div class="field">
-                    <label for="student-import-file">CSV-bestand</label>
-                    <input id="student-import-file" class="file-input" name="file" type="file" accept=".csv,text/csv" required>
-                </div>
-                <button type="submit">Importeer studenten</button>
-                <div id="import-result" class="status" aria-live="polite"></div>
-            </form>
-
-            <!-- Search + filter toolbar -->
-            <div class="manage-tools">
-                <input
-                    id="manage-search"
-                    class="filter-input"
-                    type="text"
-                    placeholder="Zoek op naam, klas, stamnummer, gebruikersnaam…"
-                    autocomplete="off"
-                    x-model="manageSearch"
-                    @input="filterManage"
-                >
-                <button
-                    type="button"
-                    class="manage-filter-button"
-                    :class="{ active: showUitgeschreven }"
-                    @click="toggleUitgeschreven"
-                    x-text="showUitgeschreven ? 'Toon alle leerlingen' : 'Toon uitgeschreven'">
-                </button>
-            </div>
-
-            <!-- Student list (HTMX refresh target after import/delete) -->
-            <div id="manage-student-list" class="manage-list">
-                {% include "partials/manage_student_list.html" %}
-            </div>
-
-            <!-- Bulk actions -->
-            <div style="display:grid; grid-template-columns: 1fr auto; gap:12px; margin-top:12px;">
-                <button
-                    type="button"
-                    class="btn-secondary"
-                    style="margin-top:0"
-                    @click="selectAllVisible">
-                    Selecteer alle
-                </button>
-                <button
-                    type="button"
-                    class="btn-danger"
-                    style="margin-top:0; width:auto; padding:12px 18px;"
-                    @click="deleteSelected">
-                    Verwijder geselecteerde
-                </button>
-            </div>
-
-            <div class="status"
-                 :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
-                 x-text="manageStatus.text"
-                 aria-live="polite">
-            </div>
-        </section>
-    </section>
-
-    <!-- ══ TAB 3: Laptops ════════════════════════════════════ -->
-    <section x-show="activeTab === 'laptops'" x-cloak>
-
-        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-            <button type="button" class="lt-btn-new" @click="openNewIssueModal(ltSelectedSerial || '')">
-                + Defect melden
-            </button>
+                style="margin:0;">
+            <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
+              ↑ CSV import
+            </label>
+            <input id="student-import-file" name="file" type="file"
+                   accept=".csv,text/csv" required style="display:none;"
+                   onchange="this.closest('form').requestSubmit()">
+          </form>
+          <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
         </div>
+      </div>
 
-        <div class="lt-global-stats">
-            <div class="lt-stat-card lt-stat-toggle"
-                 :class="ltStatusFilter.includes('aangemeld') ? 'lt-stat-on' : 'lt-stat-off'"
-                 @click="toggleStatusFilter('aangemeld')" title="Filter op Aangemeld">
-                <div class="lt-stat-icon lt-icon-aangemeld">
-                    <div class="lt-stat-dot" style="background:#D97706;"></div>
-                </div>
-                <div>
-                    <div class="lt-stat-label">Aangemeld</div>
-                    <div class="lt-stat-value lt-val-aangemeld" id="lt-count-aangemeld">0</div>
-                </div>
-            </div>
-            <div class="lt-stat-card lt-stat-toggle"
-                 :class="ltStatusFilter.includes('open') ? 'lt-stat-on' : 'lt-stat-off'"
-                 @click="toggleStatusFilter('open')" title="Filter op Open">
-                <div class="lt-stat-icon lt-icon-open">
-                    <div class="lt-stat-dot" style="background:#E24B4A;"></div>
-                </div>
-                <div>
-                    <div class="lt-stat-label">Open</div>
-                    <div class="lt-stat-value lt-val-open" id="lt-count-open">0</div>
-                </div>
-            </div>
-            <div class="lt-stat-card lt-stat-toggle"
-                 :class="ltStatusFilter.includes('gesloten') ? 'lt-stat-on' : 'lt-stat-off'"
-                 @click="toggleStatusFilter('gesloten')" title="Filter op Gesloten">
-                <div class="lt-stat-icon lt-icon-closed">
-                    <div class="lt-stat-dot" style="background:#1D9E75;"></div>
-                </div>
-                <div>
-                    <div class="lt-stat-label">Gesloten</div>
-                    <div class="lt-stat-value lt-val-closed" id="lt-count-gesloten">0</div>
-                </div>
-            </div>
+      <!-- Search + toolbar -->
+      <div class="stu-search">
+        <input class="input" type="text"
+               placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
+               x-model="manageSearch" @input="filterManage">
+        <button type="button" class="btn sm"
+                :class="showUitgeschreven ? 'accent' : ''"
+                @click="toggleUitgeschreven"
+                x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
+        <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
+      </div>
+
+      <!-- Manage list (HTMX target) -->
+      <div id="manage-student-list" class="manage-list">
+        {% include "partials/manage_student_list.html" %}
+      </div>
+
+      <!-- Bulk actions -->
+      <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn sm danger" @click="deleteSelected">
+          Verwijder geselecteerde
+        </button>
+        <div class="status"
+             :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
+             x-text="manageStatus.text" aria-live="polite"
+             style="margin:0; font-size:12px; flex:1;">
         </div>
+      </div>
 
-        <div class="lt-app">
-            <!-- Sidebar -->
-            <div class="lt-sidebar">
-                <div class="lt-sidebar-header">
-                    <div class="lt-sidebar-title-row">
-                        <div class="lt-sidebar-title">Laptops</div>
-                    </div>
-                    <input
-                        class="lt-search"
-                        type="text"
-                        placeholder="Zoek op serienummer…"
-                        autocomplete="off"
-                        x-model="ltSearch"
-                        @input.debounce.300ms="refreshLaptopSidebar()"
-                    >
-                </div>
-                <div id="lt-sidebar-list" class="lt-list">
-                    <p class="lt-empty">Laden…</p>
-                </div>
-            </div>
+      <p class="import-help" style="margin-top: 14px;">
+        Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
+      </p>
 
-            <!-- Main detail pane -->
-            <div class="lt-main">
-                <div id="lt-detail">
-                    <div class="lt-detail-placeholder">
-                        <p>Selecteer een laptop uit de lijst.</p>
-                    </div>
-                </div>
-            </div>
+    </main>
+  </div>
+</section>
+
+<!-- ══════════════════ SCREEN 04 · FOTO'S ══════════════════ -->
+<section x-show="activeTab === 'fotos'" x-cloak>
+  <div class="ph-wrap">
+
+    <div class="ph-head">
+      <div>
+        <h1>Foto's</h1>
+        <div class="sub">
+          Bekijk en upload foto's per laptop. Open de
+          <a href="/photos" target="_blank" style="color:var(--accent);">mobiele foto-pagina</a>
+          om foto's te maken met je telefoon.
         </div>
-
-        <!-- Export + status feedback row -->
-        <div style="display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
-            <a href="/api/laptop-issues/export?include_closed=true"
-               class="lt-export-btn"
-               download="laptop-defecten.csv">
-                ↓ Exporteer CSV
-            </a>
-            <div class="status"
-                 :class="{ error: issueStatus.type === 'error', success: issueStatus.type === 'success' }"
-                 x-text="issueStatus.text"
-                 aria-live="polite"
-                 style="margin:0; flex:1;">
-            </div>
-        </div>
-
-    </section>
-
-    <!-- ══ TAB 4: Foto's ════════════════════════════════════ -->
-    <section x-show="activeTab === 'fotos'" x-cloak>
-        <section class="panel">
-            <h2>Laptop foto's</h2>
-            <p class="import-help">
-                Bekijk foto's per laptop, of open de
-                <a href="/photos" target="_blank" style="color:var(--accent);">mobiele foto-pagina</a>
-                om foto's te maken met je telefoon.
-            </p>
-
-            <div class="field">
-                <label for="photo-search">Zoek laptop</label>
-                <input
-                    id="photo-search"
-                    type="text"
-                    list="photo-laptop-suggestions"
-                    placeholder="Typ serienummer of naam leerling..."
-                    autocomplete="off"
-                    x-model="photoSearch"
-                    @input.debounce.300ms="fetchPhotoSuggestions()"
-                    @change="loadPhotoGallery()"
-                >
-                <datalist id="photo-laptop-suggestions">
-                    <template x-for="s in photoSuggestions" :key="s.serial_number">
-                        <option :value="s.serial_number"
-                                :label="(s.voornaam || '') + ' ' + (s.naam || '')">
-                        </option>
-                    </template>
-                </datalist>
-            </div>
-
-            <button type="button" class="btn-secondary" style="margin-bottom:16px;" @click="loadPhotoGallery()">
-                Toon foto's
-            </button>
-
-            <div id="photo-gallery">
-                <div class="lt-detail-placeholder">
-                    <p>Zoek een laptop om foto's te bekijken.</p>
-                </div>
-            </div>
-
-            <div class="status"
-                 :class="{ error: photoStatus.type === 'error', success: photoStatus.type === 'success' }"
-                 x-text="photoStatus.text"
-                 aria-live="polite">
-            </div>
-        </section>
-    </section>
-
-    <!-- ── New issue modal ─────────────────────────────────── -->
-    <div class="modal-overlay" x-show="showNewIssueModal" x-cloak>
-        <div class="modal-box modal-box--large">
-            <span class="modal-close-btn" @click="closeNewIssueModal()" title="Sluiten" role="button" tabindex="0" @keydown.enter="closeNewIssueModal()" @keydown.space.prevent="closeNewIssueModal()">✕</span>
-            <h3>Nieuw probleem melden</h3>
-            <div class="field">
-                <label for="new-issue-serial">Scan barcode ⏸⏸ Serienummer laptop</label>
-                <input
-                    id="new-issue-serial"
-                    type="text"
-                    list="laptop-suggestions"
-                    autocomplete="off"
-                    placeholder="Typ serienummer of naam leerling…"
-                    x-model="newIssueSerial"
-                    @input.debounce.300ms="fetchLaptopSuggestions()"
-                >
-                <datalist id="laptop-suggestions">
-                    <template x-for="s in newIssueSuggestions" :key="s.serial_number">
-                        <option :value="s.serial_number"
-                                :label="(s.voornaam || '') + ' ' + (s.naam || '')">
-                        </option>
-                    </template>
-                </datalist>
-            </div>
-            <div class="field">
-                <label for="new-issue-category">Categorie</label>
-                <select id="new-issue-category" x-model="newIssueCategory">
-                    <option value="">— Geen categorie —</option>
-                    <option>Scherm</option>
-                    <option>Toetsenbord</option>
-                    <option>Software</option>
-                    <option>Oplader</option>
-                    <option>Batterij</option>
-                    <option>Luidspreker</option>
-                    <option>Overig</option>
-                </select>
-            </div>
-            <div class="field">
-                <label for="new-issue-description">Beschrijving probleem</label>
-                <textarea
-                    id="new-issue-description"
-                    x-model="newIssueDescription"
-                    placeholder="Beschrijf het technisch probleem…"></textarea>
-            </div>
-            <div class="field">
-                <label for="new-issue-date">Datum</label>
-                <input id="new-issue-date" type="date" x-model="newIssueDate">
-            </div>
-            <div class="modal-actions">
-                <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
-            </div>
-        </div>
+      </div>
+      <div class="ph-search">
+        <input class="input" type="text"
+               list="photo-laptop-suggestions"
+               placeholder="🔍 Serienummer of naam leerling…"
+               x-model="photoSearch"
+               @input.debounce.300ms="fetchPhotoSuggestions()"
+               @change="loadPhotoGallery()">
+        <datalist id="photo-laptop-suggestions">
+          <template x-for="s in photoSuggestions" :key="s.serial_number">
+            <option :value="s.serial_number"
+                    :label="(s.voornaam || '') + ' ' + (s.naam || '')"></option>
+          </template>
+        </datalist>
+      </div>
     </div>
 
-    <!-- ── Edit issue modal ────────────────────────────────── -->
-    <div class="modal-overlay" x-show="showEditIssueModal" x-cloak>
-        <div class="modal-box modal-box--large">
-            <span class="modal-close-btn" @click="closeEditIssueModal()" title="Sluiten" role="button" tabindex="0" @keydown.enter="closeEditIssueModal()" @keydown.space.prevent="closeEditIssueModal()">✕</span>
-            <h3>Probleem bewerken</h3>
-            <p class="import-help" x-show="editIssueSerial">
-                Laptop: <strong x-text="editIssueSerial"></strong>
-            </p>
-            <div class="field">
-                <label for="edit-issue-description">Beschrijving probleem</label>
-                <textarea id="edit-issue-description" x-model="editIssueDescription"></textarea>
-            </div>
-            <div class="field">
-                <label for="edit-issue-date">Datum</label>
-                <input id="edit-issue-date" type="date" x-model="editIssueDate">
-            </div>
-            <div class="field">
-                <label for="edit-issue-status">Status</label>
-                <select id="edit-issue-status" x-model="editIssueStatus">
-                    <option value="aangemeld">Aangemeld</option>
-                    <option value="open">Open</option>
-                    <option value="gesloten">Gesloten</option>
-                </select>
-            </div>
-            <div class="field">
-                <label for="edit-issue-category">Categorie</label>
-                <select id="edit-issue-category" x-model="editIssueCategory">
-                    <option value="">— Geen categorie —</option>
-                    <option>Scherm</option>
-                    <option>Toetsenbord</option>
-                    <option>Software</option>
-                    <option>Oplader</option>
-                    <option>Batterij</option>
-                    <option>Luidspreker</option>
-                    <option>Overig</option>
-                </select>
-            </div>
-            <div class="field" x-show="editIssueStatus === 'gesloten'">
-                <label for="edit-issue-solution">Oplossing</label>
-                <textarea
-                    id="edit-issue-solution"
-                    x-model="editIssueSolution"
-                    placeholder="Beschrijf de oplossing…"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
-            </div>
-        </div>
+    <div id="photo-gallery">
+      <div class="pg-empty">
+        <div class="pg-empty-icon">📷</div>
+        <div class="pg-empty-title">Zoek een laptop</div>
+        <div class="pg-empty-sub">Typ een serienummer of naam om foto's te bekijken.</div>
+      </div>
     </div>
 
-    <!-- ── Photo lightbox ────────────────────────────────── -->
-    <div id="photo-lightbox" class="lightbox-overlay" onclick="closeLightbox()" style="display:none;">
-        <span class="lightbox-close" onclick="closeLightbox()" title="Sluiten">&times;</span>
-        <div class="lightbox-content" onclick="event.stopPropagation()">
-            <img id="lightbox-img" src="" alt="Foto" draggable="false">
-        </div>
+    <div class="status"
+         :class="{ error: photoStatus.type === 'error', success: photoStatus.type === 'success' }"
+         x-text="photoStatus.text" aria-live="polite" style="margin-top: 10px;">
     </div>
 
-</main>
+  </div>
+</section>
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- New issue modal -->
+<div class="modal-overlay" x-show="showNewIssueModal" x-cloak>
+  <div class="modal-box modal-box--large">
+    <span class="modal-close-btn" @click="closeNewIssueModal()" role="button" tabindex="0"
+          @keydown.enter="closeNewIssueModal()" @keydown.space.prevent="closeNewIssueModal()">✕</span>
+    <h3>Nieuw probleem melden</h3>
+    <div class="field">
+      <label for="new-issue-serial">Serienummer laptop</label>
+      <input id="new-issue-serial" type="text" list="laptop-suggestions"
+             autocomplete="off" placeholder="Typ serienummer of naam leerling…"
+             x-model="newIssueSerial"
+             @input.debounce.300ms="fetchLaptopSuggestions()">
+      <datalist id="laptop-suggestions">
+        <template x-for="s in newIssueSuggestions" :key="s.serial_number">
+          <option :value="s.serial_number"
+                  :label="(s.voornaam || '') + ' ' + (s.naam || '')"></option>
+        </template>
+      </datalist>
+    </div>
+    <div class="field">
+      <label for="new-issue-category">Categorie</label>
+      <select id="new-issue-category" x-model="newIssueCategory">
+        <option value="">— Geen categorie —</option>
+        <option>Scherm</option><option>Toetsenbord</option>
+        <option>Software</option><option>Oplader</option>
+        <option>Batterij</option><option>Luidspreker</option><option>Overig</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="new-issue-description">Beschrijving probleem</label>
+      <textarea id="new-issue-description" x-model="newIssueDescription"
+                placeholder="Beschrijf het technisch probleem…"></textarea>
+    </div>
+    <div class="field">
+      <label for="new-issue-date">Datum</label>
+      <input id="new-issue-date" type="date" x-model="newIssueDate">
+    </div>
+    <div class="modal-actions">
+      <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit issue modal -->
+<div class="modal-overlay" x-show="showEditIssueModal" x-cloak>
+  <div class="modal-box modal-box--large">
+    <span class="modal-close-btn" @click="closeEditIssueModal()" role="button" tabindex="0"
+          @keydown.enter="closeEditIssueModal()" @keydown.space.prevent="closeEditIssueModal()">✕</span>
+    <h3>Probleem bewerken</h3>
+    <p class="import-help" x-show="editIssueSerial">Laptop: <strong x-text="editIssueSerial"></strong></p>
+    <div class="field">
+      <label for="edit-issue-description">Beschrijving probleem</label>
+      <textarea id="edit-issue-description" x-model="editIssueDescription"></textarea>
+    </div>
+    <div class="field">
+      <label for="edit-issue-date">Datum</label>
+      <input id="edit-issue-date" type="date" x-model="editIssueDate">
+    </div>
+    <div class="field">
+      <label for="edit-issue-status">Status</label>
+      <select id="edit-issue-status" x-model="editIssueStatus">
+        <option value="aangemeld">Aangemeld</option>
+        <option value="open">Open</option>
+        <option value="gesloten">Gesloten</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="edit-issue-category">Categorie</label>
+      <select id="edit-issue-category" x-model="editIssueCategory">
+        <option value="">— Geen categorie —</option>
+        <option>Scherm</option><option>Toetsenbord</option>
+        <option>Software</option><option>Oplader</option>
+        <option>Batterij</option><option>Luidspreker</option><option>Overig</option>
+      </select>
+    </div>
+    <div class="field" x-show="editIssueStatus === 'gesloten'">
+      <label for="edit-issue-solution">Oplossing</label>
+      <textarea id="edit-issue-solution" x-model="editIssueSolution"
+                placeholder="Beschrijf de oplossing…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo lightbox -->
+<div id="photo-lightbox" class="lightbox-overlay" onclick="closeLightbox()" style="display:none;">
+  <span class="lightbox-close" onclick="closeLightbox()" title="Sluiten">&times;</span>
+  <div class="lightbox-content" onclick="event.stopPropagation()">
+    <img id="lightbox-img" src="" alt="Foto" draggable="false">
+  </div>
+  <span class="lightbox-hint">Scroll om te zoomen &nbsp;·&nbsp; Sleep om te pannen &nbsp;·&nbsp; Esc om te sluiten</span>
+</div>
+
+</div><!-- end x-data -->
 
 <script>
 function laptopApp() {
-    return {
-        // ── State ──────────────────────────────────────────────
-        activeTab:        'registreer',
-        selectedStamnummer: null,
-        selectedLaptopId:  null,
-        selectedLabel:    'Geen leerling geselecteerd.',
-        laptopSearch:     '',
-        serialValue:      '',
-        linkStatus:       { text: '', type: '' },
-        manageSearch:     '',
-        showUitgeschreven: false,
-        manageStatus:     { text: '', type: '' },
-        _visibleCount:    0,
-        // Laptop tracker tab
-        ltSearch:             '',
-        ltStatusFilter:       ['aangemeld', 'open'],
-        ltSelectedSerial:     null,
-        issueStatus:          { text: '', type: '' },
-        showNewIssueModal:    false,
-        newIssueSerial:       '',
-        newIssueDescription:  '',
-        newIssueDate:         new Date().toISOString().slice(0, 10),
-        newIssueCategory:     '',
-        newIssueSuggestions:  [],
-        showEditIssueModal:   false,
-        editIssueId:          null,
-        editIssueSerial:      '',
-        editIssueDescription: '',
-        editIssueDate:        '',
-        editIssueStatus:      'open',
-        editIssueSolution:    '',
-        editIssueCategory:    '',
-        // Photo tab
-        photoSearch:          '',
-        photoSuggestions:    [],
-        photoStatus:          { text: '', type: '' },
+  return {
+    // ── State ──────────────────────────────────────────────
+    theme:              localStorage.getItem('theme') || 'dark',
+    activeTab:          'laptops',
+    selectedStamnummer: null,
+    selectedLaptopId:   null,
+    selectedLabel:      'Geen leerling geselecteerd.',
+    laptopSearch:       '',
+    serialValue:        '',
+    linkStatus:         { text: '', type: '' },
+    manageSearch:       '',
+    showUitgeschreven:  false,
+    manageStatus:       { text: '', type: '' },
+    _visibleCount:      0,
+    // Global scanbar
+    globalScanValue:    '',
+    // Laptop tracker
+    ltSearch:           '',
+    ltStatusFilter:     ['aangemeld', 'open'],
+    ltSelectedSerial:   null,
+    ltStudentInfo:      null,
+    issueStatus:        { text: '', type: '' },
+    showNewIssueModal:  false,
+    newIssueSerial:     '',
+    newIssueDescription:'',
+    newIssueDate:       new Date().toISOString().slice(0, 10),
+    newIssueCategory:   '',
+    newIssueSuggestions:[],
+    showEditIssueModal: false,
+    editIssueId:        null,
+    editIssueSerial:    '',
+    editIssueDescription:'',
+    editIssueDate:      '',
+    editIssueStatus:    'open',
+    editIssueSolution:  '',
+    editIssueCategory:  '',
+    // Photo tab
+    photoSearch:        '',
+    photoSuggestions:   [],
+    photoStatus:        { text: '', type: '' },
+    // Recent links (session)
+    recentLinks:        [],
+    // Studenten sidebar
+    stuSideFilter:      'all',
+    stuCounts:          { all: null, met: null, zonder: null, eigen: null, oud: null },
 
-        // ── Lifecycle ──────────────────────────────────────────
-        init() {
-            this.activeTab        = sessionStorage.getItem('activeTab') || 'registreer';
-            this.manageSearch     = sessionStorage.getItem('manageSearch') || '';
-            this.showUitgeschreven = sessionStorage.getItem('showUitgeschreven') === 'true';
+    // ── Lifecycle ──────────────────────────────────────────
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', this.theme);
+      document.documentElement.setAttribute('data-theme', this.theme);
+    },
 
-            this.$nextTick(() => {
-                this._countVisible();
-                this.filterManage();
-                renderAllBarcodes();
-            });
+    init() {
+      document.documentElement.setAttribute('data-theme', this.theme);
+      this.activeTab         = sessionStorage.getItem('activeTab') || 'laptops';
+      this.manageSearch      = sessionStorage.getItem('manageSearch') || '';
+      this.showUitgeschreven = sessionStorage.getItem('showUitgeschreven') === 'true';
 
-            // Load sidebar when switching to the laptops tab
-            this.$watch('activeTab', (tab) => {
-                if (tab === 'laptops') this.refreshLaptopSidebar();
-            });
-            if (this.activeTab === 'laptops') this.refreshLaptopSidebar();
+      this.$nextTick(() => {
+        this._countVisible();
+        this.filterManage();
+        this._computeStuCounts();
+        renderAllBarcodes();
+      });
 
-            // Loading indicators for HTMX requests on tracker panes
-            document.body.addEventListener('htmx:beforeRequest', (e) => {
-                const id = e.detail.target?.id;
-                if (id === 'lt-sidebar-list') {
-                    e.detail.target.innerHTML = '<div class="lt-loading"><div class="lt-spinner"></div></div>';
-                }
-                if (id === 'lt-detail') {
-                    e.detail.target.innerHTML = '<div class="lt-loading"><div class="lt-spinner"></div></div>';
-                }
-            });
-        },
+      this.$watch('activeTab', (tab) => {
+        if (tab === 'laptops') this.refreshLaptopSidebar();
+        if (tab === 'beheer') this.$nextTick(() => this._computeStuCounts());
+      });
+      if (this.activeTab === 'laptops') this.refreshLaptopSidebar();
 
-        // ── Tabs ───────────────────────────────────────────────
-        setTab(tab) {
-            this.activeTab = tab;
-            sessionStorage.setItem('activeTab', tab);
-        },
+      document.body.addEventListener('htmx:beforeRequest', (e) => {
+        const id = e.detail.target?.id;
+        if (id === 'lt-sidebar-list' || id === 'lt-detail') {
+          e.detail.target.innerHTML = '<div class="lt-loading"><div class="lt-spinner"></div></div>';
+        }
+      });
 
-        // ── Student list filtering (laptop tab) ────────────────
-        filterStudents() {
-            const q = this.laptopSearch.trim().toLowerCase();
-            let count = 0;
-            document.querySelectorAll('.student-option').forEach(el => {
-                const match = !q || el.dataset.filter.toLowerCase().includes(q);
-                el.hidden = !match;
-                if (match) count++;
-            });
-            this._visibleCount = count;
-        },
+      // Global scanbar keyboard shortcut
+      const sc = document.getElementById('globalScan');
+      const scIn = document.getElementById('globalScanInput');
+      if (sc && scIn) {
+        scIn.addEventListener('focus', () => sc.classList.add('active'));
+        scIn.addEventListener('blur', () => sc.classList.remove('active'));
+      }
+      document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault();
+          scIn?.focus();
+        }
+      });
+    },
 
-        get filterSummary() {
-            return `${this._visibleCount} leerling(en) zichtbaar`;
-        },
+    // ── Tabs ───────────────────────────────────────────────
+    setTab(tab) {
+      this.activeTab = tab;
+      sessionStorage.setItem('activeTab', tab);
+    },
 
-        _countVisible() {
-            this._visibleCount = document.querySelectorAll('.student-option:not([hidden])').length;
-        },
+    // ── Global scanbar ─────────────────────────────────────
+    handleGlobalScan() {
+      const val = this.globalScanValue.trim();
+      if (!val) return;
+      this.openNewIssueModal(val);
+      this.globalScanValue = '';
+    },
 
-        // ── Student selection ───────────────────────────────────
-        selectStudent(stamnummer, label) {
-            // Remove active class from previous
-            document.querySelectorAll('.student-option.active').forEach(el => {
-                el.classList.remove('active');
-                el.setAttribute('aria-selected', 'false');
-            });
-            // Set active on new
-            const option = document.querySelector(`.student-option[data-stamnummer="${stamnummer}"]`);
-            if (option) {
-                option.classList.add('active');
-                option.setAttribute('aria-selected', 'true');
-            }
-            this.selectedStamnummer = stamnummer;
-            this.selectedLaptopId = option?.dataset.laptopId ? parseInt(option.dataset.laptopId) : null;
-            this.selectedLabel = `Geselecteerd: ${label}`;
-            this.$nextTick(() => document.getElementById('serial_number').focus());
-        },
+    // ── Student list filtering ─────────────────────────────
+    filterStudents() {
+      const q = this.laptopSearch.trim().toLowerCase();
+      let count = 0;
+      document.querySelectorAll('.student-option').forEach(el => {
+        const match = !q || el.dataset.filter.toLowerCase().includes(q);
+        el.hidden = !match;
+        if (match) count++;
+      });
+      this._visibleCount = count;
+    },
 
-        // ── Navigation barcode handling ─────────────────────────
-        handleScanInput() {
-            const val = this.serialValue.trim().replace(/\s+/g, ' ').toUpperCase();
-            if (val.endsWith('1UP'))                { this.moveSelection(-1); this.serialValue = ''; }
-            else if (val.endsWith('1DOWN'))         { this.moveSelection(1);  this.serialValue = ''; }
-            else if (val.endsWith('EIGEN LAPTOP'))  { this.serialValue = 'eigen laptop'; }
-            else if (val.endsWith('CLEAR'))         { this.serialValue = ''; }
-            else if (val.endsWith('INLEVEREN'))     { this.serialValue = ''; this.unlinkLaptop(this.selectedLaptopId); }
-        },
+    get filterSummary() { return `${this._visibleCount} leerling(en) zichtbaar`; },
 
-        moveSelection(step) {
-            const opts = [...document.querySelectorAll('.student-option:not([hidden])')];
-            if (!opts.length) return;
-            const idx = opts.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
-            const next = idx === -1
-                ? opts[step > 0 ? 0 : opts.length - 1]
-                : opts[Math.min(Math.max(idx + step, 0), opts.length - 1)];
-            this.selectStudent(next.dataset.stamnummer, next.dataset.label);
-            next.scrollIntoView({ block: 'nearest' });
-        },
+    _countVisible() {
+      this._visibleCount = document.querySelectorAll('.student-option:not([hidden])').length;
+    },
 
-        // ── Laptop linking ──────────────────────────────────────
-        async submitLink() {
-            if (!this.selectedStamnummer) {
-                this.linkStatus = { text: 'Selecteer eerst een leerling.', type: 'error' };
-                return;
-            }
-            const serial = this.serialValue.trim();
-            if (!serial) {
-                this.linkStatus = { text: 'Voer een serienummer in.', type: 'error' };
-                return;
-            }
-            // Let navigation barcodes be handled by handleScanInput on submit too
-            const upper = serial.toUpperCase();
-            if (['1UP', '1DOWN', 'CLEAR', 'INLEVEREN'].includes(upper)) {
-                this.handleScanInput();
-                return;
-            }
-            await this._doLink(false);
-        },
+    // ── Student selection ──────────────────────────────────
+    selectStudent(stamnummer, label) {
+      document.querySelectorAll('.student-option.active').forEach(el => {
+        el.classList.remove('active'); el.setAttribute('aria-selected', 'false');
+      });
+      const option = document.querySelector(`.student-option[data-stamnummer="${stamnummer}"]`);
+      if (option) {
+        option.classList.add('active'); option.setAttribute('aria-selected', 'true');
+      }
+      this.selectedStamnummer = stamnummer;
+      this.selectedLaptopId   = option?.dataset.laptopId ? parseInt(option.dataset.laptopId) : null;
+      this.selectedLabel      = `Geselecteerd: ${label}`;
+      this.$nextTick(() => document.getElementById('serial_number').focus());
+    },
 
-        async _doLink(overwrite) {
-            this.linkStatus = { text: 'Bezig met koppelen…', type: '' };
-            const res = await fetch('/api/laptops/link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    stamnummer:         this.selectedStamnummer,
-                    serial_number:      this.serialValue.trim(),
-                    overwrite_existing: overwrite,
-                }),
-            });
-            const data = await res.json();
+    // ── Navigation barcode handling ────────────────────────
+    handleScanInput() {
+      const val = this.serialValue.trim().replace(/\s+/g, ' ').toUpperCase();
+      if (val.endsWith('1UP'))               { this.moveSelection(-1); this.serialValue = ''; }
+      else if (val.endsWith('1DOWN'))        { this.moveSelection(1);  this.serialValue = ''; }
+      else if (val.endsWith('EIGEN LAPTOP')) { this.serialValue = 'eigen laptop'; }
+      else if (val.endsWith('CLEAR'))        { this.serialValue = ''; }
+      else if (val.endsWith('INLEVEREN'))    { this.serialValue = ''; this.unlinkLaptop(this.selectedLaptopId); }
+    },
 
-            if (!res.ok) {
-                const detail = data.detail;
-                if (detail?.requires_confirmation) {
-                    const serials = (detail.existing_serials || []).join(', ');
-                    const newSerial = this.serialValue.trim();
-                    if (confirm(`Leerling heeft al laptop(s): ${serials}.\nOverschrijven met "${newSerial}"?`)) {
-                        await this._doLink(true);
-                        return;
-                    }
-                    this.linkStatus = { text: 'Koppeling geannuleerd.', type: '' };
-                    document.getElementById('serial_number').focus();
-                    return;
-                }
-                this.linkStatus = { text: detail?.message || detail || 'Koppelen mislukt.', type: 'error' };
-                return;
-            }
+    moveSelection(step) {
+      const opts = [...document.querySelectorAll('.student-option:not([hidden])')];
+      if (!opts.length) return;
+      const idx = opts.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
+      const next = idx === -1
+        ? opts[step > 0 ? 0 : opts.length - 1]
+        : opts[Math.min(Math.max(idx + step, 0), opts.length - 1)];
+      this.selectStudent(next.dataset.stamnummer, next.dataset.label);
+      next.scrollIntoView({ block: 'nearest' });
+    },
 
-            // ── Success: update student row in the list ─────────
-            const option = document.querySelector(`.student-option[data-stamnummer="${data.stamnummer}"]`);
-            if (option) {
-                const serialEl = option.querySelector('.student-option-serial');
-                if (serialEl) {
-                    const display = data.eigen_laptop ? 'Eigen laptop' : (data.serial_number || 'Niet gekoppeld');
-                    serialEl.textContent = `Laptop serienummer: ${display}`;
-                }
-                // Eigen laptop badge
-                let ownBadge = option.querySelector('.badge-own');
-                if (data.eigen_laptop && !ownBadge) {
-                    ownBadge = document.createElement('span');
-                    ownBadge.className = 'badge badge-own';
-                    ownBadge.textContent = 'Eigen laptop';
-                    option.appendChild(ownBadge);
-                } else if (!data.eigen_laptop && ownBadge) {
-                    ownBadge.remove();
-                }
-                // Update filter data
-                const baseFilter = option.dataset.baseFilter || '';
-                const serialStr = data.eigen_laptop ? 'eigen laptop eigen toestel' : (data.serial_number || '');
-                option.dataset.filter = `${baseFilter} ${serialStr}`.trim();
-            }
+    // ── Laptop linking ─────────────────────────────────────
+    async submitLink() {
+      if (!this.selectedStamnummer) {
+        this.linkStatus = { text: 'Selecteer eerst een leerling.', type: 'error' }; return;
+      }
+      const serial = this.serialValue.trim();
+      if (!serial) {
+        this.linkStatus = { text: 'Voer een serienummer in.', type: 'error' }; return;
+      }
+      const upper = serial.toUpperCase();
+      if (['1UP', '1DOWN', 'CLEAR', 'INLEVEREN'].includes(upper)) {
+        this.handleScanInput(); return;
+      }
+      await this._doLink(false);
+    },
 
-            const statusSerial = data.eigen_laptop ? 'eigen laptop' : data.serial_number;
-            this.linkStatus = { text: `✓ Laptop "${statusSerial}" gekoppeld.`, type: 'success' };
+    async _doLink(overwrite) {
+      this.linkStatus = { text: 'Bezig met koppelen…', type: '' };
+      const res = await fetch('/api/laptops/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stamnummer: this.selectedStamnummer,
+          serial_number: this.serialValue.trim(),
+          overwrite_existing: overwrite,
+        }),
+      });
+      const data = await res.json();
 
-            // ── Auto-advance to next visible student ───────────
-            const visible = [...document.querySelectorAll('.student-option:not([hidden])')];
-            const currentIdx = visible.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
-            if (currentIdx !== -1 && currentIdx < visible.length - 1) {
-                const next = visible[currentIdx + 1];
-                this.selectStudent(next.dataset.stamnummer, next.dataset.label);
-                next.scrollIntoView({ block: 'nearest' });
-            }
+      if (!res.ok) {
+        const detail = data.detail;
+        if (detail?.requires_confirmation) {
+          const serials = (detail.existing_serials || []).join(', ');
+          if (confirm(`Leerling heeft al laptop(s): ${serials}.\nOverschrijven met "${this.serialValue.trim()}"?`)) {
+            await this._doLink(true); return;
+          }
+          this.linkStatus = { text: 'Koppeling geannuleerd.', type: '' };
+          document.getElementById('serial_number').focus(); return;
+        }
+        this.linkStatus = { text: detail?.message || detail || 'Koppelen mislukt.', type: 'error' }; return;
+      }
 
-            this.serialValue = '';
-            this.$nextTick(() => document.getElementById('serial_number').focus());
-        },
+      // Update student row
+      const option = document.querySelector(`.student-option[data-stamnummer="${data.stamnummer}"]`);
+      if (option) {
+        const serialEl = option.querySelector('.student-option-serial');
+        if (serialEl) {
+          const display = data.eigen_laptop ? 'Eigen laptop' : (data.serial_number || 'Niet gekoppeld');
+          serialEl.textContent = `Laptop serienummer: ${display}`;
+        }
+        let ownBadge = option.querySelector('.badge-own');
+        if (data.eigen_laptop && !ownBadge) {
+          ownBadge = document.createElement('span');
+          ownBadge.className = 'badge badge-own'; ownBadge.textContent = 'Eigen laptop';
+          option.appendChild(ownBadge);
+        } else if (!data.eigen_laptop && ownBadge) { ownBadge.remove(); }
+        const baseFilter = option.dataset.baseFilter || '';
+        const serialStr = data.eigen_laptop ? 'eigen laptop eigen toestel' : (data.serial_number || '');
+        option.dataset.filter = `${baseFilter} ${serialStr}`.trim();
+        option.dataset.laptopId = data.id || '';
+      }
+      this.selectedLaptopId = data.id || null;
 
-        // ── After HTMX import response ──────────────────────────
-        onImportComplete(event) {
-            // Refresh both student lists from the server after a successful import
-            if (event.detail.successful) {
-                htmx.ajax('GET', '/ui/students/list', { target: '#student-list', swap: 'innerHTML' });
-                htmx.ajax('GET', '/ui/students/manage', { target: '#manage-student-list', swap: 'innerHTML' });
-                this.$nextTick(() => {
-                    this._countVisible();
-                    this.filterManage();
-                });
-            }
-        },
+      const statusSerial = data.eigen_laptop ? 'eigen laptop' : data.serial_number;
+      this.linkStatus = { text: `✓ Laptop "${statusSerial}" gekoppeld.`, type: 'success' };
 
-        // ── Manage tab filtering ────────────────────────────────
-        filterManage() {
-            const q = this.manageSearch.trim().toLowerCase();
-            sessionStorage.setItem('manageSearch', this.manageSearch);
-            sessionStorage.setItem('showUitgeschreven', String(this.showUitgeschreven));
+      // Add to recent links
+      this.recentLinks.unshift({
+        serial: data.eigen_laptop ? null : data.serial_number,
+        label: this.selectedLabel.replace('Geselecteerd: ', ''),
+        eigen: !!data.eigen_laptop,
+        ts: Date.now(),
+      });
+      if (this.recentLinks.length > 10) this.recentLinks.pop();
 
-            document.querySelectorAll('.manage-row').forEach(row => {
-                const matchesQ = !q || row.dataset.manageFilter.toLowerCase().includes(q);
-                const matchesOld = !this.showUitgeschreven || row.dataset.oldImport === 'true';
-                row.hidden = !(matchesQ && matchesOld);
-            });
-        },
+      // Auto-advance
+      const visible = [...document.querySelectorAll('.student-option:not([hidden])')];
+      const currentIdx = visible.findIndex(o => o.dataset.stamnummer === this.selectedStamnummer);
+      if (currentIdx !== -1 && currentIdx < visible.length - 1) {
+        const next = visible[currentIdx + 1];
+        this.selectStudent(next.dataset.stamnummer, next.dataset.label);
+        next.scrollIntoView({ block: 'nearest' });
+      }
 
-        toggleUitgeschreven() {
-            this.showUitgeschreven = !this.showUitgeschreven;
-            this.filterManage();
-        },
+      this.serialValue = '';
+      this.$nextTick(() => document.getElementById('serial_number').focus());
+    },
 
-        // ── Manage: select all visible ──────────────────────────
-        selectAllVisible() {
-            document.querySelectorAll('.manage-row:not([hidden]) .manage-checkbox').forEach(cb => {
-                cb.checked = true;
-            });
-        },
+    // ── Time helper ────────────────────────────────────────
+    timeAgo(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return `${s}s geleden`;
+      if (s < 3600) return `${Math.floor(s/60)}m geleden`;
+      return `${Math.floor(s/3600)}u geleden`;
+    },
 
-        // ── Manage: delete selected ─────────────────────────────
-        async deleteSelected() {
-            const checked = [...document.querySelectorAll('.manage-checkbox:checked')];
-            const stamnummers = checked.map(cb => cb.value);
-            if (!stamnummers.length) {
-                this.manageStatus = { text: 'Selecteer eerst minstens één leerling.', type: 'error' };
-                return;
-            }
-            if (!confirm(`Wil je ${stamnummers.length} leerling(en) verwijderen?`)) return;
+    // ── HTMX import callback ───────────────────────────────
+    onImportComplete(event) {
+      if (event.detail.successful) {
+        htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',        swap: 'innerHTML' });
+        htmx.ajax('GET', '/ui/students/manage', { target: '#manage-student-list', swap: 'innerHTML' });
+        this.$nextTick(() => { this._countVisible(); this.filterManage(); this._computeStuCounts(); });
+      }
+    },
 
-            this.manageStatus = { text: 'Leerlingen worden verwijderd…', type: '' };
+    // ── Manage tab filtering ───────────────────────────────
+    filterManage() {
+      const q = this.manageSearch.trim().toLowerCase();
+      sessionStorage.setItem('manageSearch', this.manageSearch);
+      sessionStorage.setItem('showUitgeschreven', String(this.showUitgeschreven));
 
-            const res = await fetch('/api/students', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stamnummers }),
-            });
-            const data = await res.json();
+      const specialTokens = ['__met_laptop__', '__zonder_laptop__', '__eigen_laptop__'];
+      const isSpecial = specialTokens.includes(q);
 
-            if (!res.ok) {
-                this.manageStatus = { text: data.detail || 'Verwijderen mislukt.', type: 'error' };
-                return;
-            }
+      document.querySelectorAll('.manage-row').forEach(row => {
+        let matchesQ;
+        if (!q) {
+          matchesQ = true;
+        } else if (q === '__met_laptop__') {
+          matchesQ = (row.dataset.laptop || '').includes('met');
+        } else if (q === '__zonder_laptop__') {
+          matchesQ = (row.dataset.laptop || '') === 'zonder';
+        } else if (q === '__eigen_laptop__') {
+          matchesQ = (row.dataset.laptop || '').includes('eigen');
+        } else {
+          matchesQ = row.dataset.manageFilter.toLowerCase().includes(q);
+        }
+        const matchesOld = !this.showUitgeschreven || row.dataset.oldImport === 'true';
+        row.hidden = !(matchesQ && matchesOld);
+      });
+    },
 
-            this.manageStatus = { text: `✓ ${data.deleted} leerling(en) verwijderd.`, type: 'success' };
+    toggleUitgeschreven() {
+      this.showUitgeschreven = !this.showUitgeschreven;
+      this.stuSideFilter = this.showUitgeschreven ? 'oud' : 'all';
+      this.filterManage();
+    },
 
-            // Refresh both lists
-            htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',         swap: 'innerHTML' });
-            htmx.ajax('GET', '/ui/students/manage',  { target: '#manage-student-list', swap: 'innerHTML' });
-            this.$nextTick(() => { this._countVisible(); this.filterManage(); });
-        },
+    // ── Studenten sidebar filters ──────────────────────────
+    setStuFilter(key, specialFilter) {
+      this.stuSideFilter = key;
+      this.showUitgeschreven = false;
+      if (specialFilter === '__met_laptop__') {
+        this.manageSearch = '__met_laptop__';
+      } else if (specialFilter === '__zonder_laptop__') {
+        this.manageSearch = '__zonder_laptop__';
+      } else if (specialFilter === '__eigen_laptop__') {
+        this.manageSearch = '__eigen_laptop__';
+      } else {
+        this.manageSearch = '';
+      }
+      this.filterManage();
+    },
 
-        // ── Laptop unlink (inleveren) ─────────────────────────────
-        async unlinkLaptop(laptopId) {
-            if (!confirm('Weet je zeker dat je deze laptop wilt inleveren?')) return;
-            const res = await fetch(`/api/laptops/${laptopId}/unlink`, { method: 'POST' });
-            if (res.ok) {
-                this.linkStatus = { text: '\u2713 Laptop ingeleverd.', type: 'success' };
-                this.selectedLaptopId = null;
-                htmx.ajax('GET', '/ui/students/list', { target: '#student-list', swap: 'innerHTML' });
-                this.$nextTick(() => { this._countVisible(); this.filterStudents(); });
-            } else {
-                const data = await res.json();
-                this.linkStatus = { text: data.detail || 'Inleveren mislukt.', type: 'error' };
-            }
-        },
+    setStuFilterUitgeschreven() {
+      this.stuSideFilter = 'oud';
+      this.manageSearch = '';
+      this.showUitgeschreven = true;
+      this.filterManage();
+    },
 
-        // ── Laptop tracker ──────────────────────────────────────
-        toggleStatusFilter(status) {
-            const idx = this.ltStatusFilter.indexOf(status);
-            if (idx === -1) this.ltStatusFilter.push(status);
-            else this.ltStatusFilter.splice(idx, 1);
-            this.refreshLaptopSidebar();
-        },
+    _computeStuCounts() {
+      const rows = [...document.querySelectorAll('.manage-row')];
+      this.stuCounts.all    = rows.length;
+      this.stuCounts.oud    = rows.filter(r => r.dataset.oldImport === 'true').length;
+      this.stuCounts.met    = rows.filter(r => (r.dataset.laptop || '').includes('met')).length;
+      this.stuCounts.zonder = rows.filter(r => r.dataset.laptop === 'zonder').length;
+      this.stuCounts.eigen  = rows.filter(r => (r.dataset.laptop || '').includes('eigen')).length;
+    },
 
-        refreshLaptopSidebar() {
-            const params = new URLSearchParams({ search: this.ltSearch });
-            this.ltStatusFilter.forEach(s => params.append('statuses', s));
-            htmx.ajax('GET', `/ui/laptop-tracker/sidebar?${params}`, {
-                target: '#lt-sidebar-list',
-                swap:   'innerHTML',
-            });
-        },
+    // ── Manage: select all visible ─────────────────────────
+    selectAllVisible() {
+      document.querySelectorAll('.manage-row:not([hidden]) .manage-checkbox').forEach(cb => { cb.checked = true; });
+    },
 
-        selectLaptop(serial) {
-            this.ltSelectedSerial = serial;
-            document.querySelectorAll('.lt-item').forEach(el => el.classList.remove('lt-item-active'));
-            const item = document.querySelector(`.lt-item[data-serial="${CSS.escape(serial)}"]`);
-            if (item) item.classList.add('lt-item-active');
-            htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(serial)}`, {
-                target: '#lt-detail',
-                swap:   'innerHTML',
-            });
-        },
+    // ── Manage: delete selected ────────────────────────────
+    async deleteSelected() {
+      const checked = [...document.querySelectorAll('.manage-checkbox:checked')];
+      const stamnummers = checked.map(cb => cb.value);
+      if (!stamnummers.length) {
+        this.manageStatus = { text: 'Selecteer eerst minstens één leerling.', type: 'error' }; return;
+      }
+      if (!confirm(`Wil je ${stamnummers.length} leerling(en) verwijderen?`)) return;
+      this.manageStatus = { text: 'Verwijderen…', type: '' };
 
-        refreshLaptopDetail() {
-            if (this.ltSelectedSerial) {
-                htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(this.ltSelectedSerial)}`, {
-                    target: '#lt-detail',
-                    swap:   'innerHTML',
-                });
-            }
-        },
+      const res = await fetch('/api/students', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stamnummers }),
+      });
+      const data = await res.json();
 
-        openNewIssueModal(serial = '') {
-            this.newIssueSerial      = serial;
-            this.newIssueDescription = '';
-            this.newIssueDate        = new Date().toISOString().slice(0, 10);
-            this.newIssueCategory    = '';
-            this.newIssueSuggestions = [];
-            this.showNewIssueModal   = true;
-            this.$nextTick(() => document.getElementById('new-issue-serial').focus());
-        },
+      if (!res.ok) {
+        this.manageStatus = { text: data.detail || 'Verwijderen mislukt.', type: 'error' }; return;
+      }
+      this.manageStatus = { text: `✓ ${data.deleted} leerling(en) verwijderd.`, type: 'success' };
+      htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',        swap: 'innerHTML' });
+      htmx.ajax('GET', '/ui/students/manage', { target: '#manage-student-list', swap: 'innerHTML' });
+      this.$nextTick(() => { this._countVisible(); this.filterManage(); });
+    },
 
-        closeNewIssueModal() { this.showNewIssueModal = false; },
+    // ── Laptop unlink ──────────────────────────────────────
+    async unlinkLaptop(laptopId) {
+      if (!confirm('Weet je zeker dat je deze laptop wilt inleveren?')) return;
+      const res = await fetch(`/api/laptops/${laptopId}/unlink`, { method: 'POST' });
+      if (res.ok) {
+        this.linkStatus = { text: '✓ Laptop ingeleverd.', type: 'success' };
+        this.selectedLaptopId = null;
+        // Update student row in-place to preserve filter and selection
+        const option = document.querySelector(`.student-option[data-stamnummer="${this.selectedStamnummer}"]`);
+        if (option) {
+          const serialEl = option.querySelector('.student-option-serial');
+          if (serialEl) serialEl.textContent = 'Laptop serienummer: Niet gekoppeld';
+          option.querySelector('.badge-own')?.remove();
+          option.dataset.laptopId = '';
+          const baseFilter = option.dataset.baseFilter || '';
+          option.dataset.filter = baseFilter;
+        }
+        this._countVisible();
+        this.filterStudents();
+        document.getElementById('serial_number').focus();
+      } else {
+        const data = await res.json();
+        this.linkStatus = { text: data.detail || 'Inleveren mislukt.', type: 'error' };
+      }
+    },
 
-        async fetchLaptopSuggestions() {
-            const q = this.newIssueSerial.trim();
-            if (q.length < 2) { this.newIssueSuggestions = []; return; }
-            const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
-            this.newIssueSuggestions = res.ok ? await res.json() : [];
-        },
+    // ── Laptop tracker ─────────────────────────────────────
+    toggleStatusFilter(status) {
+      const idx = this.ltStatusFilter.indexOf(status);
+      if (idx === -1) this.ltStatusFilter.push(status);
+      else this.ltStatusFilter.splice(idx, 1);
+      this.refreshLaptopSidebar();
+    },
 
-        async submitNewIssue() {
-            const serial = this.newIssueSerial.trim();
-            const desc   = this.newIssueDescription.trim();
-            if (!serial) { this.issueStatus = { text: 'Serienummer is verplicht.', type: 'error' }; return; }
-            if (!desc)   { this.issueStatus = { text: 'Beschrijving is verplicht.', type: 'error' }; return; }
+    refreshLaptopSidebar() {
+      const params = new URLSearchParams({ search: this.ltSearch });
+      this.ltStatusFilter.forEach(s => params.append('statuses', s));
+      htmx.ajax('GET', `/ui/laptop-tracker/sidebar?${params}`, {
+        target: '#lt-sidebar-list', swap: 'innerHTML',
+      });
+    },
 
-            const res = await fetch('/api/laptop-issues', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    serial_number: serial,
-                    description:   desc,
-                    reported_date: this.newIssueDate,
-                    category:      this.newIssueCategory || null,
-                }),
-            });
+    selectLaptop(serial) {
+      this.ltSelectedSerial = serial;
+      document.querySelectorAll('.lt-item').forEach(el => el.classList.remove('lt-item-active'));
+      const item = document.querySelector(`.lt-item[data-serial="${CSS.escape(serial)}"]`);
+      if (item) item.classList.add('lt-item-active');
+      htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(serial)}`, {
+        target: '#lt-detail', swap: 'innerHTML',
+      });
+      // Load student info for context pane
+      this._loadStudentInfo(serial);
+    },
 
-            if (!res.ok) {
-                const data = await res.json();
-                this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' };
-                return;
-            }
+    async _loadStudentInfo(serial) {
+      this.ltStudentInfo = null;
+      try {
+        const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(serial)}`);
+        if (res.ok) {
+          const list = await res.json();
+          const match = list.find(s => s.serial_number === serial);
+          if (match) {
+            this.ltStudentInfo = {
+              naam_volledig: `${match.voornaam || ''} ${match.naam || ''}`.trim(),
+              klas: match.klas || '',
+            };
+          }
+        }
+      } catch(e) {}
+    },
 
-            this.issueStatus = { text: '✓ Probleem gemeld.', type: 'success' };
-            this.closeNewIssueModal();
-            this.refreshLaptopDetail();
-            this.refreshLaptopSidebar();
-        },
+    get ltStudentInitials() {
+      if (!this.ltStudentInfo) return '??';
+      const parts = (this.ltStudentInfo.naam_volledig || '').split(' ');
+      return parts.filter(Boolean).map(p => p[0]).join('').slice(0,2).toUpperCase() || '??';
+    },
 
-        startEditIssue(dataset) {
-            this.editIssueId          = parseInt(dataset.issueId);
-            this.editIssueSerial      = dataset.serial;
-            this.editIssueDescription = dataset.description;
-            this.editIssueDate        = dataset.date;
-            this.editIssueStatus      = dataset.status;
-            this.editIssueSolution    = dataset.solution || '';
-            this.editIssueCategory    = dataset.category || '';
-            this.showEditIssueModal   = true;
-        },
+    refreshLaptopDetail() {
+      if (this.ltSelectedSerial) {
+        htmx.ajax('GET', `/ui/laptop-tracker/detail?serial=${encodeURIComponent(this.ltSelectedSerial)}`, {
+          target: '#lt-detail', swap: 'innerHTML',
+        });
+      }
+    },
 
-        closeEditIssueModal() { this.showEditIssueModal = false; },
+    openNewIssueModal(serial = '') {
+      this.newIssueSerial       = serial || '';
+      this.newIssueDescription  = '';
+      this.newIssueDate         = new Date().toISOString().slice(0, 10);
+      this.newIssueCategory     = '';
+      this.newIssueSuggestions  = [];
+      this.showNewIssueModal    = true;
+      this.$nextTick(() => document.getElementById('new-issue-serial').focus());
+    },
 
-        async submitEditIssue() {
-            const res = await fetch(`/api/laptop-issues/${this.editIssueId}`, {
-                method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    description:   this.editIssueDescription.trim(),
-                    reported_date: this.editIssueDate,
-                    status:        this.editIssueStatus,
-                    category:      this.editIssueCategory || null,
-                    solution:      this.editIssueStatus === 'gesloten'
-                                       ? (this.editIssueSolution.trim() || null)
-                                       : null,
-                }),
-            });
+    closeNewIssueModal() { this.showNewIssueModal = false; },
 
-            if (!res.ok) {
-                const data = await res.json();
-                this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' };
-                return;
-            }
+    async fetchLaptopSuggestions() {
+      const q = this.newIssueSerial.trim();
+      if (q.length < 2) { this.newIssueSuggestions = []; return; }
+      const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
+      this.newIssueSuggestions = res.ok ? await res.json() : [];
+    },
 
-            this.issueStatus = { text: '✓ Probleem opgeslagen.', type: 'success' };
-            this.closeEditIssueModal();
-            this.refreshLaptopDetail();
-            this.refreshLaptopSidebar();
-        },
+    async submitNewIssue() {
+      const serial = this.newIssueSerial.trim();
+      const desc   = this.newIssueDescription.trim();
+      if (!serial) { this.issueStatus = { text: 'Serienummer is verplicht.', type: 'error' }; return; }
+      if (!desc)   { this.issueStatus = { text: 'Beschrijving is verplicht.', type: 'error' }; return; }
 
-        async deleteIssue(id) {
-            if (!confirm('Wil je dit probleem verwijderen?')) return;
-            const res = await fetch(`/api/laptop-issues/${id}`, { method: 'DELETE' });
-            if (!res.ok && res.status !== 204) {
-                this.issueStatus = { text: 'Verwijderen mislukt.', type: 'error' };
-                return;
-            }
-            this.issueStatus = { text: '✓ Probleem verwijderd.', type: 'success' };
-            this.refreshLaptopDetail();
-            this.refreshLaptopSidebar();
-        },
+      const res = await fetch('/api/laptop-issues', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serial_number: serial, description: desc,
+          reported_date: this.newIssueDate,
+          category: this.newIssueCategory || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' }; return;
+      }
+      this.issueStatus = { text: '✓ Probleem gemeld.', type: 'success' };
+      this.closeNewIssueModal();
+      this.refreshLaptopDetail();
+      this.refreshLaptopSidebar();
+      // Also clear global scan value
+      this.globalScanValue = '';
+    },
 
-        // ── Photo tab ───────────────────────────────────────────
-        async fetchPhotoSuggestions() {
-            const q = this.photoSearch.trim();
-            if (q.length < 2) { this.photoSuggestions = []; return; }
-            const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
-            this.photoSuggestions = res.ok ? await res.json() : [];
-        },
+    startEditIssue(dataset) {
+      this.editIssueId          = parseInt(dataset.issueId);
+      this.editIssueSerial      = dataset.serial;
+      this.editIssueDescription = dataset.description;
+      this.editIssueDate        = dataset.date;
+      this.editIssueStatus      = dataset.status;
+      this.editIssueSolution    = dataset.solution || '';
+      this.editIssueCategory    = dataset.category || '';
+      this.showEditIssueModal   = true;
+    },
 
-        loadPhotoGallery() {
-            const serial = this.photoSearch.trim();
-            if (!serial) {
-                this.photoStatus = { text: 'Voer een serienummer in.', type: 'error' };
-                return;
-            }
-            this.photoStatus = { text: '', type: '' };
-            htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
-                target: '#photo-gallery',
-                swap:   'innerHTML',
-            });
-        },
-    };
+    closeEditIssueModal() { this.showEditIssueModal = false; },
+
+    async submitEditIssue() {
+      const res = await fetch(`/api/laptop-issues/${this.editIssueId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description:   this.editIssueDescription.trim(),
+          reported_date: this.editIssueDate,
+          status:        this.editIssueStatus,
+          category:      this.editIssueCategory || null,
+          solution:      this.editIssueStatus === 'gesloten'
+                           ? (this.editIssueSolution.trim() || null) : null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' }; return;
+      }
+      this.issueStatus = { text: '✓ Probleem opgeslagen.', type: 'success' };
+      this.closeEditIssueModal();
+      this.refreshLaptopDetail();
+      this.refreshLaptopSidebar();
+    },
+
+    async deleteIssue(id) {
+      if (!confirm('Wil je dit probleem verwijderen?')) return;
+      const res = await fetch(`/api/laptop-issues/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        this.issueStatus = { text: 'Verwijderen mislukt.', type: 'error' }; return;
+      }
+      this.issueStatus = { text: '✓ Probleem verwijderd.', type: 'success' };
+      this.refreshLaptopDetail();
+      this.refreshLaptopSidebar();
+    },
+
+    // ── Photo tab ──────────────────────────────────────────
+    async fetchPhotoSuggestions() {
+      const q = this.photoSearch.trim();
+      if (q.length < 2) { this.photoSuggestions = []; return; }
+      const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
+      this.photoSuggestions = res.ok ? await res.json() : [];
+    },
+
+    loadPhotoGallery() {
+      const serial = this.photoSearch.trim();
+      if (!serial) { this.photoStatus = { text: 'Voer een serienummer in.', type: 'error' }; return; }
+      this.photoStatus = { text: '', type: '' };
+      htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
+        target: '#photo-gallery', swap: 'innerHTML',
+      });
+    },
+  };
 }
 
 function deleteGalleryPhoto(photoId, serial) {
-    if (!confirm('Foto verwijderen?')) return;
-    fetch(`/api/photos/${photoId}`, { method: 'DELETE' }).then(res => {
-        if (res.ok || res.status === 204) {
-            htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
-                target: '#photo-gallery',
-                swap:   'innerHTML',
-            });
-        }
-    });
+  if (!confirm('Foto verwijderen?')) return;
+  fetch(`/api/photos/${photoId}`, { method: 'DELETE' }).then(res => {
+    if (res.ok || res.status === 204) {
+      htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
+        target: '#photo-gallery', swap: 'innerHTML',
+      });
+    }
+  });
 }
 
-// ── Lightbox with zoom + pan ────────────────────────────────
+// ── Lightbox ─────────────────────────────────────────────────
 var _lb = { scale: 1, panX: 0, panY: 0, dragging: false, didDrag: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 };
-
 function _lbTransform() {
-    var img = document.getElementById('lightbox-img');
-    img.style.transform = 'scale(' + _lb.scale + ') translate(' + _lb.panX + 'px, ' + _lb.panY + 'px)';
+  document.getElementById('lightbox-img').style.transform =
+    'scale(' + _lb.scale + ') translate(' + _lb.panX + 'px, ' + _lb.panY + 'px)';
 }
-
 function openLightbox(url) {
-    var overlay = document.getElementById('photo-lightbox');
-    var img = document.getElementById('lightbox-img');
-    img.src = url;
-    _lb.scale = 1; _lb.panX = 0; _lb.panY = 0; _lb.dragging = false;
-    _lbTransform();
-    overlay.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+  var img = document.getElementById('lightbox-img');
+  img.src = url;
+  _lb.scale = 1; _lb.panX = 0; _lb.panY = 0; _lb.dragging = false;
+  _lbTransform();
+  document.getElementById('photo-lightbox').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
 }
-
 function closeLightbox() {
-    if (_lb.dragging || _lb.didDrag) { _lb.didDrag = false; return; }
-    document.getElementById('photo-lightbox').style.display = 'none';
-    document.body.style.overflow = '';
+  if (_lb.dragging || _lb.didDrag) { _lb.didDrag = false; return; }
+  document.getElementById('photo-lightbox').style.display = 'none';
+  document.body.style.overflow = '';
 }
-
 (function() {
-    // Close on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            _lb.dragging = false;
-            document.getElementById('photo-lightbox').style.display = 'none';
-            document.body.style.overflow = '';
-        }
-    });
-
-    // Scroll-zoom
-    document.addEventListener('wheel', function(e) {
-        var overlay = document.getElementById('photo-lightbox');
-        if (overlay.style.display !== 'flex') return;
-        e.preventDefault();
-        _lb.scale += e.deltaY < 0 ? 0.2 : -0.2;
-        _lb.scale = Math.max(0.5, Math.min(_lb.scale, 8));
-        // Reset pan when zooming back to 1
-        if (_lb.scale <= 1) { _lb.panX = 0; _lb.panY = 0; }
-        _lbTransform();
-    }, { passive: false });
-
-    // Mouse drag to pan
-    document.addEventListener('mousedown', function(e) {
-        var overlay = document.getElementById('photo-lightbox');
-        if (overlay.style.display !== 'flex') return;
-        if (_lb.scale <= 1) return;
-        var content = document.querySelector('.lightbox-content');
-        if (!content.contains(e.target)) return;
-        e.preventDefault();
-        _lb.dragging = true;
-        _lb.didDrag = false;
-        _lb.startX = e.clientX;
-        _lb.startY = e.clientY;
-        _lb.startPanX = _lb.panX;
-        _lb.startPanY = _lb.panY;
-        document.getElementById('lightbox-img').style.cursor = 'grabbing';
-    });
-
-    document.addEventListener('mousemove', function(e) {
-        if (!_lb.dragging) return;
-        e.preventDefault();
-        _lb.didDrag = true;
-        // Divide by scale so panning feels 1:1 with cursor movement
-        _lb.panX = _lb.startPanX + (e.clientX - _lb.startX) / _lb.scale;
-        _lb.panY = _lb.startPanY + (e.clientY - _lb.startY) / _lb.scale;
-        _lbTransform();
-    });
-
-    document.addEventListener('mouseup', function() {
-        if (_lb.dragging) {
-            _lb.dragging = false;
-            document.getElementById('lightbox-img').style.cursor = '';
-        }
-    });
-
-    // Touch drag to pan (mobile)
-    document.addEventListener('touchstart', function(e) {
-        var overlay = document.getElementById('photo-lightbox');
-        if (overlay.style.display !== 'flex') return;
-        if (_lb.scale <= 1 || e.touches.length !== 1) return;
-        var content = document.querySelector('.lightbox-content');
-        if (!content.contains(e.target)) return;
-        _lb.dragging = true;
-        _lb.startX = e.touches[0].clientX;
-        _lb.startY = e.touches[0].clientY;
-        _lb.startPanX = _lb.panX;
-        _lb.startPanY = _lb.panY;
-    }, { passive: true });
-
-    document.addEventListener('touchmove', function(e) {
-        if (!_lb.dragging || e.touches.length !== 1) return;
-        e.preventDefault();
-        _lb.panX = _lb.startPanX + (e.touches[0].clientX - _lb.startX) / _lb.scale;
-        _lb.panY = _lb.startPanY + (e.touches[0].clientY - _lb.startY) / _lb.scale;
-        _lbTransform();
-    }, { passive: false });
-
-    document.addEventListener('touchend', function() {
-        _lb.dragging = false;
-    });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      _lb.dragging = false;
+      document.getElementById('photo-lightbox').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  });
+  document.addEventListener('wheel', e => {
+    if (document.getElementById('photo-lightbox').style.display !== 'flex') return;
+    e.preventDefault();
+    _lb.scale = Math.max(0.5, Math.min(_lb.scale + (e.deltaY < 0 ? 0.2 : -0.2), 8));
+    if (_lb.scale <= 1) { _lb.panX = 0; _lb.panY = 0; }
+    _lbTransform();
+  }, { passive: false });
+  document.addEventListener('mousedown', e => {
+    if (document.getElementById('photo-lightbox').style.display !== 'flex' || _lb.scale <= 1) return;
+    if (!document.querySelector('.lightbox-content').contains(e.target)) return;
+    e.preventDefault(); _lb.dragging = true; _lb.didDrag = false;
+    _lb.startX = e.clientX; _lb.startY = e.clientY;
+    _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
+    document.getElementById('lightbox-img').style.cursor = 'grabbing';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!_lb.dragging) return; e.preventDefault(); _lb.didDrag = true;
+    _lb.panX = _lb.startPanX + (e.clientX - _lb.startX) / _lb.scale;
+    _lb.panY = _lb.startPanY + (e.clientY - _lb.startY) / _lb.scale;
+    _lbTransform();
+  });
+  document.addEventListener('mouseup', () => {
+    if (_lb.dragging) { _lb.dragging = false; document.getElementById('lightbox-img').style.cursor = ''; }
+  });
+  document.addEventListener('touchstart', e => {
+    if (document.getElementById('photo-lightbox').style.display !== 'flex' || _lb.scale <= 1 || e.touches.length !== 1) return;
+    if (!document.querySelector('.lightbox-content').contains(e.target)) return;
+    _lb.dragging = true; _lb.startX = e.touches[0].clientX; _lb.startY = e.touches[0].clientY;
+    _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!_lb.dragging || e.touches.length !== 1) return; e.preventDefault();
+    _lb.panX = _lb.startPanX + (e.touches[0].clientX - _lb.startX) / _lb.scale;
+    _lb.panY = _lb.startPanY + (e.touches[0].clientY - _lb.startY) / _lb.scale;
+    _lbTransform();
+  }, { passive: false });
+  document.addEventListener('touchend', () => { _lb.dragging = false; });
 })();
 </script>
 {% endblock %}

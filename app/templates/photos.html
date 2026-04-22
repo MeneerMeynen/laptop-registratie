@@ -694,6 +694,7 @@ function photoApp() {
                 console.log('[camera] starting stream:', JSON.stringify(constraints));
                 this._scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = this._scannerStream;
+                video.play().catch(e => console.warn('[camera] play failed:', e.message));
 
                 const track = this._scannerStream.getVideoTracks()[0];
                 const settings = track?.getSettings();
@@ -817,6 +818,8 @@ function photoApp() {
                 this._scannerStream.getTracks().forEach(t => t.stop());
                 this._scannerStream = null;
             }
+            const video = document.getElementById('scanner-video');
+            if (video) video.srcObject = null;
         },
 
         switchToManual() {

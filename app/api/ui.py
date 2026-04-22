@@ -39,6 +39,11 @@ def index(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/barcodes", response_class=HTMLResponse)
+def barcodes_print(request: Request):
+    return templates.TemplateResponse(request, "barcodes.html", {})
+
+
 # ── HTMX partials ─────────────────────────────────────────────────────────
 
 

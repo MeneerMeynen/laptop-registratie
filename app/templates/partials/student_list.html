@@ -7,7 +7,7 @@
     type="button"
     class="student-option"
     data-stamnummer="{{ student.stamnummer }}"
-    data-laptop-id="{{ laptop.id if laptop and laptop.is_active and not laptop.eigen_laptop else '' }}"
+    data-laptop-id="{{ laptop.id if laptop and laptop.is_active else '' }}"
     data-label="{{ student.naam }}, {{ student.voornaam }} – {{ student.klas }} ({{ student.stamnummer }})"
     data-base-filter="{{ base_filter }}"
     data-filter="{{ base_filter }} {{ filter_extra }}"
@@ -18,7 +18,6 @@
 >
     <span class="student-option-name">{{ student.naam }}, {{ student.voornaam }}</span>
     <span class="student-option-meta">{{ student.klas }} | {{ student.stamnummer }}</span>
-    <span class="student-option-meta">Gebruikersnaam: {{ student.gebruikersnaam }} | Pointer: {{ student.pointer }}</span>
     <span class="student-option-serial">Laptop serienummer: {{ serial_display }}</span>
     {% if latest_import_at and student.last_import and student.last_import < latest_import_at %}
     <span class="badge badge-old">Uitgeschreven</span>

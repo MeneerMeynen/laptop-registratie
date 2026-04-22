@@ -1,3 +1,4 @@
+
 services:
   nginx:
     image: nginx:alpine
@@ -15,7 +16,9 @@ services:
 
   app:
     build: .
-    # Port 8000 no longer exposed directly — nginx handles external traffic
+    ports:
+      - "8000:8000"
+    # Also accessible via nginx on 443 for HTTPS/mobile workflow
     environment:
       # Override DATABASE_URL so the app always reaches the 'db' service inside Docker.
       # This takes precedence over any .env file value (which uses localhost for local dev).
@@ -34,7 +37,7 @@ services:
     environment:
       DATABASE_URL: mysql+pymysql://root:***REMOVED***@db:3306/laptops_test
       PYTHONPATH: /app
-    command: pytest -v
+    command: pytest -v --ignore=tests/e2e
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +72,7 @@ services:
       PYTHONPATH: /app
     command: >
       bash -c "pip install --quiet pytest pytest-playwright &&
+               until curl -sf http://app:8000/ > /dev/null; do sleep 2; done &&
                pytest tests/e2e/ -v --base-url http://app:8000 --confcutdir=tests/e2e"
     depends_on:
       app:

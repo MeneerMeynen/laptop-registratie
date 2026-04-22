@@ -1,29 +1,40 @@
 {% if not serial_number %}
-<div class="lt-detail-placeholder">
-    <p>Zoek een laptop om foto's te bekijken.</p>
+<div class="pg-empty">
+  <div class="pg-empty-icon">📷</div>
+  <div class="pg-empty-title">Zoek een laptop</div>
+  <div class="pg-empty-sub">Typ een serienummer of naam om foto's te bekijken.</div>
 </div>
 {% elif photos %}
-<div class="photo-gallery">
-    <div class="photo-gallery-header">
-        <strong>{{ photos|length }} foto('s)</strong> voor <strong>{{ serial_number }}</strong>
+<div class="pg-wrap">
+  <div class="pg-meta">{{ photos|length }} foto('s) voor <strong>{{ serial_number }}</strong></div>
+
+  <div class="pg-hero" onclick="openLightbox('{{ photos[0].url }}')">
+    <img src="{{ photos[0].url }}" alt="Meest recente foto" draggable="false">
+    <span class="pg-hero-badge">Meest recent</span>
+    <span class="pg-hero-date">{{ photos[0].created_at[:16].replace('T', ' ') if photos[0].created_at else '' }}</span>
+    <button class="pg-delete"
+            onclick="event.stopPropagation(); deleteGalleryPhoto({{ photos[0].id }}, '{{ serial_number }}')"
+            title="Verwijder">&times;</button>
+  </div>
+
+  {% if photos|length > 1 %}
+  <div class="pg-thumbs">
+    {% for photo in photos[1:] %}
+    <div class="pg-thumb" onclick="openLightbox('{{ photo.url }}')">
+      <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy" draggable="false">
+      <div class="pg-thumb-date">{{ photo.created_at[:16].replace('T', ' ') if photo.created_at else '' }}</div>
+      <button class="pg-delete"
+              onclick="event.stopPropagation(); deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
+              title="Verwijder">&times;</button>
     </div>
-    <div class="photo-gallery-grid">
-        {% for photo in photos %}
-        <div class="photo-gallery-item" data-photo-id="{{ photo.id }}">
-            <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy"
-                 onclick="openLightbox('{{ photo.url }}')" style="cursor:zoom-in;">
-            <div class="photo-gallery-meta">
-                {{ photo.created_at[:16].replace('T', ' ') if photo.created_at else '' }}
-            </div>
-            <button class="photo-gallery-delete"
-                    onclick="event.stopPropagation(); deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
-                    title="Verwijder">&times;</button>
-        </div>
-        {% endfor %}
-    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% else %}
-<div class="lt-detail-placeholder">
-    <p>Geen foto's voor <strong>{{ serial_number }}</strong>.</p>
+<div class="pg-empty">
+  <div class="pg-empty-icon">📷</div>
+  <div class="pg-empty-title">Geen foto's voor <strong>{{ serial_number }}</strong></div>
+  <div class="pg-empty-sub">Maak een foto via de mobiele foto-pagina.</div>
 </div>
 {% endif %}

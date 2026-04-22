@@ -1,9 +1,13 @@
 {% for student in students %}
 {% set is_old = latest_import_at and student.last_import and student.last_import < latest_import_at %}
+{% set has_eigen = student.laptops | selectattr('eigen_laptop') | list | length > 0 %}
+{% set has_serial = student.laptops | rejectattr('eigen_laptop') | selectattr('serial_number') | list | length > 0 %}
+{% set laptop_flags = ('eigen ' if has_eigen else '') + ('met ' if has_serial else '') + ('' if has_eigen or has_serial else 'zonder') %}
 <label
     class="manage-row"
     data-manage-filter="{{ student.instellingsnummer }} {{ student.naam }} {{ student.voornaam }} {{ student.klas }} {{ student.klascode }} {{ student.klasnummer }} {{ student.gebruikersnaam }} {{ student.pointer }} {{ student.stamnummer }}"
     data-old-import="{{ 'true' if is_old else 'false' }}"
+    data-laptop="{{ laptop_flags.strip() }}"
 >
     <input class="manage-checkbox" type="checkbox" value="{{ student.stamnummer }}">
     <span>
