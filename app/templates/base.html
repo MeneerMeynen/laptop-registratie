@@ -10,12 +10,15 @@
     <link rel="stylesheet" href="{{ static_v('css/style.css') }}">
     <!-- HTMX – declarative AJAX swaps (import, delete) -->
     <script defer src="{{ static_v('js/vendor/htmx.min.js') }}"></script>
-    <!-- Alpine.js – lightweight reactivity (tabs, selection, filtering, linking) -->
-    <script defer src="{{ static_v('js/vendor/alpine.min.js') }}"></script>
     <!-- bwip-js: multi-symbology barcode renderer (Data Matrix, Code 128, …) -->
     <script defer src="{{ static_v('js/vendor/bwip-js-min.js') }}"></script>
     <!-- Barcode renderer -->
     <script defer src="{{ static_v('js/barcodes.js') }}"></script>
+    <!-- App-component definities (laptopApp). Moeten geladen zijn vóór Alpine
+         start, anders kan Alpine x-data="laptopApp()" niet evalueren. -->
+    {% block app_scripts %}{% endblock %}
+    <!-- Alpine.js – lightweight reactivity (tabs, selection, filtering, linking) -->
+    <script defer src="{{ static_v('js/vendor/alpine.min.js') }}"></script>
 </head>
 <body>
 {% block content %}{% endblock %}

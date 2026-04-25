@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block app_scripts %}
+<script defer src="{{ static_v('js/laptop_app.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div x-data="laptopApp()" x-init="init()">
 
@@ -693,7 +697,5 @@
 </div>
 
 </div><!-- end x-data -->
-
-<script defer src="{{ static_v('js/laptop_app.js') }}"></script>
 
 {% endblock %}

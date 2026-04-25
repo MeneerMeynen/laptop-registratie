@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Laptop Foto's</title>
+    <!-- photo_app.js moet vóór Alpine geladen worden, anders kan Alpine
+         x-data="photoApp()" niet evalueren. -->
+    <script defer src="{{ static_v('js/photo_app.js') }}"></script>
     <script defer src="{{ static_v('js/vendor/alpine.min.js') }}"></script>
     <link rel="stylesheet" href="{{ static_v('css/photos.css') }}">
 </head>
@@ -208,6 +211,5 @@
     } catch(e) { console.warn('[zxing-wasm] init fout:', e.message); }
 })()" onerror="console.warn('[zxing-wasm] script laden mislukt')"></script>
 
-<script defer src="{{ static_v('js/photo_app.js') }}"></script>
 </body>
 </html>
