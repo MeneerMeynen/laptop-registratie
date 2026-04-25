@@ -9,13 +9,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
     <!-- HTMX – declarative AJAX swaps (import, delete) -->
-    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+    <script defer src="/static/js/vendor/htmx.min.js"></script>
     <!-- Alpine.js – lightweight reactivity (tabs, selection, filtering, linking) -->
-    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script defer src="/static/js/vendor/alpine.min.js"></script>
     <!-- bwip-js: multi-symbology barcode renderer (Data Matrix, Code 128, …) -->
-    <script src="https://cdn.jsdelivr.net/npm/bwip-js@3/dist/bwip-js-min.js"></script>
+    <script defer src="/static/js/vendor/bwip-js-min.js"></script>
     <!-- Barcode renderer -->
-    <script src="/static/js/barcodes.js"></script>
+    <script defer src="/static/js/barcodes.js"></script>
 </head>
 <body>
 {% block content %}{% endblock %}

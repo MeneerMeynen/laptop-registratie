@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Laptop Foto's</title>
-    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script defer src="/static/js/vendor/alpine.min.js"></script>
     <style>
         :root {
             --bg:          #f2efe8;
@@ -581,7 +581,7 @@
 </div>
 
 <!-- ZXing JS library (fallback for non-module environments) -->
-<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="/static/js/vendor/zxing-library.min.js"></script>
 
 <!-- zxing-wasm IIFE build: served locally, exposes ZXingWASM global (proper Data Matrix / WebAssembly) -->
 <script src="/static/zxing-wasm/index.js" onload="(function(){
