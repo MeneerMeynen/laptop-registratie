@@ -12,7 +12,20 @@ from app.services.laptop_service import get_all_laptops, import_laptops_csv, lis
 from app.services.student_import import import_students_from_stream
 
 BASE_DIR = Path(__file__).parent.parent
+STATIC_DIR = BASE_DIR / "static"
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+
+def static_v(path: str) -> str:
+    """Return /static/<path>?v=<mtime> for cache-busting on deploys."""
+    try:
+        mtime = int((STATIC_DIR / path).stat().st_mtime)
+    except OSError:
+        mtime = 0
+    return f"/static/{path}?v={mtime}"
+
+
+templates.env.globals["static_v"] = static_v
 
 router = APIRouter(tags=["ui"])
 

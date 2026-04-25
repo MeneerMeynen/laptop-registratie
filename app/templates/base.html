@@ -7,15 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="{{ static_v('css/style.css') }}">
     <!-- HTMX – declarative AJAX swaps (import, delete) -->
-    <script defer src="/static/js/vendor/htmx.min.js"></script>
+    <script defer src="{{ static_v('js/vendor/htmx.min.js') }}"></script>
     <!-- Alpine.js – lightweight reactivity (tabs, selection, filtering, linking) -->
-    <script defer src="/static/js/vendor/alpine.min.js"></script>
+    <script defer src="{{ static_v('js/vendor/alpine.min.js') }}"></script>
     <!-- bwip-js: multi-symbology barcode renderer (Data Matrix, Code 128, …) -->
-    <script defer src="/static/js/vendor/bwip-js-min.js"></script>
+    <script defer src="{{ static_v('js/vendor/bwip-js-min.js') }}"></script>
     <!-- Barcode renderer -->
-    <script defer src="/static/js/barcodes.js"></script>
+    <script defer src="{{ static_v('js/barcodes.js') }}"></script>
 </head>
 <body>
 {% block content %}{% endblock %}
