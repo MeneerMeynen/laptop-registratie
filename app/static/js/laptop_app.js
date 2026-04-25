@@ -155,7 +155,11 @@ function laptopApp() {
       else if (val.endsWith('1DOWN'))        { this.moveSelection(1);  this.serialValue = ''; }
       else if (val.endsWith('EIGEN LAPTOP')) { this.serialValue = 'eigen laptop'; }
       else if (val.endsWith('CLEAR'))        { this.serialValue = ''; }
-      else if (val.endsWith('INLEVEREN'))    { this.serialValue = ''; this.unlinkLaptop(this.selectedLaptopId); }
+      else if (val.endsWith('INLEVEREN')) {
+        this.serialValue = '';
+        if (this.selectedLaptopId) this.unlinkLaptop(this.selectedLaptopId);
+        else this.linkStatus = { text: 'Geen laptop gekoppeld om in te leveren.', type: 'error' };
+      }
     },
 
     moveSelection(step) {
@@ -242,7 +246,7 @@ function laptopApp() {
         eigen: !!data.eigen_laptop,
         ts: Date.now(),
       });
-      if (this.recentLinks.length > 10) this.recentLinks.pop();
+      if (this.recentLinks.length > 10) this.recentLinks.length = 10;
 
       // Auto-advance
       const visible = [...document.querySelectorAll('.student-option:not([hidden])')];
@@ -639,9 +643,6 @@ async function ltManageSave(btn, laptopId) {
     alert(data.detail || 'Opslaan mislukt.');
     return;
   }
-  // Refresh the full table via the Alpine component
-  Alpine.store && Alpine.store('app')?.refreshLaptopManage?.();
-  document.querySelector('[x-data]')?.__x?.$data?.refreshLaptopManage?.();
   htmx.ajax('GET', '/ui/laptops/manage', { target: '#manage-laptop-list', swap: 'innerHTML' });
 }
 
@@ -670,67 +671,88 @@ function deleteGalleryPhoto(photoId, serial) {
 }
 
 // ── Lightbox ─────────────────────────────────────────────────
+// Listeners are only attached while the lightbox is open, so background
+// scrolling/clicking pays no overhead.
 var _lb = { scale: 1, panX: 0, panY: 0, dragging: false, didDrag: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0 };
+
 function _lbTransform() {
   document.getElementById('lightbox-img').style.transform =
     'scale(' + _lb.scale + ') translate(' + _lb.panX + 'px, ' + _lb.panY + 'px)';
 }
+
+function _lbOnKey(e) {
+  if (e.key === 'Escape') closeLightbox(true);
+}
+function _lbOnWheel(e) {
+  e.preventDefault();
+  _lb.scale = Math.max(0.5, Math.min(_lb.scale + (e.deltaY < 0 ? 0.2 : -0.2), 8));
+  if (_lb.scale <= 1) { _lb.panX = 0; _lb.panY = 0; }
+  _lbTransform();
+}
+function _lbOnMouseDown(e) {
+  if (_lb.scale <= 1) return;
+  if (!document.querySelector('.lightbox-content').contains(e.target)) return;
+  e.preventDefault(); _lb.dragging = true; _lb.didDrag = false;
+  _lb.startX = e.clientX; _lb.startY = e.clientY;
+  _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
+  document.getElementById('lightbox-img').style.cursor = 'grabbing';
+}
+function _lbOnMouseMove(e) {
+  if (!_lb.dragging) return; e.preventDefault(); _lb.didDrag = true;
+  _lb.panX = _lb.startPanX + (e.clientX - _lb.startX) / _lb.scale;
+  _lb.panY = _lb.startPanY + (e.clientY - _lb.startY) / _lb.scale;
+  _lbTransform();
+}
+function _lbOnMouseUp() {
+  if (_lb.dragging) { _lb.dragging = false; document.getElementById('lightbox-img').style.cursor = ''; }
+}
+function _lbOnTouchStart(e) {
+  if (_lb.scale <= 1 || e.touches.length !== 1) return;
+  if (!document.querySelector('.lightbox-content').contains(e.target)) return;
+  _lb.dragging = true; _lb.startX = e.touches[0].clientX; _lb.startY = e.touches[0].clientY;
+  _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
+}
+function _lbOnTouchMove(e) {
+  if (!_lb.dragging || e.touches.length !== 1) return; e.preventDefault();
+  _lb.panX = _lb.startPanX + (e.touches[0].clientX - _lb.startX) / _lb.scale;
+  _lb.panY = _lb.startPanY + (e.touches[0].clientY - _lb.startY) / _lb.scale;
+  _lbTransform();
+}
+function _lbOnTouchEnd() { _lb.dragging = false; }
+
+function _lbAttachListeners() {
+  document.addEventListener('keydown', _lbOnKey);
+  document.addEventListener('wheel', _lbOnWheel, { passive: false });
+  document.addEventListener('mousedown', _lbOnMouseDown);
+  document.addEventListener('mousemove', _lbOnMouseMove);
+  document.addEventListener('mouseup', _lbOnMouseUp);
+  document.addEventListener('touchstart', _lbOnTouchStart, { passive: true });
+  document.addEventListener('touchmove', _lbOnTouchMove, { passive: false });
+  document.addEventListener('touchend', _lbOnTouchEnd);
+}
+function _lbDetachListeners() {
+  document.removeEventListener('keydown', _lbOnKey);
+  document.removeEventListener('wheel', _lbOnWheel);
+  document.removeEventListener('mousedown', _lbOnMouseDown);
+  document.removeEventListener('mousemove', _lbOnMouseMove);
+  document.removeEventListener('mouseup', _lbOnMouseUp);
+  document.removeEventListener('touchstart', _lbOnTouchStart);
+  document.removeEventListener('touchmove', _lbOnTouchMove);
+  document.removeEventListener('touchend', _lbOnTouchEnd);
+}
+
 function openLightbox(url) {
-  var img = document.getElementById('lightbox-img');
-  img.src = url;
+  document.getElementById('lightbox-img').src = url;
   _lb.scale = 1; _lb.panX = 0; _lb.panY = 0; _lb.dragging = false;
   _lbTransform();
   document.getElementById('photo-lightbox').style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  _lbAttachListeners();
 }
-function closeLightbox() {
-  if (_lb.dragging || _lb.didDrag) { _lb.didDrag = false; return; }
+function closeLightbox(force) {
+  if (!force && (_lb.dragging || _lb.didDrag)) { _lb.didDrag = false; return; }
+  _lb.dragging = false;
   document.getElementById('photo-lightbox').style.display = 'none';
   document.body.style.overflow = '';
+  _lbDetachListeners();
 }
-(function() {
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      _lb.dragging = false;
-      document.getElementById('photo-lightbox').style.display = 'none';
-      document.body.style.overflow = '';
-    }
-  });
-  document.addEventListener('wheel', e => {
-    if (document.getElementById('photo-lightbox').style.display !== 'flex') return;
-    e.preventDefault();
-    _lb.scale = Math.max(0.5, Math.min(_lb.scale + (e.deltaY < 0 ? 0.2 : -0.2), 8));
-    if (_lb.scale <= 1) { _lb.panX = 0; _lb.panY = 0; }
-    _lbTransform();
-  }, { passive: false });
-  document.addEventListener('mousedown', e => {
-    if (document.getElementById('photo-lightbox').style.display !== 'flex' || _lb.scale <= 1) return;
-    if (!document.querySelector('.lightbox-content').contains(e.target)) return;
-    e.preventDefault(); _lb.dragging = true; _lb.didDrag = false;
-    _lb.startX = e.clientX; _lb.startY = e.clientY;
-    _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
-    document.getElementById('lightbox-img').style.cursor = 'grabbing';
-  });
-  document.addEventListener('mousemove', e => {
-    if (!_lb.dragging) return; e.preventDefault(); _lb.didDrag = true;
-    _lb.panX = _lb.startPanX + (e.clientX - _lb.startX) / _lb.scale;
-    _lb.panY = _lb.startPanY + (e.clientY - _lb.startY) / _lb.scale;
-    _lbTransform();
-  });
-  document.addEventListener('mouseup', () => {
-    if (_lb.dragging) { _lb.dragging = false; document.getElementById('lightbox-img').style.cursor = ''; }
-  });
-  document.addEventListener('touchstart', e => {
-    if (document.getElementById('photo-lightbox').style.display !== 'flex' || _lb.scale <= 1 || e.touches.length !== 1) return;
-    if (!document.querySelector('.lightbox-content').contains(e.target)) return;
-    _lb.dragging = true; _lb.startX = e.touches[0].clientX; _lb.startY = e.touches[0].clientY;
-    _lb.startPanX = _lb.panX; _lb.startPanY = _lb.panY;
-  }, { passive: true });
-  document.addEventListener('touchmove', e => {
-    if (!_lb.dragging || e.touches.length !== 1) return; e.preventDefault();
-    _lb.panX = _lb.startPanX + (e.touches[0].clientX - _lb.startX) / _lb.scale;
-    _lb.panY = _lb.startPanY + (e.touches[0].clientY - _lb.startY) / _lb.scale;
-    _lbTransform();
-  }, { passive: false });
-  document.addEventListener('touchend', () => { _lb.dragging = false; });
-})();
