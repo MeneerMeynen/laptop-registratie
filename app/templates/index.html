@@ -54,6 +54,9 @@
               :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
               x-text="theme === 'dark' ? '☀' : '☾'"></button>
       <button class="icon-btn" title="Help" onclick="alert('Navigeer met barcodes 1UP / 1DOWN. Scan serienummer om te koppelen. Gebruik + Defect voor problemen.')">?</button>
+      <form method="post" action="/logout" style="display:inline;margin:0;">
+        <button class="icon-btn" type="submit" title="Uitloggen">⎋</button>
+      </form>
     </div>
 
   </div>

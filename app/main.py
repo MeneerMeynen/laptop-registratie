@@ -4,12 +4,16 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
+from app.api import auth_routes
 from app.api import laptops as laptops_api
 from app.api import laptop_issues as laptop_issues_api
 from app.api import photos as photos_api
 from app.api import students as students_api
 from app.api import ui as ui_routes
+from app.auth import AuthMiddleware
+from app.config import settings
 
 BASE_DIR = Path(__file__).parent
 
@@ -23,6 +27,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    if not settings.debug and (not settings.auth_password or not settings.session_secret):
+        raise RuntimeError(
+            "AUTH_PASSWORD and SESSION_SECRET must be set in production "
+            "(set DEBUG=true to bypass for local development)."
+        )
+
     app = FastAPI(title="Laptop Registratie", version="2.0.0", lifespan=lifespan)
 
     # Static files (CSS, JS)
@@ -34,11 +44,23 @@ def create_app() -> FastAPI:
     app.mount("/uploads/laptops", StaticFiles(directory=uploads_dir), name="uploads")
 
     # Routers
+    app.include_router(auth_routes.router)
     app.include_router(laptops_api.router)
     app.include_router(laptop_issues_api.router)
     app.include_router(photos_api.router)
     app.include_router(students_api.router)
     app.include_router(ui_routes.router)
+
+    # Middleware: added bottom-up, so SessionMiddleware (added last) runs first
+    # and populates request.session before AuthMiddleware reads it.
+    app.add_middleware(AuthMiddleware)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret or "dev-insecure-secret-do-not-use",
+        same_site="lax",
+        https_only=not settings.debug,
+        max_age=60 * 60 * 8,
+    )
 
     return app
 

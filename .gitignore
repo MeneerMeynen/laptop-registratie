@@ -4,3 +4,5 @@ __pycache__/
 .claude/
 # TLS certificates (generated locally via mkcert — not committed)
 certs/
+# Local environment file with secrets — never commit. Use .env.example as template.
+.env

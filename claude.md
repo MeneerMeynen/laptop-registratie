@@ -16,6 +16,16 @@
 
 ## Kernfunctionaliteit
 
+### Authenticatie
+- Eén gedeelde login voor de hele applicatie (geen `users`-tabel)
+- Credentials uit env vars: `AUTH_USERNAME`, `AUTH_PASSWORD`, `SESSION_SECRET`
+- `SESSION_SECRET` genereren: `python -c "import secrets; print(secrets.token_hex(32))"`
+- Sessie via signed cookie (Starlette `SessionMiddleware`), 8u geldig
+- `app/auth.py::AuthMiddleware` gate alle requests behalve `/login`, `/logout`, `/static/*` en `/favicon*`
+- HTMX-requests krijgen bij verlopen sessie `204` + `HX-Redirect: /login`; HTML-requests `303` redirect; API-requests `401`
+- Uitloggen via knop rechtsboven in de UI (POST `/logout`)
+- Productie-startup faalt expliciet als `AUTH_PASSWORD` of `SESSION_SECRET` ontbreekt (tenzij `DEBUG=true`)
+
 ### Leerlingkoppeling (tab: Registreer)
 - Studenten worden uit CSV geïmporteerd in tabel `students`
 - Laptops worden gekoppeld in tabel `laptops`
