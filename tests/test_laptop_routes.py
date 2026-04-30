@@ -158,3 +158,102 @@ def test_unlink_already_unlinked_returns_409(client, db_session):
     resp = _unlink(client, laptop_id)
 
     assert resp.status_code == 409
+
+
+# ── Reserve laptops ───────────────────────────────────────────────────────────
+
+
+def _create_reserve(client, alias: str, serial: str | None = None):
+    payload = {"is_reserve": True, "alias": alias}
+    if serial:
+        payload["serial_number"] = serial
+    return client.post("/api/laptops", json=payload)
+
+
+def test_create_reserve_laptop_without_stamnummer(client, db_session):
+    """A reserve laptop must be creatable without a student (stamnummer=None)."""
+    resp = _create_reserve(client, "Reserve-1", serial="RES-001")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_reserve"] is True
+    assert data["alias"] == "Reserve-1"
+    assert data["serial_number"] == "RES-001"
+    assert data["stamnummer"] is None
+
+
+def test_create_reserve_laptop_without_serial(client, db_session):
+    """Reserve laptop without serial number is allowed."""
+    resp = _create_reserve(client, "Reserve-2")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_reserve"] is True
+    assert data["serial_number"] is None
+
+
+def test_create_reserve_requires_alias(client, db_session):
+    """Creating a reserve without alias must return 422."""
+    resp = client.post("/api/laptops", json={"is_reserve": True})
+
+    assert resp.status_code == 422
+
+
+def test_create_normal_laptop_still_requires_stamnummer(client, db_session):
+    """Normal (non-reserve) laptop creation still needs a student."""
+    resp = client.post("/api/laptops", json={"serial_number": "ABC123"})
+
+    assert resp.status_code in (404, 422)
+
+
+def test_list_laptops_kind_filter_reserve(client, db_session):
+    """GET /api/laptops?kind=reserve returns only reserve laptops."""
+    _add_student(db_session, "S200")
+    client.post("/api/laptops", json={"serial_number": "NORM-001", "stamnummer": "S200"})
+    _create_reserve(client, "Reserve-X", serial="RES-X01")
+
+    resp = client.get("/api/laptops?kind=reserve")
+
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    assert items[0]["is_reserve"] is True
+    assert items[0]["alias"] == "Reserve-X"
+
+
+def test_list_laptops_kind_filter_normal(client, db_session):
+    """GET /api/laptops?kind=normal excludes reserve laptops."""
+    _add_student(db_session, "S210")
+    client.post("/api/laptops", json={"serial_number": "NORM-002", "stamnummer": "S210"})
+    _create_reserve(client, "Reserve-Y")
+
+    resp = client.get("/api/laptops?kind=normal")
+
+    assert resp.status_code == 200
+    serials = [item["serial_number"] for item in resp.json()]
+    assert "NORM-002" in serials
+    aliases = [item.get("alias") for item in resp.json()]
+    assert "Reserve-Y" not in aliases
+
+
+def test_available_reserves_endpoint(client, db_session):
+    """GET /api/laptops/reserves/available returns all reserve laptops."""
+    _create_reserve(client, "Res-A", serial="RES-A")
+    _create_reserve(client, "Res-B", serial="RES-B")
+
+    resp = client.get("/api/laptops/reserves/available")
+
+    assert resp.status_code == 200
+    aliases = [r["alias"] for r in resp.json()]
+    assert "Res-A" in aliases
+    assert "Res-B" in aliases
+
+
+def test_update_laptop_alias(client, db_session):
+    """PUT /api/laptops/{id} can update the alias of a reserve laptop."""
+    laptop_id = _create_reserve(client, "Oud-Alias", serial="RES-UP").json()["id"]
+
+    resp = client.put(f"/api/laptops/{laptop_id}", json={"alias": "Nieuw-Alias"})
+
+    assert resp.status_code == 200
+    assert resp.json()["alias"] == "Nieuw-Alias"

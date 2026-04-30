@@ -665,8 +665,14 @@ function laptopApp() {
 // ── Laptop manage table: inline edit/delete ───────────────────
 function ltManageEdit(btn) {
   const row = btn.closest('tr');
+  const isReserve = row.dataset.isReserve === '1';
   row.querySelectorAll('.lt-manage-display').forEach(el => el.style.display = 'none');
-  row.querySelectorAll('.lt-manage-edit-serial, .lt-manage-edit-stamnummer').forEach(el => el.style.display = '');
+  row.querySelectorAll('.lt-manage-edit-serial').forEach(el => el.style.display = '');
+  if (isReserve) {
+    row.querySelectorAll('.lt-manage-edit-alias').forEach(el => el.style.display = '');
+  } else {
+    row.querySelectorAll('.lt-manage-edit-stamnummer').forEach(el => el.style.display = '');
+  }
   row.querySelector('.lt-manage-btn-edit').style.display = 'none';
   row.querySelector('.lt-manage-btn-delete').style.display = 'none';
   row.querySelector('.lt-manage-btn-save').style.display = '';
@@ -676,7 +682,8 @@ function ltManageEdit(btn) {
 function ltManageCancel(btn) {
   const row = btn.closest('tr');
   row.querySelectorAll('.lt-manage-display').forEach(el => el.style.display = '');
-  row.querySelectorAll('.lt-manage-edit-serial, .lt-manage-edit-stamnummer').forEach(el => el.style.display = 'none');
+  row.querySelectorAll('.lt-manage-edit-serial, .lt-manage-edit-stamnummer, .lt-manage-edit-alias')
+     .forEach(el => el.style.display = 'none');
   row.querySelector('.lt-manage-btn-edit').style.display = '';
   row.querySelector('.lt-manage-btn-delete').style.display = '';
   row.querySelector('.lt-manage-btn-save').style.display = 'none';
@@ -685,14 +692,21 @@ function ltManageCancel(btn) {
 
 async function ltManageSave(btn, laptopId) {
   const row = btn.closest('tr');
+  const isReserve = row.dataset.isReserve === '1';
   const serial = row.querySelector('.lt-manage-edit-serial').value.trim();
-  const stamnummer = row.querySelector('.lt-manage-edit-stamnummer').value.trim();
+  const aliasEl = row.querySelector('.lt-manage-edit-alias');
+  const stamnummerEl = row.querySelector('.lt-manage-edit-stamnummer');
+  const alias = aliasEl ? aliasEl.value.trim() : null;
+  const stamnummer = stamnummerEl ? stamnummerEl.value.trim() : null;
   btn.textContent = '…';
   btn.disabled = true;
+  const payload = isReserve
+    ? { serial_number: serial || null, alias: alias || null }
+    : { serial_number: serial || null, stamnummer: stamnummer || null };
   const res = await fetch(`/api/laptops/${laptopId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ serial_number: serial || null, stamnummer: stamnummer || null }),
+    body: JSON.stringify(payload),
   });
   btn.textContent = 'Opslaan';
   btn.disabled = false;

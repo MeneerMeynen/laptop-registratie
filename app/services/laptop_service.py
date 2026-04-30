@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 from typing import TextIO
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.laptop import Laptop
@@ -210,7 +210,8 @@ def get_all_laptops(
     stmt = (
         select(Laptop, Student.naam, Student.voornaam, Student.klas)
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
-        .order_by(Laptop.linked_at.desc().nullslast(), Laptop.id.desc())
+        # MariaDB does not support NULLS LAST syntax — use ISNULL to sort NULLs last.
+        .order_by(func.isnull(Laptop.linked_at).asc(), Laptop.linked_at.desc(), Laptop.id.desc())
     )
 
     if kind == "reserve":
@@ -481,7 +482,8 @@ def list_available_reserve_laptops(session: Session) -> list[dict]:
             student_alias.c.serial_number == in_use_subq.c.issue_serial,
         )
         .where(Laptop.is_reserve.is_(True))
-        .order_by(Laptop.alias.asc().nullslast(), Laptop.id.asc())
+        # MariaDB does not support NULLS LAST — use ISNULL workaround.
+        .order_by(func.isnull(Laptop.alias).asc(), Laptop.alias.asc(), Laptop.id.asc())
     )
     rows = session.execute(stmt).all()
     results = []
