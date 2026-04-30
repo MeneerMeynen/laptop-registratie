@@ -12,6 +12,7 @@ from app.db import get_db
 from app.schemas.laptop_issue import LaptopIssueCreate, LaptopIssueRead, LaptopIssueUpdate
 from app.services.laptop_issue_service import (
     VALID_CATEGORIES,
+    IssueValidationError,
     add_issue_entry,
     create_issue,
     delete_entry,
@@ -84,22 +85,33 @@ def post_issue(body: LaptopIssueCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="Serienummer is verplicht.")
     if not body.description.strip():
         raise HTTPException(status_code=422, detail="Beschrijving is verplicht.")
-    return create_issue(
-        db,
-        body.serial_number,
-        body.description,
-        body.reported_date,
-        category=body.category,
-    )
+    try:
+        issue = create_issue(
+            db,
+            body.serial_number,
+            body.description,
+            body.reported_date,
+            category=body.category,
+            reserve_laptop_id=body.reserve_laptop_id,
+        )
+    except IssueValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    # Re-fetch via list_issues so reserve laptop info is included in response.
+    rows = [r for r in list_issues(db, include_closed=True) if r["id"] == issue.id]
+    return rows[0] if rows else issue
 
 
 @router.patch("/api/laptop-issues/{issue_id}", response_model=LaptopIssueRead)
 def patch_issue(issue_id: int, body: LaptopIssueUpdate, db: Session = Depends(get_db)):
     data = body.model_dump(exclude_unset=True)
-    issue = update_issue(db, issue_id, data)
+    try:
+        issue = update_issue(db, issue_id, data)
+    except IssueValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     if not issue:
         raise HTTPException(status_code=404, detail="Probleem niet gevonden.")
-    return issue
+    rows = [r for r in list_issues(db, include_closed=True) if r["id"] == issue.id]
+    return rows[0] if rows else issue
 
 
 @router.delete("/api/laptop-issues/{issue_id}", status_code=204)

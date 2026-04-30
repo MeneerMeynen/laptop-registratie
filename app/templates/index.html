@@ -65,12 +65,12 @@
 <!-- ══════════════════ SCREEN 01 · TICKETS ══════════════════ -->
 <section x-show="activeTab === 'laptops'" x-cloak>
 
-  <div class="lt-new-card">
+  <!-- <div class="lt-new-card">
     <button type="button" class="lt-btn-new lt-btn-new-lg"
             @click="openNewIssueModal(ltSelectedSerial || '')">
       + Defect melden
     </button>
-  </div>
+  </div> -->
 
   <div class="lt-global-stats">
     <div class="lt-stat-card lt-stat-toggle"
@@ -499,13 +499,21 @@
         <!-- Nieuw laptop formulier -->
         <div x-show="showNewLaptopForm"
              style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:16px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); width:100%; margin:0;">
+            <input type="checkbox" x-model="newLaptopIsReserve" style="margin:0;">
+            Reserve-laptop (geen leerling, krijgt een alias)
+          </label>
           <div style="flex:1; min-width:160px;">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
             <input class="input" type="text" placeholder="bijv. ABC123" x-model="newLaptopSerial" @keydown.enter="createLaptop()">
           </div>
-          <div style="flex:1; min-width:160px;">
+          <div style="flex:1; min-width:160px;" x-show="!newLaptopIsReserve">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer</label>
             <input class="input" type="text" placeholder="bijv. 12345" x-model="newLaptopStamnummer" @keydown.enter="createLaptop()">
+          </div>
+          <div style="flex:1; min-width:160px;" x-show="newLaptopIsReserve" x-cloak>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Alias</label>
+            <input class="input" type="text" placeholder="bijv. Reserve-1" x-model="newLaptopAlias" @keydown.enter="createLaptop()">
           </div>
           <button type="button" class="btn sm accent" @click="createLaptop()">Toevoegen</button>
           <div class="status"
@@ -516,9 +524,15 @@
         <!-- Zoek + filter -->
         <div class="stu-search">
           <input class="input" type="text"
-                 placeholder="🔍 Zoek op serienummer, stamnummer of naam…"
+                 placeholder="🔍 Zoek op serienummer, stamnummer, alias of naam…"
                  x-model="laptopManageSearch"
                  @input="refreshLaptopManage()">
+          <select class="input" x-model="laptopManageKind" @change="refreshLaptopManage()"
+                  style="width:auto; padding:0 10px;">
+            <option value="all">Alle types</option>
+            <option value="normal">Leerling-laptops</option>
+            <option value="reserve">Reserve-laptops</option>
+          </select>
           <select class="input" x-model="laptopManageFilter" @change="refreshLaptopManage()"
                   style="width:auto; padding:0 10px;">
             <option value="all">Alle</option>
@@ -533,7 +547,7 @@
             <thead>
               <tr>
                 <th>Serienummer</th>
-                <th>Leerling</th>
+                <th>Type / Leerling</th>
                 <th>Klas</th>
                 <th>Status</th>
                 <th>Gekoppeld op</th>
@@ -549,6 +563,7 @@
 
         <p class="import-help" style="margin-top:14px;">
           CSV-formaat: <code>serial_number,stamnummer</code> — één laptop per rij, stamnummer verplicht.
+          Reserve-laptops kun je alleen via het formulier hierboven aanmaken.
         </p>
 
       </div>
@@ -641,6 +656,17 @@
       <label for="new-issue-date">Datum</label>
       <input id="new-issue-date" type="date" x-model="newIssueDate">
     </div>
+    <div class="field">
+      <label for="new-issue-reserve">Reserve-laptop meegeven</label>
+      <select id="new-issue-reserve" x-model="newIssueReserveLaptopId">
+        <option value="">— geen —</option>
+        <template x-for="r in availableReserves" :key="r.id">
+          <option :value="r.id"
+                  :disabled="r.in_use_by_issue_id !== null && r.in_use_by_issue_id !== undefined"
+                  x-text="reserveOptionLabel(r)"></option>
+        </template>
+      </select>
+    </div>
     <div class="modal-actions">
       <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
     </div>
@@ -683,6 +709,20 @@
       <label for="edit-issue-solution">Oplossing</label>
       <textarea id="edit-issue-solution" x-model="editIssueSolution"
                 placeholder="Beschrijf de oplossing…"></textarea>
+    </div>
+    <div class="field" x-show="editIssueStatus !== 'gesloten'">
+      <label for="edit-issue-reserve">Reserve-laptop meegeven</label>
+      <select id="edit-issue-reserve" x-model="editIssueReserveLaptopId">
+        <option value="">— geen —</option>
+        <template x-for="r in availableReserves" :key="r.id">
+          <option :value="r.id"
+                  :disabled="r.in_use_by_issue_id !== null && r.in_use_by_issue_id !== undefined && r.in_use_by_issue_id !== editIssueId"
+                  x-text="reserveOptionLabel(r, editIssueId)"></option>
+        </template>
+      </select>
+      <p class="import-help" x-show="editIssueStatus === 'gesloten'" style="font-size:11px; margin-top:4px;">
+        De reserve-laptop wordt automatisch teruggebracht zodra het probleem op "Gesloten" wordt gezet.
+      </p>
     </div>
     <div class="modal-actions">
       <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>

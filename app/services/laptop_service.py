@@ -2,10 +2,11 @@ import csv
 from datetime import datetime
 from typing import TextIO
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.laptop import Laptop
+from app.models.laptop_issue import LaptopIssue
 from app.models.student import Student
 
 
@@ -30,6 +31,10 @@ class StudentAlreadyHasLaptopError(ValueError):
         super().__init__(f"Student {stamnummer} already has laptop(s): {serials}.")
 
 
+class LaptopValidationError(ValueError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -52,6 +57,8 @@ def describe_serial(laptop: Laptop) -> str:
     """Return a human-readable description (used in error messages)."""
     if laptop.eigen_laptop:
         return "eigen laptop"
+    if laptop.is_reserve:
+        return f"reserve-laptop '{laptop.alias or laptop.serial_number or ''}'"
     return laptop.serial_number or ""
 
 
@@ -92,19 +99,20 @@ def link_laptop_to_student(
         stmt = select(Laptop).where(
             Laptop.serial_number == normalized_serial,
             Laptop.unlinked_at.is_(None),
+            Laptop.is_reserve.is_(False),
         )
         existing = session.scalars(stmt).first()
         if existing is not None and existing.stamnummer != normalized_stamnummer:
-            owner = session.get(Student, existing.stamnummer)
+            owner = session.get(Student, existing.stamnummer) if existing.stamnummer else None
             owner_name = (
-                f"{owner.voornaam} {owner.naam}" if owner else existing.stamnummer
+                f"{owner.voornaam} {owner.naam}" if owner else (existing.stamnummer or "?")
             )
             raise LaptopAlreadyLinkedError(
                 f"Laptop {normalized_serial} is already linked to {owner_name} ({existing.stamnummer})."
             )
 
-    # 3. Does this student already have an active laptop (other than what we're about to set)?
-    active_laptops = [lap for lap in student.laptops if lap.is_active]
+    # 3. Does this student already have an active (non-reserve) laptop other than this one?
+    active_laptops = [lap for lap in student.laptops if lap.is_active and not lap.is_reserve]
     other_laptops = [
         lap for lap in active_laptops
         if not (is_own and lap.eigen_laptop)  # skip if same eigen_laptop slot
@@ -159,7 +167,7 @@ def get_assignment_history(session: Session, serial_number: str) -> list[dict]:
     """All assignments (active + historical) for a serial, newest first."""
     stmt = (
         select(Laptop, Student.naam, Student.voornaam, Student.klas)
-        .join(Student, Student.stamnummer == Laptop.stamnummer)
+        .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .where(Laptop.serial_number == serial_number)
         .order_by(Laptop.linked_at.desc())
     )
@@ -192,13 +200,24 @@ def get_all_laptops(
     session: Session,
     q: str | None = None,
     active: bool | None = None,
+    kind: str = "all",
 ) -> list[dict]:
-    """Return all laptop records with joined student info, optionally filtered."""
+    """Return all laptop records with joined student info, optionally filtered.
+
+    ``kind`` can be ``"all"`` (default), ``"normal"`` (excludes reserve), or
+    ``"reserve"`` (only reserve laptops).
+    """
     stmt = (
         select(Laptop, Student.naam, Student.voornaam, Student.klas)
-        .join(Student, Student.stamnummer == Laptop.stamnummer)
-        .order_by(Laptop.linked_at.desc())
+        .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
+        .order_by(Laptop.linked_at.desc().nullslast(), Laptop.id.desc())
     )
+
+    if kind == "reserve":
+        stmt = stmt.where(Laptop.is_reserve.is_(True))
+    elif kind == "normal":
+        stmt = stmt.where(Laptop.is_reserve.is_(False))
+
     rows = session.execute(stmt).all()
     results = []
     for row in rows:
@@ -207,7 +226,10 @@ def get_all_laptops(
         serial = row.Laptop.serial_number or ""
         if q:
             q_lower = q.lower()
-            searchable = f"{serial} {row.Laptop.stamnummer} {row.naam or ''} {row.voornaam or ''} {row.klas or ''}".lower()
+            searchable = (
+                f"{serial} {row.Laptop.stamnummer or ''} {row.Laptop.alias or ''} "
+                f"{row.naam or ''} {row.voornaam or ''} {row.klas or ''}"
+            ).lower()
             if q_lower not in searchable:
                 continue
         results.append({
@@ -215,6 +237,8 @@ def get_all_laptops(
             "serial_number": serial,
             "stamnummer": row.Laptop.stamnummer,
             "eigen_laptop": row.Laptop.eigen_laptop,
+            "is_reserve": row.Laptop.is_reserve,
+            "alias": row.Laptop.alias,
             "linked_at": row.Laptop.linked_at,
             "unlinked_at": row.Laptop.unlinked_at,
             "is_active": row.Laptop.is_active,
@@ -225,31 +249,59 @@ def get_all_laptops(
     return results
 
 
-def create_laptop(session: Session, serial_number: str, stamnummer: str) -> Laptop:
-    """Create a new laptop record linked to an existing student."""
-    normalized_serial = serial_number.strip()
-    normalized_stamnummer = stamnummer.strip()
+def create_laptop(
+    session: Session,
+    serial_number: str | None = None,
+    stamnummer: str | None = None,
+    *,
+    is_reserve: bool = False,
+    alias: str | None = None,
+) -> Laptop:
+    """Create a new laptop record.
 
-    student = session.get(Student, normalized_stamnummer)
-    if student is None:
-        raise StudentNotFoundError(f"Student {normalized_stamnummer} bestaat niet.")
+    For a regular laptop: ``stamnummer`` is required and ``serial_number`` is required.
+    For a reserve laptop: ``alias`` is required; ``stamnummer`` must be empty.
+    """
+    normalized_serial = (serial_number or "").strip() or None
+    normalized_stamnummer = (stamnummer or "").strip() or None
+    normalized_alias = (alias or "").strip() or None
 
-    existing = session.scalars(
-        select(Laptop).where(
-            Laptop.serial_number == normalized_serial,
-            Laptop.unlinked_at.is_(None),
-        )
-    ).first()
-    if existing is not None:
-        raise LaptopAlreadyLinkedError(
-            f"Serienummer {normalized_serial} is al actief gekoppeld."
-        )
+    if is_reserve:
+        if normalized_stamnummer:
+            raise LaptopValidationError(
+                "Een reserve-laptop mag niet aan een leerling gekoppeld zijn."
+            )
+        if not normalized_alias:
+            raise LaptopValidationError("Reserve-laptop vereist een alias.")
+    else:
+        if not normalized_stamnummer:
+            raise LaptopValidationError("Stamnummer is verplicht voor een gewone laptop.")
+        if not normalized_serial:
+            raise LaptopValidationError("Serienummer is verplicht voor een gewone laptop.")
+        student = session.get(Student, normalized_stamnummer)
+        if student is None:
+            raise StudentNotFoundError(f"Student {normalized_stamnummer} bestaat niet.")
+
+    if normalized_serial:
+        existing = session.scalars(
+            select(Laptop).where(
+                Laptop.serial_number == normalized_serial,
+                Laptop.unlinked_at.is_(None),
+                Laptop.is_reserve.is_(False),
+            )
+        ).first()
+        if existing is not None and not is_reserve:
+            raise LaptopAlreadyLinkedError(
+                f"Serienummer {normalized_serial} is al actief gekoppeld."
+            )
 
     laptop = Laptop(
         serial_number=normalized_serial,
-        stamnummer=normalized_stamnummer,
+        stamnummer=None if is_reserve else normalized_stamnummer,
         eigen_laptop=False,
-        linked_at=datetime.now(),
+        is_reserve=is_reserve,
+        alias=normalized_alias,
+        linked_at=None if is_reserve else datetime.now(),
     )
     session.add(laptop)
     session.commit()
@@ -262,32 +314,54 @@ def update_laptop(
     laptop_id: int,
     serial_number: str | None = None,
     stamnummer: str | None = None,
+    is_reserve: bool | None = None,
+    alias: str | None = None,
 ) -> Laptop:
-    """Update serial_number and/or stamnummer of a laptop record."""
+    """Update fields of a laptop record."""
     laptop = session.get(Laptop, laptop_id)
     if laptop is None:
         raise LaptopNotFoundError("Laptop niet gevonden.")
 
-    if stamnummer is not None:
+    if is_reserve is not None and is_reserve != laptop.is_reserve:
+        if is_reserve:
+            laptop.is_reserve = True
+            laptop.stamnummer = None
+            if laptop.unlinked_at is None and laptop.linked_at is not None:
+                laptop.unlinked_at = datetime.now()
+        else:
+            laptop.is_reserve = False
+
+    if alias is not None:
+        normalized = alias.strip()
+        laptop.alias = normalized or None
+
+    if stamnummer is not None and not laptop.is_reserve:
         normalized = stamnummer.strip()
+        if not normalized:
+            raise LaptopValidationError("Stamnummer mag niet leeg zijn voor een gewone laptop.")
         if session.get(Student, normalized) is None:
             raise StudentNotFoundError(f"Student {normalized} bestaat niet.")
         laptop.stamnummer = normalized
 
     if serial_number is not None:
-        normalized = serial_number.strip()
-        conflict = session.scalars(
-            select(Laptop).where(
-                Laptop.serial_number == normalized,
-                Laptop.unlinked_at.is_(None),
-                Laptop.id != laptop_id,
-            )
-        ).first()
-        if conflict is not None:
-            raise LaptopAlreadyLinkedError(
-                f"Serienummer {normalized} is al actief gekoppeld aan een andere leerling."
-            )
+        normalized = serial_number.strip() or None
+        if normalized:
+            conflict = session.scalars(
+                select(Laptop).where(
+                    Laptop.serial_number == normalized,
+                    Laptop.unlinked_at.is_(None),
+                    Laptop.is_reserve.is_(False),
+                    Laptop.id != laptop_id,
+                )
+            ).first()
+            if conflict is not None and not laptop.is_reserve:
+                raise LaptopAlreadyLinkedError(
+                    f"Serienummer {normalized} is al actief gekoppeld aan een andere leerling."
+                )
         laptop.serial_number = normalized
+
+    if laptop.is_reserve and not laptop.alias:
+        raise LaptopValidationError("Reserve-laptop vereist een alias.")
 
     session.commit()
     session.refresh(laptop)
@@ -335,6 +409,7 @@ def import_laptops_csv(session: Session, stream: TextIO) -> dict:
             select(Laptop).where(
                 Laptop.serial_number == serial,
                 Laptop.unlinked_at.is_(None),
+                Laptop.is_reserve.is_(False),
             )
         ).first()
 
@@ -355,6 +430,74 @@ def import_laptops_csv(session: Session, stream: TextIO) -> dict:
 
     session.commit()
     return {"created": created, "updated": updated, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# Reserve-laptop helpers
+# ---------------------------------------------------------------------------
+
+
+def list_available_reserve_laptops(session: Session) -> list[dict]:
+    """All reserve laptops with info about whether they are currently in use.
+
+    A reserve laptop is "in use" when it is referenced by an issue whose
+    status is not ``gesloten``.
+    """
+    in_use_subq = (
+        select(
+            LaptopIssue.reserve_laptop_id.label("laptop_id"),
+            LaptopIssue.id.label("issue_id"),
+            LaptopIssue.serial_number.label("issue_serial"),
+        )
+        .where(
+            LaptopIssue.reserve_laptop_id.isnot(None),
+            LaptopIssue.status != "gesloten",
+        )
+        .subquery()
+    )
+
+    student_alias = (
+        select(
+            Laptop.serial_number.label("serial_number"),
+            Student.naam.label("naam"),
+            Student.voornaam.label("voornaam"),
+        )
+        .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
+        .where(Laptop.unlinked_at.is_(None))
+        .subquery()
+    )
+
+    stmt = (
+        select(
+            Laptop,
+            in_use_subq.c.issue_id,
+            in_use_subq.c.issue_serial,
+            student_alias.c.naam,
+            student_alias.c.voornaam,
+        )
+        .outerjoin(in_use_subq, in_use_subq.c.laptop_id == Laptop.id)
+        .outerjoin(
+            student_alias,
+            student_alias.c.serial_number == in_use_subq.c.issue_serial,
+        )
+        .where(Laptop.is_reserve.is_(True))
+        .order_by(Laptop.alias.asc().nullslast(), Laptop.id.asc())
+    )
+    rows = session.execute(stmt).all()
+    results = []
+    for row in rows:
+        in_use_by = None
+        if row.issue_id is not None:
+            naam_parts = " ".join(filter(None, [row.voornaam, row.naam])).strip()
+            in_use_by = naam_parts or row.issue_serial or "?"
+        results.append({
+            "id": row.Laptop.id,
+            "alias": row.Laptop.alias,
+            "serial_number": row.Laptop.serial_number,
+            "in_use_by_issue_id": row.issue_id,
+            "in_use_by_student": in_use_by,
+        })
+    return results
 
 
 # ---------------------------------------------------------------------------

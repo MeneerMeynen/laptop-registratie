@@ -35,6 +35,10 @@ function laptopApp() {
     editIssueStatus:    'open',
     editIssueSolution:  '',
     editIssueCategory:  '',
+    // Reserve laptop (issue modals)
+    newIssueReserveLaptopId:  '',
+    editIssueReserveLaptopId: '',
+    availableReserves:        [],
     // Photo tab
     photoSearch:        '',
     photoSuggestions:   [],
@@ -48,9 +52,12 @@ function laptopApp() {
     instellingenSection: 'studenten',
     laptopManageSearch: '',
     laptopManageFilter: 'all',
+    laptopManageKind:   'all',
     showNewLaptopForm:  false,
     newLaptopSerial:    '',
     newLaptopStamnummer:'',
+    newLaptopIsReserve: false,
+    newLaptopAlias:     '',
     newLaptopStatus:    { text: '', type: '' },
 
     // ── Lifecycle ──────────────────────────────────────────
@@ -460,13 +467,38 @@ function laptopApp() {
     },
 
     openNewIssueModal(serial = '') {
-      this.newIssueSerial       = serial || '';
-      this.newIssueDescription  = '';
-      this.newIssueDate         = new Date().toISOString().slice(0, 10);
-      this.newIssueCategory     = '';
-      this.newIssueSuggestions  = [];
-      this.showNewIssueModal    = true;
+      this.newIssueSerial            = serial || '';
+      this.newIssueDescription       = '';
+      this.newIssueDate              = new Date().toISOString().slice(0, 10);
+      this.newIssueCategory          = '';
+      this.newIssueSuggestions       = [];
+      this.newIssueReserveLaptopId   = '';
+      this.showNewIssueModal         = true;
+      this.loadAvailableReserves();
       this.$nextTick(() => document.getElementById('new-issue-serial').focus());
+    },
+
+    async loadAvailableReserves() {
+      try {
+        const res = await fetch('/api/laptops/reserves/available');
+        this.availableReserves = res.ok ? await res.json() : [];
+      } catch (e) {
+        this.availableReserves = [];
+      }
+    },
+
+    reserveOptionLabel(r, currentIssueId) {
+      const base = r.alias
+        ? (r.serial_number ? `${r.alias} (${r.serial_number})` : r.alias)
+        : (r.serial_number || `#${r.id}`);
+      if (
+        r.in_use_by_issue_id !== null &&
+        r.in_use_by_issue_id !== undefined &&
+        r.in_use_by_issue_id !== currentIssueId
+      ) {
+        return `${base} · in gebruik bij ${r.in_use_by_student || 'andere leerling'}`;
+      }
+      return base;
     },
 
     closeNewIssueModal() { this.showNewIssueModal = false; },
@@ -484,12 +516,15 @@ function laptopApp() {
       if (!serial) { this.issueStatus = { text: 'Serienummer is verplicht.', type: 'error' }; return; }
       if (!desc)   { this.issueStatus = { text: 'Beschrijving is verplicht.', type: 'error' }; return; }
 
+      const reserveId = this.newIssueReserveLaptopId
+        ? parseInt(this.newIssueReserveLaptopId, 10) : null;
       const res = await fetch('/api/laptop-issues', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serial_number: serial, description: desc,
           reported_date: this.newIssueDate,
           category: this.newIssueCategory || null,
+          reserve_laptop_id: reserveId,
         }),
       });
       if (!res.ok) {
@@ -505,28 +540,33 @@ function laptopApp() {
     },
 
     startEditIssue(dataset) {
-      this.editIssueId          = parseInt(dataset.issueId);
-      this.editIssueSerial      = dataset.serial;
-      this.editIssueDescription = dataset.description;
-      this.editIssueDate        = dataset.date;
-      this.editIssueStatus      = dataset.status;
-      this.editIssueSolution    = dataset.solution || '';
-      this.editIssueCategory    = dataset.category || '';
-      this.showEditIssueModal   = true;
+      this.editIssueId               = parseInt(dataset.issueId);
+      this.editIssueSerial           = dataset.serial;
+      this.editIssueDescription      = dataset.description;
+      this.editIssueDate             = dataset.date;
+      this.editIssueStatus           = dataset.status;
+      this.editIssueSolution         = dataset.solution || '';
+      this.editIssueCategory         = dataset.category || '';
+      this.editIssueReserveLaptopId  = dataset.reserveLaptopId || '';
+      this.showEditIssueModal        = true;
+      this.loadAvailableReserves();
     },
 
     closeEditIssueModal() { this.showEditIssueModal = false; },
 
     async submitEditIssue() {
+      const reserveId = this.editIssueReserveLaptopId
+        ? parseInt(this.editIssueReserveLaptopId, 10) : null;
       const res = await fetch(`/api/laptop-issues/${this.editIssueId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description:   this.editIssueDescription.trim(),
-          reported_date: this.editIssueDate,
-          status:        this.editIssueStatus,
-          category:      this.editIssueCategory || null,
-          solution:      this.editIssueStatus === 'gesloten'
-                           ? (this.editIssueSolution.trim() || null) : null,
+          description:        this.editIssueDescription.trim(),
+          reported_date:      this.editIssueDate,
+          status:             this.editIssueStatus,
+          category:           this.editIssueCategory || null,
+          solution:           this.editIssueStatus === 'gesloten'
+                                ? (this.editIssueSolution.trim() || null) : null,
+          reserve_laptop_id:  reserveId,
         }),
       });
       if (!res.ok) {
@@ -569,7 +609,10 @@ function laptopApp() {
 
     // ── Laptop management (Instellingen) ───────────────────
     refreshLaptopManage() {
-      const params = new URLSearchParams({ active: this.laptopManageFilter });
+      const params = new URLSearchParams({
+        active: this.laptopManageFilter,
+        kind:   this.laptopManageKind || 'all',
+      });
       if (this.laptopManageSearch.trim()) params.set('q', this.laptopManageSearch.trim());
       htmx.ajax('GET', `/ui/laptops/manage?${params}`, {
         target: '#manage-laptop-list', swap: 'innerHTML',
@@ -582,23 +625,38 @@ function laptopApp() {
 
     async createLaptop() {
       const serial = this.newLaptopSerial.trim();
+      const isReserve = !!this.newLaptopIsReserve;
+      const alias = this.newLaptopAlias.trim();
       const stamnummer = this.newLaptopStamnummer.trim();
-      if (!serial || !stamnummer) {
-        this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
+
+      if (isReserve) {
+        if (!alias) {
+          this.newLaptopStatus = { text: 'Alias is verplicht voor een reserve-laptop.', type: 'error' }; return;
+        }
+      } else {
+        if (!serial || !stamnummer) {
+          this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
+        }
       }
       this.newLaptopStatus = { text: 'Bezig…', type: '' };
+      const payload = isReserve
+        ? { serial_number: serial || null, is_reserve: true, alias }
+        : { serial_number: serial, stamnummer };
       const res = await fetch('/api/laptops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serial_number: serial, stamnummer }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
         this.newLaptopStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
       }
-      this.newLaptopStatus = { text: `✓ Laptop "${serial}" aangemaakt.`, type: 'success' };
+      const label = isReserve ? alias : serial;
+      this.newLaptopStatus = { text: `✓ Laptop "${label}" aangemaakt.`, type: 'success' };
       this.newLaptopSerial = '';
       this.newLaptopStamnummer = '';
+      this.newLaptopAlias = '';
+      this.newLaptopIsReserve = false;
       this.refreshLaptopManage();
     },
   };

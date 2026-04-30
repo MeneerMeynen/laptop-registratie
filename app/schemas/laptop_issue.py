@@ -1,7 +1,10 @@
 from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+_UNSET = object()
 
 
 class LaptopIssueCreate(BaseModel):
@@ -9,6 +12,7 @@ class LaptopIssueCreate(BaseModel):
     description: str
     reported_date: date
     category: Optional[str] = None
+    reserve_laptop_id: Optional[int] = None
 
 
 class LaptopIssueUpdate(BaseModel):
@@ -17,6 +21,11 @@ class LaptopIssueUpdate(BaseModel):
     status: Optional[str] = None
     solution: Optional[str] = None
     category: Optional[str] = None
+    # When the field is omitted from the request body it stays untouched;
+    # explicit None means "release the reserve laptop".
+    reserve_laptop_id: Optional[int] = Field(default=None)
+
+    model_config = {"json_schema_extra": {}}
 
 
 class LaptopIssueRead(BaseModel):
@@ -30,5 +39,8 @@ class LaptopIssueRead(BaseModel):
     naam: Optional[str] = None
     voornaam: Optional[str] = None
     stamnummer: Optional[str] = None
+    reserve_laptop_id: Optional[int] = None
+    reserve_laptop_alias: Optional[str] = None
+    reserve_laptop_serial: Optional[str] = None
 
     model_config = {"from_attributes": True}

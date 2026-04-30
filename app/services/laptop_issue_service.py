@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional
 
 from sqlalchemy import and_, case, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models.laptop import Laptop
 from app.models.laptop_issue import LaptopIssue
@@ -13,19 +13,47 @@ VALID_STATUSES = ("aangemeld", "open", "gesloten")
 VALID_CATEGORIES = ("Scherm", "Toetsenbord", "Software", "Oplader", "Batterij", "Luidspreker", "Overig")
 
 
+class IssueValidationError(ValueError):
+    pass
+
+
+def _student_label(naam: str | None, voornaam: str | None) -> str:
+    parts = " ".join(filter(None, [voornaam, naam])).strip()
+    return parts or "onbekende leerling"
+
+
+def _reserve_label(laptop: Laptop) -> str:
+    if laptop.alias and laptop.serial_number:
+        return f"{laptop.alias} ({laptop.serial_number})"
+    return laptop.alias or laptop.serial_number or f"#{laptop.id}"
+
+
+def _validate_reserve_laptop(db: Session, reserve_laptop_id: int) -> Laptop:
+    laptop = db.get(Laptop, reserve_laptop_id)
+    if laptop is None:
+        raise IssueValidationError("Reserve-laptop niet gevonden.")
+    if not laptop.is_reserve:
+        raise IssueValidationError("Geselecteerde laptop is geen reserve-laptop.")
+    return laptop
+
+
 def list_issues(db: Session, search: str = "", include_closed: bool = False) -> list[dict]:
+    reserve = aliased(Laptop)
     stmt = (
         select(
             LaptopIssue,
             Student.naam,
             Student.voornaam,
             Student.stamnummer,
+            reserve.alias.label("reserve_alias"),
+            reserve.serial_number.label("reserve_serial"),
         )
         .outerjoin(
             Laptop,
             and_(Laptop.serial_number == LaptopIssue.serial_number, Laptop.unlinked_at.is_(None)),
         )
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
+        .outerjoin(reserve, reserve.id == LaptopIssue.reserve_laptop_id)
         .order_by(LaptopIssue.reported_date.desc(), LaptopIssue.id.desc())
     )
 
@@ -55,6 +83,9 @@ def list_issues(db: Session, search: str = "", include_closed: bool = False) -> 
             "naam": row.naam,
             "voornaam": row.voornaam,
             "stamnummer": row.stamnummer,
+            "reserve_laptop_id": row.LaptopIssue.reserve_laptop_id,
+            "reserve_laptop_alias": row.reserve_alias,
+            "reserve_laptop_serial": row.reserve_serial,
         }
         for row in rows
     ]
@@ -66,28 +97,113 @@ def create_issue(
     description: str,
     reported_date: date,
     category: Optional[str] = None,
+    reserve_laptop_id: Optional[int] = None,
 ) -> LaptopIssue:
+    reserve_laptop: Laptop | None = None
+    if reserve_laptop_id is not None:
+        reserve_laptop = _validate_reserve_laptop(db, reserve_laptop_id)
+
     issue = LaptopIssue(
         serial_number=serial_number.strip(),
         description=description.strip(),
         reported_date=reported_date,
         status="aangemeld",
         category=category or None,
+        reserve_laptop_id=reserve_laptop.id if reserve_laptop else None,
     )
     db.add(issue)
     db.commit()
     db.refresh(issue)
+
+    if reserve_laptop is not None:
+        student = _student_for_issue(db, issue)
+        student_label = _student_label(
+            student.get("naam") if student else None,
+            student.get("voornaam") if student else None,
+        )
+        add_issue_entry(
+            db,
+            issue.id,
+            f"Reserve-laptop {_reserve_label(reserve_laptop)} uitgeleend aan {student_label}.",
+        )
     return issue
+
+
+def _student_for_issue(db: Session, issue: LaptopIssue) -> dict | None:
+    return get_student_for_serial(db, issue.serial_number)
 
 
 def update_issue(db: Session, issue_id: int, data: dict) -> Optional[LaptopIssue]:
     issue = db.get(LaptopIssue, issue_id)
     if not issue:
         return None
+
+    old_status = issue.status
+    old_reserve_id = issue.reserve_laptop_id
+    reserve_changed = "reserve_laptop_id" in data
+    new_reserve_id = data.get("reserve_laptop_id") if reserve_changed else old_reserve_id
+
+    if reserve_changed and new_reserve_id is not None:
+        _validate_reserve_laptop(db, new_reserve_id)
+
     for key, value in data.items():
         setattr(issue, key, value)
+
+    new_status = issue.status
+    auto_released_reserve_id: int | None = None
+    if (
+        new_status == "gesloten"
+        and old_status != "gesloten"
+        and issue.reserve_laptop_id is not None
+    ):
+        auto_released_reserve_id = issue.reserve_laptop_id
+        issue.reserve_laptop_id = None
+
     db.commit()
     db.refresh(issue)
+
+    # Timeline entries (after commit so they show up in chronological order).
+    final_reserve_id = issue.reserve_laptop_id
+    if auto_released_reserve_id is not None:
+        laptop = db.get(Laptop, auto_released_reserve_id)
+        if laptop is not None:
+            add_issue_entry(
+                db,
+                issue.id,
+                f"Reserve-laptop {_reserve_label(laptop)} teruggebracht (issue gesloten).",
+            )
+    elif reserve_changed and old_reserve_id != final_reserve_id:
+        student = _student_for_issue(db, issue)
+        student_label = _student_label(
+            student.get("naam") if student else None,
+            student.get("voornaam") if student else None,
+        )
+        if final_reserve_id is None and old_reserve_id is not None:
+            old_laptop = db.get(Laptop, old_reserve_id)
+            if old_laptop is not None:
+                add_issue_entry(
+                    db,
+                    issue.id,
+                    f"Reserve-laptop {_reserve_label(old_laptop)} teruggebracht.",
+                )
+        elif final_reserve_id is not None:
+            new_laptop = db.get(Laptop, final_reserve_id)
+            if new_laptop is not None:
+                if old_reserve_id is None:
+                    add_issue_entry(
+                        db,
+                        issue.id,
+                        f"Reserve-laptop {_reserve_label(new_laptop)} uitgeleend aan {student_label}.",
+                    )
+                else:
+                    old_laptop = db.get(Laptop, old_reserve_id)
+                    old_label = _reserve_label(old_laptop) if old_laptop else f"#{old_reserve_id}"
+                    add_issue_entry(
+                        db,
+                        issue.id,
+                        f"Reserve-laptop gewijzigd: {old_label} → {_reserve_label(new_laptop)}.",
+                    )
+
     return issue
 
 
@@ -220,14 +336,22 @@ def get_issues_for_serial(db: Session, serial: str) -> list[dict]:
     """All issues for a specific laptop serial number, newest first, with entries.
     Uses a single extra query for entries instead of N+1 per issue.
     """
-    issues = db.execute(
-        select(LaptopIssue)
+    reserve = aliased(Laptop)
+    rows = db.execute(
+        select(
+            LaptopIssue,
+            reserve.alias.label("reserve_alias"),
+            reserve.serial_number.label("reserve_serial"),
+        )
+        .outerjoin(reserve, reserve.id == LaptopIssue.reserve_laptop_id)
         .where(LaptopIssue.serial_number == serial)
         .order_by(LaptopIssue.reported_date.desc(), LaptopIssue.id.desc())
-    ).scalars().all()
+    ).all()
 
-    if not issues:
+    if not rows:
         return []
+
+    issues = [row.LaptopIssue for row in rows]
 
     # Fetch all entries for these issues in one query
     issue_ids = [i.id for i in issues]
@@ -245,16 +369,19 @@ def get_issues_for_serial(db: Session, serial: str) -> list[dict]:
 
     return [
         {
-            "id": i.id,
-            "serial_number": i.serial_number,
-            "description": i.description,
-            "reported_date": i.reported_date,
-            "status": i.status,
-            "solution": i.solution,
-            "category": i.category,
-            "entries": entries_map[i.id],
+            "id": row.LaptopIssue.id,
+            "serial_number": row.LaptopIssue.serial_number,
+            "description": row.LaptopIssue.description,
+            "reported_date": row.LaptopIssue.reported_date,
+            "status": row.LaptopIssue.status,
+            "solution": row.LaptopIssue.solution,
+            "category": row.LaptopIssue.category,
+            "reserve_laptop_id": row.LaptopIssue.reserve_laptop_id,
+            "reserve_laptop_alias": row.reserve_alias,
+            "reserve_laptop_serial": row.reserve_serial,
+            "entries": entries_map[row.LaptopIssue.id],
         }
-        for i in issues
+        for row in rows
     ]
 
 
@@ -300,6 +427,7 @@ def search_laptops_for_autocomplete(db: Session, q: str) -> list[dict]:
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .where(Laptop.serial_number.isnot(None))
         .where(Laptop.unlinked_at.is_(None))
+        .where(Laptop.is_reserve.is_(False))
         .where(
             or_(
                 Laptop.serial_number.ilike(pattern),

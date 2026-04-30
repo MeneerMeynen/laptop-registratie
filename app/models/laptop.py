@@ -10,13 +10,16 @@ class Laptop(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     # nullable=True so "eigen laptop" records have no serial.
     serial_number = Column(String(100), nullable=True, index=True)
+    # nullable=True so reserve laptops can sit in inventory without a student.
     stamnummer = Column(
         String(50),
         ForeignKey("students.stamnummer", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     eigen_laptop = Column(Boolean, default=False, nullable=False)
+    is_reserve = Column(Boolean, default=False, nullable=False, server_default="0")
+    alias = Column(String(100), nullable=True)
     linked_at = Column(DateTime, nullable=True)
     unlinked_at = Column(DateTime, nullable=True)
 

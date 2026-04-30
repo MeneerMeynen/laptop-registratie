@@ -10,18 +10,21 @@ from app.schemas.laptop import (
     LaptopLinkRequest,
     LaptopLinkResponse,
     LaptopUpdate,
+    ReserveLaptopOption,
 )
 from app.services.laptop_service import (
     LaptopAlreadyLinkedError,
     LaptopAlreadyUnlinkedError,
     LaptopNotFoundError,
-    StudentNotFoundError,
+    LaptopValidationError,
     StudentAlreadyHasLaptopError,
+    StudentNotFoundError,
     create_laptop,
     delete_laptop_permanently,
     get_all_laptops,
     import_laptops_csv,
     link_laptop_to_student,
+    list_available_reserve_laptops,
     unlink_laptop,
     update_laptop,
 )
@@ -33,15 +36,29 @@ router = APIRouter(prefix="/api/laptops", tags=["laptops"])
 def list_laptops(
     q: str | None = None,
     active: bool | None = None,
+    kind: str = "all",
     db: Session = Depends(get_db),
 ):
-    return get_all_laptops(db, q=q, active=active)
+    return get_all_laptops(db, q=q, active=active, kind=kind)
+
+
+@router.get("/reserves/available", response_model=list[ReserveLaptopOption])
+def reserves_available(db: Session = Depends(get_db)):
+    return list_available_reserve_laptops(db)
 
 
 @router.post("", response_model=LaptopLinkResponse)
 def create(payload: LaptopCreate, db: Session = Depends(get_db)):
     try:
-        laptop = create_laptop(db, serial_number=payload.serial_number, stamnummer=payload.stamnummer)
+        laptop = create_laptop(
+            db,
+            serial_number=payload.serial_number,
+            stamnummer=payload.stamnummer,
+            is_reserve=payload.is_reserve,
+            alias=payload.alias,
+        )
+    except LaptopValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except StudentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except LaptopAlreadyLinkedError as exc:
@@ -66,7 +83,11 @@ def update(laptop_id: int, payload: LaptopUpdate, db: Session = Depends(get_db))
             laptop_id=laptop_id,
             serial_number=payload.serial_number,
             stamnummer=payload.stamnummer,
+            is_reserve=payload.is_reserve,
+            alias=payload.alias,
         )
+    except LaptopValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except LaptopNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except StudentNotFoundError as exc:

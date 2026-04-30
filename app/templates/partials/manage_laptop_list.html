@@ -1,5 +1,5 @@
 {% for laptop in laptops %}
-<tr class="lt-manage-row" data-id="{{ laptop.id }}">
+<tr class="lt-manage-row" data-id="{{ laptop.id }}" data-is-reserve="{{ '1' if laptop.is_reserve else '0' }}">
   <td class="lt-manage-serial">
     <span class="lt-manage-display">
       {% if laptop.eigen_laptop %}
@@ -14,14 +14,29 @@
   </td>
   <td class="lt-manage-student">
     <span class="lt-manage-display">
-      {% if laptop.naam %}{{ laptop.voornaam }} {{ laptop.naam }}{% else %}—{% endif %}
-      <small style="color:var(--muted)"> {{ laptop.stamnummer }}</small>
+      {% if laptop.is_reserve %}
+        <span class="badge" style="background:var(--accent); color:#fff;">Reserve</span>
+        {% if laptop.alias %}
+          <strong style="margin-left:6px;">{{ laptop.alias }}</strong>
+        {% endif %}
+      {% elif laptop.naam %}
+        {{ laptop.voornaam }} {{ laptop.naam }}
+        <small style="color:var(--muted)"> {{ laptop.stamnummer }}</small>
+      {% else %}
+        —{% if laptop.stamnummer %} <small style="color:var(--muted)"> {{ laptop.stamnummer }}</small>{% endif %}
+      {% endif %}
     </span>
-    <input class="input lt-manage-edit-stamnummer" type="text"
-           value="{{ laptop.stamnummer }}"
-           style="display:none;" placeholder="Stamnummer">
+    {% if laptop.is_reserve %}
+      <input class="input lt-manage-edit-alias" type="text"
+             value="{{ laptop.alias or '' }}"
+             style="display:none;" placeholder="Alias">
+    {% else %}
+      <input class="input lt-manage-edit-stamnummer" type="text"
+             value="{{ laptop.stamnummer or '' }}"
+             style="display:none;" placeholder="Stamnummer">
+    {% endif %}
   </td>
-  <td>{{ laptop.klas or '—' }}</td>
+  <td>{% if laptop.is_reserve %}—{% else %}{{ laptop.klas or '—' }}{% endif %}</td>
   <td>
     <span class="badge {% if laptop.is_active %}badge-active{% else %}badge-old{% endif %}">
       {{ 'Actief' if laptop.is_active else 'Inactief' }}
@@ -40,7 +55,7 @@
             style="display:none;"
             onclick="ltManageCancel(this)">Annuleer</button>
     <button class="btn sm danger lt-manage-btn-delete" type="button"
-            onclick="ltManageDelete(this, {{ laptop.id }}, '{{ laptop.serial_number or 'eigen laptop' }}')">✕</button>
+            onclick="ltManageDelete(this, {{ laptop.id }}, '{{ laptop.alias or laptop.serial_number or 'eigen laptop' }}')">✕</button>
   </td>
 </tr>
 {% else %}

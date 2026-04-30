@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Integer, String, Text, text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text, text
 
 from app.db import Base
 
@@ -13,4 +13,10 @@ class LaptopIssue(Base):
     status = Column(String(20), nullable=False, server_default="aangemeld")
     solution = Column(Text, nullable=True)
     category = Column(String(50), nullable=True)
+    reserve_laptop_id = Column(
+        Integer,
+        ForeignKey("laptops.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at = Column(DateTime, nullable=False, server_default=text("NOW()"))

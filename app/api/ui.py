@@ -112,6 +112,7 @@ def laptops_manage_partial(
     request: Request,
     q: str = "",
     active: str = "all",
+    kind: str = "all",
     db: Session = Depends(get_db),
 ):
     """Instellingen-tab laptop list (HTMX refresh target)."""
@@ -121,12 +122,21 @@ def laptops_manage_partial(
     elif active == "inactief":
         active_filter = False
 
-    laptops = get_all_laptops(db, q=q or None, active=active_filter)
+    if kind not in ("all", "normal", "reserve"):
+        kind = "all"
+
+    laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
     students = list_students(db)
     return templates.TemplateResponse(
         request,
         "partials/manage_laptop_list.html",
-        {"laptops": laptops, "students": students, "q": q, "active": active},
+        {
+            "laptops": laptops,
+            "students": students,
+            "q": q,
+            "active": active,
+            "kind": kind,
+        },
     )
 
 
