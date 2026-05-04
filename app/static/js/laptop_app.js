@@ -59,6 +59,13 @@ function laptopApp() {
     newLaptopIsReserve: false,
     newLaptopAlias:     '',
     newLaptopStatus:    { text: '', type: '' },
+    // Studenten CRUD
+    showNewStudentForm: false,
+    newStudent:         { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '' },
+    newStudentStatus:   { text: '', type: '' },
+    showEditStudentModal: false,
+    editStudent:        { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '', pointer: '' },
+    editStudentStatus:  { text: '', type: '' },
 
     // ── Lifecycle ──────────────────────────────────────────
     toggleTheme() {
@@ -659,7 +666,107 @@ function laptopApp() {
       this.newLaptopIsReserve = false;
       this.refreshLaptopManage();
     },
+
+    // ── Studenten CRUD (Instellingen) ──────────────────────
+    refreshManageStudentList() {
+      htmx.ajax('GET', '/ui/students/manage', {
+        target: '#manage-student-list', swap: 'innerHTML',
+      }).then(() => {
+        this.$nextTick(() => {
+          this.filterManage();
+          this._countVisible();
+          this._computeStuCounts();
+        });
+      });
+    },
+
+    async createStudent() {
+      const stam = (this.newStudent.stamnummer || '').trim();
+      if (!stam) {
+        this.newStudentStatus = { text: 'Stamnummer is verplicht.', type: 'error' };
+        return;
+      }
+      this.newStudentStatus = { text: 'Bezig…', type: '' };
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.newStudent),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        this.newStudentStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' };
+        return;
+      }
+      this.newStudentStatus = { text: `✓ Leerling ${stam} aangemaakt.`, type: 'success' };
+      this.newStudent = { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '' };
+      this.refreshManageStudentList();
+    },
+
+    openEditStudentModal(row) {
+      const d = row.dataset;
+      this.editStudent = {
+        stamnummer:        d.stamnummer || '',
+        voornaam:          d.voornaam || '',
+        naam:              d.naam || '',
+        klas:              d.klas || '',
+        klasnummer:        d.klasnummer || '',
+        klascode:          d.klascode || '',
+        gebruikersnaam:    d.gebruikersnaam || '',
+        instellingsnummer: d.instellingsnummer || '',
+        pointer:           d.pointer || '',
+      };
+      this.editStudentStatus = { text: '', type: '' };
+      this.showEditStudentModal = true;
+    },
+
+    async submitEditStudent() {
+      const stam = this.editStudent.stamnummer;
+      if (!stam) return;
+      this.editStudentStatus = { text: 'Bezig…', type: '' };
+      const { stamnummer, ...payload } = this.editStudent;
+      const res = await fetch(`/api/students/${encodeURIComponent(stam)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        this.editStudentStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' };
+        return;
+      }
+      this.editStudentStatus = { text: '✓ Opgeslagen.', type: 'success' };
+      this.showEditStudentModal = false;
+      this.refreshManageStudentList();
+    },
+
+    async deleteStudentByStamnummer(stamnummer, label) {
+      if (!confirm(`Leerling "${label}" definitief verwijderen?`)) return;
+      const res = await fetch('/api/students', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stamnummers: [stamnummer] }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.detail || 'Verwijderen mislukt.');
+        return;
+      }
+      this.manageStatus = { text: `✓ ${label} verwijderd.`, type: 'success' };
+      this.refreshManageStudentList();
+    },
   };
+}
+
+// ── Studenten manage row helpers (used via inline onclick) ───
+function stuManageEdit(btn) {
+  const row = btn.closest('.manage-row');
+  const app = window.Alpine && Alpine.$data(document.querySelector('[x-data]'));
+  if (app) app.openEditStudentModal(row);
+}
+
+function stuManageDelete(stamnummer, label) {
+  const app = window.Alpine && Alpine.$data(document.querySelector('[x-data]'));
+  if (app) app.deleteStudentByStamnummer(stamnummer, label);
 }
 
 // ── Laptop manage table: inline edit/delete ───────────────────

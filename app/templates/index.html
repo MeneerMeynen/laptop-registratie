@@ -419,6 +419,9 @@
             <div class="sub">Upload CSV · zoek · filter · verwijder</div>
           </div>
           <div class="stu-top-actions">
+            <button type="button" class="btn sm"
+                    @click="showNewStudentForm = !showNewStudentForm"
+                    :class="showNewStudentForm ? 'accent' : ''">+ Nieuw</button>
             <form hx-post="/ui/students/import"
                   hx-encoding="multipart/form-data"
                   hx-target="#import-result"
@@ -433,6 +436,49 @@
                      onchange="this.closest('form').requestSubmit()">
             </form>
             <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <!-- Nieuw student formulier -->
+        <div x-show="showNewStudentForm" x-cloak
+             style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer *</label>
+            <input class="input" type="text" placeholder="bijv. 12345" x-model="newStudent.stamnummer">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Voornaam</label>
+            <input class="input" type="text" x-model="newStudent.voornaam">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam</label>
+            <input class="input" type="text" x-model="newStudent.naam">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klas</label>
+            <input class="input" type="text" x-model="newStudent.klas">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klasnummer</label>
+            <input class="input" type="text" x-model="newStudent.klasnummer">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klascode</label>
+            <input class="input" type="text" x-model="newStudent.klascode">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Gebruikersnaam</label>
+            <input class="input" type="text" x-model="newStudent.gebruikersnaam" @keydown.enter="createStudent()">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Instellingsnummer</label>
+            <input class="input" type="text" x-model="newStudent.instellingsnummer">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn sm accent" @click="createStudent()">Toevoegen</button>
+            <div class="status"
+                 :class="{ error: newStudentStatus.type === 'error', success: newStudentStatus.type === 'success' }"
+                 x-text="newStudentStatus.text" style="margin:0; font-size:12px;"></div>
           </div>
         </div>
 
@@ -726,6 +772,32 @@
     </div>
     <div class="modal-actions">
       <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit student modal -->
+<div class="modal-overlay" x-show="showEditStudentModal" x-cloak>
+  <div class="modal-box modal-box--large">
+    <span class="modal-close-btn" @click="showEditStudentModal = false" role="button" tabindex="0"
+          @keydown.enter="showEditStudentModal = false" @keydown.space.prevent="showEditStudentModal = false">✕</span>
+    <h3>Leerling bewerken</h3>
+    <p class="import-help">Stamnummer: <strong x-text="editStudent.stamnummer"></strong></p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="field"><label>Voornaam</label><input type="text" x-model="editStudent.voornaam"></div>
+      <div class="field"><label>Naam</label><input type="text" x-model="editStudent.naam"></div>
+      <div class="field"><label>Klas</label><input type="text" x-model="editStudent.klas"></div>
+      <div class="field"><label>Klasnummer</label><input type="text" x-model="editStudent.klasnummer"></div>
+      <div class="field"><label>Klascode</label><input type="text" x-model="editStudent.klascode"></div>
+      <div class="field"><label>Gebruikersnaam</label><input type="text" x-model="editStudent.gebruikersnaam"></div>
+      <div class="field"><label>Instellingsnummer</label><input type="text" x-model="editStudent.instellingsnummer"></div>
+      <div class="field"><label>Pointer</label><input type="text" x-model="editStudent.pointer"></div>
+    </div>
+    <div class="status"
+         :class="{ error: editStudentStatus.type === 'error', success: editStudentStatus.type === 'success' }"
+         x-text="editStudentStatus.text" style="font-size:12px;"></div>
+    <div class="modal-actions">
+      <button type="button" style="width:auto;" @click="submitEditStudent()">Opslaan</button>
     </div>
   </div>
 </div>

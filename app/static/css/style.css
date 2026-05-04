@@ -869,14 +869,22 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .manage-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 99px; }
 
 .manage-row {
-  display: grid; grid-template-columns: auto 1fr;
-  gap: 12px; align-items: start;
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 12px; align-items: center;
   padding: 11px 14px; border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background var(--tx);
+  transition: background var(--tx);
 }
 .manage-row:hover      { background: var(--surface-2); }
 .manage-row:last-child { border-bottom: none; }
 .manage-row[hidden]    { display: none; }
+
+.manage-row-main {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 12px; align-items: start; cursor: pointer; min-width: 0;
+}
+.manage-row-actions {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
 
 .manage-checkbox {
   width: 16px; height: 16px; margin-top: 4px;

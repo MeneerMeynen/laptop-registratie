@@ -33,3 +33,26 @@ class StudentDeleteRequest(BaseModel):
 
 class StudentDeleteResponse(BaseModel):
     deleted: int
+
+
+class StudentCreate(BaseModel):
+    stamnummer: str
+    instellingsnummer: str | None = None
+    naam: str | None = None
+    voornaam: str | None = None
+    klas: str | None = None
+    klascode: str | None = None
+    klasnummer: str | None = None
+    gebruikersnaam: str | None = None
+    pointer: str | None = None
+
+
+class StudentUpdate(BaseModel):
+    instellingsnummer: str | None = None
+    naam: str | None = None
+    voornaam: str | None = None
+    klas: str | None = None
+    klascode: str | None = None
+    klasnummer: str | None = None
+    gebruikersnaam: str | None = None
+    pointer: str | None = None
