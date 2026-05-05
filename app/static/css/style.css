@@ -820,7 +820,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   background: var(--accent); color: #0d1117;
   cursor: pointer; letter-spacing: -0.01em;
   transition: background var(--tx), box-shadow var(--tx), transform var(--tx);
-  width: 100%;
+  /* width: 100%; */
 }
 button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):hover {
   background: var(--accent-2); box-shadow: 0 0 16px var(--accent-glow);
@@ -1239,7 +1239,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   width: 26px; height: 26px; border-radius: 50%;
   border: 1px solid rgba(224,114,114,.35); background: rgba(13,17,23,.75);
   color: var(--red); font-size: 1rem; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  /* display: flex; align-items: center; justify-content: center; */
   cursor: pointer; padding: 0; opacity: 0;
   transition: opacity var(--tx), background var(--tx); backdrop-filter: blur(4px);
 }
