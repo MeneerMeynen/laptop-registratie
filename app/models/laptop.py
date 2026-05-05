@@ -20,6 +20,12 @@ class Laptop(Base):
     eigen_laptop = Column(Boolean, default=False, nullable=False)
     is_reserve = Column(Boolean, default=False, nullable=False, server_default="0")
     alias = Column(String(100), nullable=True)
+    storage_cabinet_id = Column(
+        Integer,
+        ForeignKey("storage_cabinets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     linked_at = Column(DateTime, nullable=True)
     unlinked_at = Column(DateTime, nullable=True)
 
@@ -28,3 +34,4 @@ class Laptop(Base):
         return self.unlinked_at is None
 
     student = relationship("Student", back_populates="laptops")
+    storage_cabinet = relationship("StorageCabinet", back_populates="laptops")

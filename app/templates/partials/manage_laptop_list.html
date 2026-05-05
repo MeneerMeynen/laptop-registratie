@@ -1,5 +1,10 @@
 {% for laptop in laptops %}
-<tr class="lt-manage-row" data-id="{{ laptop.id }}" data-is-reserve="{{ '1' if laptop.is_reserve else '0' }}">
+{% set in_cabinet = laptop.storage_cabinet_id is not none %}
+<tr class="lt-manage-row"
+    data-id="{{ laptop.id }}"
+    data-is-reserve="{{ '1' if laptop.is_reserve else '0' }}"
+    data-in-cabinet="{{ '1' if in_cabinet else '0' }}"
+    data-cabinet-id="{{ laptop.storage_cabinet_id or '' }}">
   <td class="lt-manage-serial">
     <span class="lt-manage-display">
       {% if laptop.eigen_laptop %}
@@ -14,7 +19,13 @@
   </td>
   <td class="lt-manage-student">
     <span class="lt-manage-display">
-      {% if laptop.is_reserve %}
+      {% if in_cabinet %}
+        <span class="badge" style="background:var(--accent); color:#fff;">Kast</span>
+        <strong style="margin-left:6px;">{{ laptop.cabinet_name }}</strong>
+        {% if laptop.cabinet_location %}
+          <small style="color:var(--muted)"> ({{ laptop.cabinet_location }})</small>
+        {% endif %}
+      {% elif laptop.is_reserve %}
         <span class="badge" style="background:var(--accent); color:#fff;">Reserve</span>
         {% if laptop.alias %}
           <strong style="margin-left:6px;">{{ laptop.alias }}</strong>
@@ -30,13 +41,13 @@
       <input class="input lt-manage-edit-alias" type="text"
              value="{{ laptop.alias or '' }}"
              style="display:none;" placeholder="Alias">
-    {% else %}
+    {% elif not in_cabinet %}
       <input class="input lt-manage-edit-stamnummer" type="text"
              value="{{ laptop.stamnummer or '' }}"
              style="display:none;" placeholder="Stamnummer">
     {% endif %}
   </td>
-  <td>{% if laptop.is_reserve %}—{% else %}{{ laptop.klas or '—' }}{% endif %}</td>
+  <td>{% if laptop.is_reserve or in_cabinet %}—{% else %}{{ laptop.klas or '—' }}{% endif %}</td>
   <td>
     <span class="badge {% if laptop.is_active %}badge-active{% else %}badge-old{% endif %}">
       {{ 'Actief' if laptop.is_active else 'Inactief' }}

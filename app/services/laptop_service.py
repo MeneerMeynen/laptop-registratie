@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.laptop import Laptop
 from app.models.laptop_issue import LaptopIssue
+from app.models.storage_cabinet import StorageCabinet
 from app.models.student import Student
 
 
@@ -62,6 +63,11 @@ def describe_serial(laptop: Laptop) -> str:
     return laptop.serial_number or ""
 
 
+class LaptopInCabinetError(ValueError):
+    """Raised when trying to link a cabinet-laptop to a student."""
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Core service function
 # ---------------------------------------------------------------------------
@@ -94,7 +100,8 @@ def link_laptop_to_student(
     if student is None:
         raise StudentNotFoundError(f"Student {normalized_stamnummer} does not exist.")
 
-    # 2. For regular serials: check if that serial is already actively linked to *someone else*.
+    # 2. For regular serials: check if that serial is already actively linked to *someone else*,
+    #    or sits in a storage cabinet.
     if not is_own:
         stmt = select(Laptop).where(
             Laptop.serial_number == normalized_serial,
@@ -102,6 +109,13 @@ def link_laptop_to_student(
             Laptop.is_reserve.is_(False),
         )
         existing = session.scalars(stmt).first()
+        if existing is not None and existing.storage_cabinet_id is not None:
+            cabinet = session.get(StorageCabinet, existing.storage_cabinet_id)
+            cabinet_label = cabinet.name if cabinet else f"#{existing.storage_cabinet_id}"
+            raise LaptopInCabinetError(
+                f"Laptop {normalized_serial} staat in uitleenkast '{cabinet_label}' "
+                f"en kan niet aan een leerling gekoppeld worden."
+            )
         if existing is not None and existing.stamnummer != normalized_stamnummer:
             owner = session.get(Student, existing.stamnummer) if existing.stamnummer else None
             owner_name = (
@@ -202,22 +216,35 @@ def get_all_laptops(
     active: bool | None = None,
     kind: str = "all",
 ) -> list[dict]:
-    """Return all laptop records with joined student info, optionally filtered.
+    """Return all laptop records with joined student/cabinet info, optionally filtered.
 
-    ``kind`` can be ``"all"`` (default), ``"normal"`` (excludes reserve), or
-    ``"reserve"`` (only reserve laptops).
+    ``kind`` can be ``"all"`` (default), ``"normal"`` (excludes reserve and cabinet),
+    ``"reserve"`` (only reserve laptops), or ``"cabinet"`` (only cabinet laptops).
     """
     stmt = (
-        select(Laptop, Student.naam, Student.voornaam, Student.klas)
+        select(
+            Laptop,
+            Student.naam,
+            Student.voornaam,
+            Student.klas,
+            StorageCabinet.name.label("cabinet_name"),
+            StorageCabinet.location.label("cabinet_location"),
+        )
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
+        .outerjoin(StorageCabinet, StorageCabinet.id == Laptop.storage_cabinet_id)
         # MariaDB does not support NULLS LAST syntax — use ISNULL to sort NULLs last.
         .order_by(func.isnull(Laptop.linked_at).asc(), Laptop.linked_at.desc(), Laptop.id.desc())
     )
 
     if kind == "reserve":
         stmt = stmt.where(Laptop.is_reserve.is_(True))
+    elif kind == "cabinet":
+        stmt = stmt.where(Laptop.storage_cabinet_id.isnot(None))
     elif kind == "normal":
-        stmt = stmt.where(Laptop.is_reserve.is_(False))
+        stmt = stmt.where(
+            Laptop.is_reserve.is_(False),
+            Laptop.storage_cabinet_id.is_(None),
+        )
 
     rows = session.execute(stmt).all()
     results = []
@@ -229,7 +256,8 @@ def get_all_laptops(
             q_lower = q.lower()
             searchable = (
                 f"{serial} {row.Laptop.stamnummer or ''} {row.Laptop.alias or ''} "
-                f"{row.naam or ''} {row.voornaam or ''} {row.klas or ''}"
+                f"{row.naam or ''} {row.voornaam or ''} {row.klas or ''} "
+                f"{row.cabinet_name or ''} {row.cabinet_location or ''}"
             ).lower()
             if q_lower not in searchable:
                 continue
@@ -240,6 +268,9 @@ def get_all_laptops(
             "eigen_laptop": row.Laptop.eigen_laptop,
             "is_reserve": row.Laptop.is_reserve,
             "alias": row.Laptop.alias,
+            "storage_cabinet_id": row.Laptop.storage_cabinet_id,
+            "cabinet_name": row.cabinet_name,
+            "cabinet_location": row.cabinet_location,
             "linked_at": row.Laptop.linked_at,
             "unlinked_at": row.Laptop.unlinked_at,
             "is_active": row.Laptop.is_active,
@@ -257,17 +288,37 @@ def create_laptop(
     *,
     is_reserve: bool = False,
     alias: str | None = None,
+    storage_cabinet_id: int | None = None,
 ) -> Laptop:
     """Create a new laptop record.
 
-    For a regular laptop: ``stamnummer`` is required and ``serial_number`` is required.
-    For a reserve laptop: ``alias`` is required; ``stamnummer`` must be empty.
+    Three mutually-exclusive types:
+    - Regular laptop: ``stamnummer`` and ``serial_number`` required.
+    - Reserve laptop: ``is_reserve=True`` and ``alias`` required; no stamnummer/cabinet.
+    - Cabinet laptop: ``storage_cabinet_id`` and ``serial_number`` required; no stamnummer/reserve.
     """
     normalized_serial = (serial_number or "").strip() or None
     normalized_stamnummer = (stamnummer or "").strip() or None
     normalized_alias = (alias or "").strip() or None
 
-    if is_reserve:
+    if is_reserve and storage_cabinet_id is not None:
+        raise LaptopValidationError(
+            "Een laptop kan niet tegelijk reserve en in een uitleenkast zijn."
+        )
+
+    if storage_cabinet_id is not None:
+        if normalized_stamnummer:
+            raise LaptopValidationError(
+                "Een kast-laptop mag niet aan een leerling gekoppeld zijn."
+            )
+        if not normalized_serial:
+            raise LaptopValidationError("Serienummer is verplicht voor een kast-laptop.")
+        cabinet = session.get(StorageCabinet, storage_cabinet_id)
+        if cabinet is None:
+            raise LaptopValidationError(
+                f"Uitleenkast {storage_cabinet_id} bestaat niet."
+            )
+    elif is_reserve:
         if normalized_stamnummer:
             raise LaptopValidationError(
                 "Een reserve-laptop mag niet aan een leerling gekoppeld zijn."
@@ -283,7 +334,7 @@ def create_laptop(
         if student is None:
             raise StudentNotFoundError(f"Student {normalized_stamnummer} bestaat niet.")
 
-    if normalized_serial:
+    if normalized_serial and not is_reserve:
         existing = session.scalars(
             select(Laptop).where(
                 Laptop.serial_number == normalized_serial,
@@ -291,23 +342,27 @@ def create_laptop(
                 Laptop.is_reserve.is_(False),
             )
         ).first()
-        if existing is not None and not is_reserve:
+        if existing is not None:
             raise LaptopAlreadyLinkedError(
                 f"Serienummer {normalized_serial} is al actief gekoppeld."
             )
 
     laptop = Laptop(
         serial_number=normalized_serial,
-        stamnummer=None if is_reserve else normalized_stamnummer,
+        stamnummer=None if (is_reserve or storage_cabinet_id is not None) else normalized_stamnummer,
         eigen_laptop=False,
         is_reserve=is_reserve,
         alias=normalized_alias,
+        storage_cabinet_id=storage_cabinet_id,
         linked_at=None if is_reserve else datetime.now(),
     )
     session.add(laptop)
     session.commit()
     session.refresh(laptop)
     return laptop
+
+
+_UNSET = object()
 
 
 def update_laptop(
@@ -317,8 +372,13 @@ def update_laptop(
     stamnummer: str | None = None,
     is_reserve: bool | None = None,
     alias: str | None = None,
+    storage_cabinet_id=_UNSET,
 ) -> Laptop:
-    """Update fields of a laptop record."""
+    """Update fields of a laptop record.
+
+    ``storage_cabinet_id`` accepts an int (assign), ``None`` (clear) or the sentinel
+    ``_UNSET`` (no change).
+    """
     laptop = session.get(Laptop, laptop_id)
     if laptop is None:
         raise LaptopNotFoundError("Laptop niet gevonden.")
@@ -327,16 +387,30 @@ def update_laptop(
         if is_reserve:
             laptop.is_reserve = True
             laptop.stamnummer = None
+            laptop.storage_cabinet_id = None
             if laptop.unlinked_at is None and laptop.linked_at is not None:
                 laptop.unlinked_at = datetime.now()
         else:
             laptop.is_reserve = False
 
+    if storage_cabinet_id is not _UNSET:
+        if storage_cabinet_id is not None:
+            cabinet = session.get(StorageCabinet, storage_cabinet_id)
+            if cabinet is None:
+                raise LaptopValidationError(
+                    f"Uitleenkast {storage_cabinet_id} bestaat niet."
+                )
+            laptop.storage_cabinet_id = storage_cabinet_id
+            laptop.stamnummer = None
+            laptop.is_reserve = False
+        else:
+            laptop.storage_cabinet_id = None
+
     if alias is not None:
         normalized = alias.strip()
         laptop.alias = normalized or None
 
-    if stamnummer is not None and not laptop.is_reserve:
+    if stamnummer is not None and not laptop.is_reserve and laptop.storage_cabinet_id is None:
         normalized = stamnummer.strip()
         if not normalized:
             raise LaptopValidationError("Stamnummer mag niet leeg zijn voor een gewone laptop.")
@@ -357,12 +431,14 @@ def update_laptop(
             ).first()
             if conflict is not None and not laptop.is_reserve:
                 raise LaptopAlreadyLinkedError(
-                    f"Serienummer {normalized} is al actief gekoppeld aan een andere leerling."
+                    f"Serienummer {normalized} is al actief gekoppeld aan een andere laptop."
                 )
         laptop.serial_number = normalized
 
     if laptop.is_reserve and not laptop.alias:
         raise LaptopValidationError("Reserve-laptop vereist een alias.")
+    if laptop.storage_cabinet_id is not None and not laptop.serial_number:
+        raise LaptopValidationError("Serienummer is verplicht voor een kast-laptop.")
 
     session.commit()
     session.refresh(laptop)

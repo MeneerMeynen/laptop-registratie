@@ -18,6 +18,7 @@ class LaptopLinkResponse(BaseModel):
     eigen_laptop: bool
     is_reserve: bool = False
     alias: str | None = None
+    storage_cabinet_id: int | None = None
     linked_at: datetime | None = None
     unlinked_at: datetime | None = None
 
@@ -27,6 +28,7 @@ class LaptopCreate(BaseModel):
     stamnummer: str | None = None
     is_reserve: bool = False
     alias: str | None = None
+    storage_cabinet_id: int | None = None
 
 
 class LaptopUpdate(BaseModel):
@@ -34,6 +36,7 @@ class LaptopUpdate(BaseModel):
     stamnummer: str | None = None
     is_reserve: bool | None = None
     alias: str | None = None
+    storage_cabinet_id: int | None = None
 
 
 class LaptopListItem(BaseModel):

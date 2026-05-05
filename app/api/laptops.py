@@ -15,6 +15,7 @@ from app.schemas.laptop import (
 from app.services.laptop_service import (
     LaptopAlreadyLinkedError,
     LaptopAlreadyUnlinkedError,
+    LaptopInCabinetError,
     LaptopNotFoundError,
     LaptopValidationError,
     StudentAlreadyHasLaptopError,
@@ -56,6 +57,7 @@ def create(payload: LaptopCreate, db: Session = Depends(get_db)):
             stamnummer=payload.stamnummer,
             is_reserve=payload.is_reserve,
             alias=payload.alias,
+            storage_cabinet_id=payload.storage_cabinet_id,
         )
     except LaptopValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -77,14 +79,12 @@ async def import_csv(file: UploadFile, db: Session = Depends(get_db)):
 
 @router.put("/{laptop_id}", response_model=LaptopLinkResponse)
 def update(laptop_id: int, payload: LaptopUpdate, db: Session = Depends(get_db)):
+    update_kwargs = payload.model_dump(exclude_unset=True)
     try:
         laptop = update_laptop(
             db,
             laptop_id=laptop_id,
-            serial_number=payload.serial_number,
-            stamnummer=payload.stamnummer,
-            is_reserve=payload.is_reserve,
-            alias=payload.alias,
+            **update_kwargs,
         )
     except LaptopValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -116,6 +116,8 @@ def link_laptop(payload: LaptopLinkRequest, db: Session = Depends(get_db)):
         )
     except StudentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except LaptopInCabinetError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except LaptopAlreadyLinkedError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except StudentAlreadyHasLaptopError as exc:

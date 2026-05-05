@@ -55,13 +55,17 @@ $COMPOSE up -d --no-deps app
 # 6. Wacht tot de app gezond is (max 60s)
 # ---------------------------------------------------------------------------
 step "Wachten tot app klaar is…"
+# Healthcheck draait vanaf de host (poort 8000 is gepubliceerd) omdat het
+# runtime-image geen curl bevat. -f faalt op 4xx/5xx; een 303 redirect naar
+# /login telt als "app draait".
 TRIES=0
-until $COMPOSE exec -T app curl -sf http://localhost:8000/ > /dev/null 2>&1; do
+MAX_TRIES=24
+until curl -sf -o /dev/null http://localhost:8000/ 2>/dev/null; do
   TRIES=$((TRIES + 1))
-  if [[ $TRIES -ge 12 ]]; then
-    abort "App reageerde niet binnen 60s. Controleer: docker compose logs app"
+  if [[ $TRIES -ge $MAX_TRIES ]]; then
+    abort "App reageerde niet binnen $((MAX_TRIES * 5))s. Controleer: docker compose logs app"
   fi
-  echo "  ⏳ nog niet klaar ($TRIES/12)…"
+  echo "  ⏳ nog niet klaar ($TRIES/$MAX_TRIES)…"
   sleep 5
 done
 

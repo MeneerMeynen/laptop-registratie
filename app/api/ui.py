@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.services.laptop_service import get_all_laptops, import_laptops_csv, list_students
+from app.services.storage_cabinet_service import list_cabinets
 from app.services.student_import import import_students_from_stream
 
 BASE_DIR = Path(__file__).parent.parent
@@ -122,7 +123,7 @@ def laptops_manage_partial(
     elif active == "inactief":
         active_filter = False
 
-    if kind not in ("all", "normal", "reserve"):
+    if kind not in ("all", "normal", "reserve", "cabinet"):
         kind = "all"
 
     laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
@@ -137,6 +138,21 @@ def laptops_manage_partial(
             "active": active,
             "kind": kind,
         },
+    )
+
+
+@router.get("/ui/storage-cabinets/manage", response_class=HTMLResponse)
+def storage_cabinets_manage_partial(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+):
+    """Instellingen-tab cabinet list (HTMX refresh target)."""
+    cabinets = list_cabinets(db, q=q or None)
+    return templates.TemplateResponse(
+        request,
+        "partials/manage_cabinet_list.html",
+        {"cabinets": cabinets, "q": q},
     )
 
 

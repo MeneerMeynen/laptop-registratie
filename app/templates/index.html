@@ -371,6 +371,10 @@
                @click="instellingenSection = 'laptops'; refreshLaptopManage()">
             <span>Laptops</span>
           </div>
+          <div class="stu-side-item" :class="instellingenSection === 'kasten' ? 'on' : ''"
+               @click="instellingenSection = 'kasten'; refreshCabinetManage()">
+            <span>Uitleenkasten</span>
+          </div>
         </div>
       </div>
 
@@ -545,21 +549,37 @@
         <!-- Nieuw laptop formulier -->
         <div x-show="showNewLaptopForm"
              style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:16px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); width:100%; margin:0;">
-            <input type="checkbox" x-model="newLaptopIsReserve" style="margin:0;">
-            Reserve-laptop (geen leerling, krijgt een alias)
-          </label>
+          <div style="width:100%; display:flex; gap:14px; align-items:center; font-size:12px; color:var(--muted); margin:0;">
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="newLaptopType" value="normal" x-model="newLaptopType" style="margin:0;"> Leerling
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="newLaptopType" value="reserve" x-model="newLaptopType" style="margin:0;"> Reserve
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="newLaptopType" value="cabinet" x-model="newLaptopType" @change="ensureCabinetsLoaded()" style="margin:0;"> Uitleenkast
+            </label>
+          </div>
           <div style="flex:1; min-width:160px;">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
             <input class="input" type="text" placeholder="bijv. ABC123" x-model="newLaptopSerial" @keydown.enter="createLaptop()">
           </div>
-          <div style="flex:1; min-width:160px;" x-show="!newLaptopIsReserve">
+          <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'normal'">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer</label>
             <input class="input" type="text" placeholder="bijv. 12345" x-model="newLaptopStamnummer" @keydown.enter="createLaptop()">
           </div>
-          <div style="flex:1; min-width:160px;" x-show="newLaptopIsReserve" x-cloak>
+          <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'reserve'" x-cloak>
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Alias</label>
             <input class="input" type="text" placeholder="bijv. Reserve-1" x-model="newLaptopAlias" @keydown.enter="createLaptop()">
+          </div>
+          <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'cabinet'" x-cloak>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Uitleenkast</label>
+            <select class="input" x-model.number="newLaptopCabinetId">
+              <option value="">— kies kast —</option>
+              <template x-for="cab in cabinetOptions" :key="cab.id">
+                <option :value="cab.id" x-text="cab.name + (cab.location ? ' (' + cab.location + ')' : '')"></option>
+              </template>
+            </select>
           </div>
           <button type="button" class="btn sm accent" @click="createLaptop()">Toevoegen</button>
           <div class="status"
@@ -578,6 +598,7 @@
             <option value="all">Alle types</option>
             <option value="normal">Leerling-laptops</option>
             <option value="reserve">Reserve-laptops</option>
+            <option value="cabinet">Kast-laptops</option>
           </select>
           <select class="input" x-model="laptopManageFilter" @change="refreshLaptopManage()"
                   style="width:auto; padding:0 10px;">
@@ -614,9 +635,107 @@
 
       </div>
 
+      <!-- ── Uitleenkasten sectie ── -->
+      <div x-show="instellingenSection === 'kasten'" x-cloak>
+
+        <div class="stu-top">
+          <div>
+            <h1>Beheer uitleenkasten</h1>
+            <div class="sub">Kasten met gedeelde laptops in klaslokalen</div>
+          </div>
+          <div class="stu-top-actions">
+            <button type="button" class="btn sm"
+                    @click="showNewCabinetForm = !showNewCabinetForm"
+                    :class="showNewCabinetForm ? 'accent' : ''">+ Nieuw</button>
+          </div>
+        </div>
+
+        <!-- Nieuw kast formulier -->
+        <div x-show="showNewCabinetForm" x-cloak
+             style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam *</label>
+            <input class="input" type="text" placeholder="bijv. Kast B201" x-model="newCabinet.name">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Lokaal</label>
+            <input class="input" type="text" placeholder="bijv. B201" x-model="newCabinet.location">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Capaciteit</label>
+            <input class="input" type="number" min="0" placeholder="bv. 8" x-model.number="newCabinet.capacity">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Beschrijving</label>
+            <input class="input" type="text" placeholder="optioneel" x-model="newCabinet.description"
+                   @keydown.enter="createCabinet()">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn sm accent" @click="createCabinet()">Toevoegen</button>
+            <div class="status"
+                 :class="{ error: newCabinetStatus.type === 'error', success: newCabinetStatus.type === 'success' }"
+                 x-text="newCabinetStatus.text" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <div class="stu-search">
+          <input class="input" type="text"
+                 placeholder="🔍 Zoek op naam of lokaal…"
+                 x-model="cabinetSearch"
+                 @input.debounce.200ms="refreshCabinetManage()">
+        </div>
+
+        <div id="manage-cabinet-list" class="manage-list"
+             hx-get="/ui/storage-cabinets/manage"
+             hx-trigger="load">
+        </div>
+
+        <p class="import-help" style="margin-top:14px;">
+          Een uitleenkast bevat laptops die in een klaslokaal staan en niet aan een leerling toebehoren.
+          Voeg laptops toe via <strong>Beheer laptops</strong> → "+ Nieuw" → type <em>Uitleenkast</em>.
+          Een kast kan pas verwijderd worden als ze leeg is.
+        </p>
+
+      </div>
+
     </main>
   </div>
 </section>
+
+<!-- ══════════════════ Modal: Bewerk uitleenkast ══════════════════ -->
+<div x-show="showEditCabinetModal" x-cloak
+     @keydown.escape.window="showEditCabinetModal = false"
+     style="position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+  <div @click.outside="showEditCabinetModal = false"
+       style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:20px; min-width:320px; max-width:520px; width:90%;">
+    <h2 style="margin:0 0 12px 0; font-size:16px;">Bewerk uitleenkast</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam</label>
+        <input class="input" type="text" x-model="editCabinet.name">
+      </div>
+      <div>
+        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Lokaal</label>
+        <input class="input" type="text" x-model="editCabinet.location">
+      </div>
+      <div>
+        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Capaciteit</label>
+        <input class="input" type="number" min="0" x-model.number="editCabinet.capacity">
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Beschrijving</label>
+        <input class="input" type="text" x-model="editCabinet.description">
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; margin-top:12px;">
+      <button type="button" class="btn sm accent" @click="submitEditCabinet()">Opslaan</button>
+      <button type="button" class="btn sm" @click="showEditCabinetModal = false">Annuleer</button>
+      <div class="status"
+           :class="{ error: editCabinetStatus.type === 'error', success: editCabinetStatus.type === 'success' }"
+           x-text="editCabinetStatus.text" style="margin:0; font-size:12px; flex:1;"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════ SCREEN 04 · FOTO'S ══════════════════ -->
 <section x-show="activeTab === 'fotos'" x-cloak>

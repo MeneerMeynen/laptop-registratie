@@ -1,0 +1,35 @@
+{% for cabinet in cabinets %}
+<div
+    class="manage-row"
+    data-id="{{ cabinet.id }}"
+    data-name="{{ cabinet.name or '' }}"
+    data-location="{{ cabinet.location or '' }}"
+    data-description="{{ cabinet.description or '' }}"
+    data-capacity="{{ cabinet.capacity if cabinet.capacity is not none else '' }}"
+    data-laptop-count="{{ cabinet.laptop_count }}"
+>
+    <label class="manage-row-main">
+        <input class="manage-checkbox" type="checkbox" value="{{ cabinet.id }}">
+        <span>
+            <span class="manage-name">{{ cabinet.name }}</span>
+            <span class="manage-meta">
+                {% if cabinet.location %}{{ cabinet.location }}{% else %}—{% endif %}
+                |
+                {% if cabinet.capacity is not none %}
+                  Bezetting: {{ cabinet.laptop_count }}/{{ cabinet.capacity }}
+                {% else %}
+                  Bezetting: {{ cabinet.laptop_count }}
+                {% endif %}
+                {% if cabinet.description %} | {{ cabinet.description }}{% endif %}
+            </span>
+        </span>
+    </label>
+    <div class="manage-row-actions">
+        <button class="btn sm" type="button" onclick="cabinetManageEdit(this)">Bewerk</button>
+        <button class="btn sm danger" type="button"
+                onclick="cabinetManageDelete({{ cabinet.id }}, '{{ cabinet.name }}')">✕</button>
+    </div>
+</div>
+{% else %}
+<p style="padding:16px; color:var(--muted);">Geen uitleenkasten gevonden.</p>
+{% endfor %}

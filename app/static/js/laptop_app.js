@@ -56,8 +56,9 @@ function laptopApp() {
     showNewLaptopForm:  false,
     newLaptopSerial:    '',
     newLaptopStamnummer:'',
-    newLaptopIsReserve: false,
+    newLaptopType:      'normal', // 'normal' | 'reserve' | 'cabinet'
     newLaptopAlias:     '',
+    newLaptopCabinetId: '',
     newLaptopStatus:    { text: '', type: '' },
     // Studenten CRUD
     showNewStudentForm: false,
@@ -66,6 +67,15 @@ function laptopApp() {
     showEditStudentModal: false,
     editStudent:        { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '', pointer: '' },
     editStudentStatus:  { text: '', type: '' },
+    // Uitleenkasten CRUD
+    cabinetSearch:        '',
+    cabinetOptions:       [],
+    showNewCabinetForm:   false,
+    newCabinet:           { name: '', location: '', description: '', capacity: '' },
+    newCabinetStatus:     { text: '', type: '' },
+    showEditCabinetModal: false,
+    editCabinet:          { id: null, name: '', location: '', description: '', capacity: '' },
+    editCabinetStatus:    { text: '', type: '' },
 
     // ── Lifecycle ──────────────────────────────────────────
     toggleTheme() {
@@ -632,23 +642,34 @@ function laptopApp() {
 
     async createLaptop() {
       const serial = this.newLaptopSerial.trim();
-      const isReserve = !!this.newLaptopIsReserve;
+      const type = this.newLaptopType || 'normal';
       const alias = this.newLaptopAlias.trim();
       const stamnummer = this.newLaptopStamnummer.trim();
+      const cabinetId = this.newLaptopCabinetId;
 
-      if (isReserve) {
+      let payload;
+      let label;
+      if (type === 'reserve') {
         if (!alias) {
           this.newLaptopStatus = { text: 'Alias is verplicht voor een reserve-laptop.', type: 'error' }; return;
         }
+        payload = { serial_number: serial || null, is_reserve: true, alias };
+        label = alias;
+      } else if (type === 'cabinet') {
+        if (!serial || !cabinetId) {
+          this.newLaptopStatus = { text: 'Serienummer en kast zijn verplicht voor een kast-laptop.', type: 'error' }; return;
+        }
+        payload = { serial_number: serial, storage_cabinet_id: Number(cabinetId) };
+        label = serial;
       } else {
         if (!serial || !stamnummer) {
           this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
         }
+        payload = { serial_number: serial, stamnummer };
+        label = serial;
       }
+
       this.newLaptopStatus = { text: 'Bezig…', type: '' };
-      const payload = isReserve
-        ? { serial_number: serial || null, is_reserve: true, alias }
-        : { serial_number: serial, stamnummer };
       const res = await fetch('/api/laptops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -658,13 +679,114 @@ function laptopApp() {
       if (!res.ok) {
         this.newLaptopStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
       }
-      const label = isReserve ? alias : serial;
       this.newLaptopStatus = { text: `✓ Laptop "${label}" aangemaakt.`, type: 'success' };
       this.newLaptopSerial = '';
       this.newLaptopStamnummer = '';
       this.newLaptopAlias = '';
-      this.newLaptopIsReserve = false;
+      this.newLaptopCabinetId = '';
+      this.newLaptopType = 'normal';
       this.refreshLaptopManage();
+    },
+
+    // ── Uitleenkasten CRUD (Instellingen) ──────────────────
+    async ensureCabinetsLoaded() {
+      if (this.cabinetOptions.length > 0) return;
+      const res = await fetch('/api/storage-cabinets');
+      this.cabinetOptions = res.ok ? await res.json() : [];
+    },
+
+    refreshCabinetManage() {
+      const params = new URLSearchParams();
+      const q = (this.cabinetSearch || '').trim();
+      if (q) params.set('q', q);
+      const url = params.toString()
+        ? `/ui/storage-cabinets/manage?${params}`
+        : '/ui/storage-cabinets/manage';
+      htmx.ajax('GET', url, {
+        target: '#manage-cabinet-list', swap: 'innerHTML',
+      });
+      // Refresh dropdown options too
+      fetch('/api/storage-cabinets').then(r => r.ok ? r.json() : []).then(d => { this.cabinetOptions = d; });
+    },
+
+    async createCabinet() {
+      const name = (this.newCabinet.name || '').trim();
+      if (!name) {
+        this.newCabinetStatus = { text: 'Naam is verplicht.', type: 'error' }; return;
+      }
+      this.newCabinetStatus = { text: 'Bezig…', type: '' };
+      const payload = {
+        name,
+        location: (this.newCabinet.location || '').trim() || null,
+        description: (this.newCabinet.description || '').trim() || null,
+        capacity: this.newCabinet.capacity === '' || this.newCabinet.capacity === null
+          ? null : Number(this.newCabinet.capacity),
+      };
+      const res = await fetch('/api/storage-cabinets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        this.newCabinetStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
+      }
+      this.newCabinetStatus = { text: `✓ Kast "${name}" aangemaakt.`, type: 'success' };
+      this.newCabinet = { name: '', location: '', description: '', capacity: '' };
+      this.refreshCabinetManage();
+    },
+
+    openEditCabinetModal(row) {
+      const d = row.dataset;
+      this.editCabinet = {
+        id: Number(d.id),
+        name: d.name || '',
+        location: d.location || '',
+        description: d.description || '',
+        capacity: d.capacity === '' ? '' : Number(d.capacity),
+      };
+      this.editCabinetStatus = { text: '', type: '' };
+      this.showEditCabinetModal = true;
+    },
+
+    async submitEditCabinet() {
+      const id = this.editCabinet.id;
+      if (!id) return;
+      this.editCabinetStatus = { text: 'Bezig…', type: '' };
+      const payload = {
+        name: (this.editCabinet.name || '').trim(),
+        location: (this.editCabinet.location || '').trim() || null,
+        description: (this.editCabinet.description || '').trim() || null,
+        capacity: this.editCabinet.capacity === '' || this.editCabinet.capacity === null
+          ? null : Number(this.editCabinet.capacity),
+      };
+      const res = await fetch(`/api/storage-cabinets/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        this.editCabinetStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' }; return;
+      }
+      this.editCabinetStatus = { text: '✓ Opgeslagen.', type: 'success' };
+      this.showEditCabinetModal = false;
+      this.refreshCabinetManage();
+    },
+
+    async deleteCabinet(id, label) {
+      if (!confirm(`Uitleenkast "${label}" verwijderen?`)) return;
+      const res = await fetch('/api/storage-cabinets', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.detail || 'Verwijderen mislukt.');
+        return;
+      }
+      this.refreshCabinetManage();
     },
 
     // ── Studenten CRUD (Instellingen) ──────────────────────
@@ -775,15 +897,28 @@ function stuManageDelete(stamnummer, label) {
   if (app) app.deleteStudentByStamnummer(stamnummer, label);
 }
 
+// ── Uitleenkast manage row helpers ────────────────────────────
+function cabinetManageEdit(btn) {
+  const row = btn.closest('.manage-row');
+  const app = window.Alpine && Alpine.$data(document.querySelector('[x-data]'));
+  if (app) app.openEditCabinetModal(row);
+}
+
+function cabinetManageDelete(id, label) {
+  const app = window.Alpine && Alpine.$data(document.querySelector('[x-data]'));
+  if (app) app.deleteCabinet(id, label);
+}
+
 // ── Laptop manage table: inline edit/delete ───────────────────
 function ltManageEdit(btn) {
   const row = btn.closest('tr');
   const isReserve = row.dataset.isReserve === '1';
+  const inCabinet = row.dataset.inCabinet === '1';
   row.querySelectorAll('.lt-manage-display').forEach(el => el.style.display = 'none');
   row.querySelectorAll('.lt-manage-edit-serial').forEach(el => el.style.display = '');
   if (isReserve) {
     row.querySelectorAll('.lt-manage-edit-alias').forEach(el => el.style.display = '');
-  } else {
+  } else if (!inCabinet) {
     row.querySelectorAll('.lt-manage-edit-stamnummer').forEach(el => el.style.display = '');
   }
   row.querySelector('.lt-manage-btn-edit').style.display = 'none';
@@ -806,6 +941,7 @@ function ltManageCancel(btn) {
 async function ltManageSave(btn, laptopId) {
   const row = btn.closest('tr');
   const isReserve = row.dataset.isReserve === '1';
+  const inCabinet = row.dataset.inCabinet === '1';
   const serial = row.querySelector('.lt-manage-edit-serial').value.trim();
   const aliasEl = row.querySelector('.lt-manage-edit-alias');
   const stamnummerEl = row.querySelector('.lt-manage-edit-stamnummer');
@@ -813,9 +949,14 @@ async function ltManageSave(btn, laptopId) {
   const stamnummer = stamnummerEl ? stamnummerEl.value.trim() : null;
   btn.textContent = '…';
   btn.disabled = true;
-  const payload = isReserve
-    ? { serial_number: serial || null, alias: alias || null }
-    : { serial_number: serial || null, stamnummer: stamnummer || null };
+  let payload;
+  if (isReserve) {
+    payload = { serial_number: serial || null, alias: alias || null };
+  } else if (inCabinet) {
+    payload = { serial_number: serial || null };
+  } else {
+    payload = { serial_number: serial || null, stamnummer: stamnummer || null };
+  }
   const res = await fetch(`/api/laptops/${laptopId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

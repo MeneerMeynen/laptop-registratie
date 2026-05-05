@@ -10,6 +10,7 @@ from app.api import auth_routes
 from app.api import laptops as laptops_api
 from app.api import laptop_issues as laptop_issues_api
 from app.api import photos as photos_api
+from app.api import storage_cabinets as storage_cabinets_api
 from app.api import students as students_api
 from app.api import ui as ui_routes
 from app.auth import AuthMiddleware
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(laptops_api.router)
     app.include_router(laptop_issues_api.router)
     app.include_router(photos_api.router)
+    app.include_router(storage_cabinets_api.router)
     app.include_router(students_api.router)
     app.include_router(ui_routes.router)
 
