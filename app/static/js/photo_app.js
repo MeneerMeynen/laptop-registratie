@@ -461,11 +461,16 @@ function photoApp() {
             this.sessionPhotos = [];
             this.existingPhotos = [];
             this.statusMsg = { text: '', type: '' };
+            const wasScanning = this.scanMode === 'camera';
             this.step = 1;
-            this.$nextTick(() => {
-                const inp = document.getElementById('serial-input');
-                if (inp) inp.focus();
-            });
+            if (wasScanning) {
+                this.startScanner();
+            } else {
+                this.$nextTick(() => {
+                    const inp = document.getElementById('serial-input');
+                    if (inp) inp.focus();
+                });
+            }
         },
 
         reset() {

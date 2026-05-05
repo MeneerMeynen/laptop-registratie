@@ -669,11 +669,17 @@ function laptopApp() {
 
     // ── Studenten CRUD (Instellingen) ──────────────────────
     refreshManageStudentList() {
-      htmx.ajax('GET', '/ui/students/manage', {
-        target: '#manage-student-list', swap: 'innerHTML',
-      }).then(() => {
+      Promise.all([
+        htmx.ajax('GET', '/ui/students/manage', {
+          target: '#manage-student-list', swap: 'innerHTML',
+        }),
+        htmx.ajax('GET', '/ui/students/list', {
+          target: '#student-list', swap: 'innerHTML',
+        }),
+      ]).then(() => {
         this.$nextTick(() => {
           this.filterManage();
+          this.filterStudents();
           this._countVisible();
           this._computeStuCounts();
         });
