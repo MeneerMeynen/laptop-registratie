@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.egg-info/
 .DS_Store
 .claude/
 # TLS certificates (generated locally via mkcert — not committed)

@@ -17,7 +17,7 @@
     @keydown.tab.prevent="$el.closest('form').querySelector('#serial_number').focus()"
 >
     <span class="student-option-name">{{ student.naam }}, {{ student.voornaam }}</span>
-    <span class="student-option-meta">{{ student.klas }} | {{ student.stamnummer }}</span>
+    <span class="student-option-meta">{{ student.klascode }} | {{ student.klas }}</span>
     <span class="student-option-serial">Laptop serienummer: {{ serial_display }}</span>
     {% if latest_import_at and student.last_import and student.last_import < latest_import_at %}
     <span class="badge badge-old">Uitgeschreven</span>

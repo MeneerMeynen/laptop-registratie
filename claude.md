@@ -26,6 +26,11 @@
 - Uitloggen via knop rechtsboven in de UI (POST `/logout`)
 - Productie-startup faalt expliciet als `AUTH_PASSWORD` of `SESSION_SECRET` ontbreekt (tenzij `DEBUG=true`)
 
+### Laptop issue tracker (tab: Tickets)
+- Zoeken op serienummer, issues aanmaken/bewerken/verwijderen
+- Entries (tijdlijn) per issue toevoegen/bewerken/verwijderen
+- Status-filter, koppeling aan student, linked_at tracking
+
 ### Leerlingkoppeling (tab: Registreer)
 - Studenten worden uit CSV geïmporteerd in tabel `students`
 - Laptops worden gekoppeld in tabel `laptops`
@@ -33,17 +38,12 @@
 - Navigatiebarcodes: `1UP`, `1DOWN`
 - Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial, uniek per student)
 
-### Studentenbeheer (tab: Beheer studenten)
+### Studentenbeheer (tab: Instellingen)
 - CSV-upload via UI, upsert op `students`
 - `students.last_import` wordt gezet bij elke import; studenten met oudere datum krijgen badge `Uitgeschreven`
 - Zoekbalk zoekt op: instellingsnummer, naam, voornaam, klas, klascode, klasnummer, gebruikersnaam, pointer, stamnummer
 - Filterknop `Toon uitgeschreven`, multi-select lijst, `Selecteer alle`, verwijderknop
 - Na verwijderen blijft de UI op tab `Beheer studenten`; zoekopdracht en filter blijven behouden
-
-### Laptop issue tracker (tab: Laptops)
-- Zoeken op serienummer, issues aanmaken/bewerken/verwijderen
-- Entries (tijdlijn) per issue toevoegen/bewerken/verwijderen
-- Status-filter, koppeling aan student, linked_at tracking
 
 ### Foto's (tab: Foto's)
 - Foto's uploaden per serienummer (file upload of base64 voor iOS)
@@ -85,6 +85,33 @@
 - `app/templates/index.html` — hoofd-UI (Alpine.js, alle tabs)
 - `app/templates/photos.html` — foto-pagina
 - `alembic/` — migratiescripts
+
+## Versie beheren & releases
+
+De versie staat op één plek: `pyproject.toml` (`version = "x.y.z"`).  
+`importlib.metadata` leest die waarde at runtime — `app/main.py` en `app/api/ui.py` gebruiken dit, en de UI toont hem rechtsonder als `vX.Y.Z`.
+
+### Release uitvoeren
+
+```bash
+# 1. Bump de versie in pyproject.toml
+#    Gebruik semantic versioning: MAJOR.MINOR.PATCH
+#    - PATCH: bugfix (1.0.1)
+#    - MINOR: nieuwe functionaliteit, backwards compatible (1.1.0)
+#    - MAJOR: breaking changes (2.0.0)
+
+# 2. Commit
+git add pyproject.toml
+git commit -m "bump version to 1.x.y"
+
+# 3. Tag aanmaken en pushen
+git tag v1.x.y
+git push origin main
+git push origin v1.x.y
+```
+
+> De `*.egg-info/` map is lokaal gegenereerd en staat in `.gitignore` — niet committen.  
+> Docker bouwt de versie correct in via `pip install` tijdens de image-build.
 
 ## Docker
 - `Dockerfile`, `compose.yaml` en `entrypoint.sh` staan in de projectroot

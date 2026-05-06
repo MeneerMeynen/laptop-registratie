@@ -53,7 +53,7 @@
       <button class="icon-btn" @click="toggleTheme()"
               :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
               x-text="theme === 'dark' ? '☀' : '☾'"></button>
-      <button class="icon-btn" title="Help" onclick="alert('Navigeer met barcodes 1UP / 1DOWN. Scan serienummer om te koppelen. Gebruik + Defect voor problemen.')">?</button>
+      <button class="icon-btn" title="Help" @click="showHelpModal = true">?</button>
       <form method="post" action="/logout" style="display:inline;margin:0;">
         <button class="icon-btn" type="submit" title="Uitloggen">⎋</button>
       </form>
@@ -839,7 +839,7 @@
       </select>
     </div>
     <div class="modal-actions">
-      <button type="button" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
+      <button type="button" class="btn-save" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
     </div>
   </div>
 </div>
@@ -896,7 +896,7 @@
       </p>
     </div>
     <div class="modal-actions">
-      <button type="button" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
+      <button type="button" class="btn-save" style="width:auto;" @click="submitEditIssue()">Opslaan</button>
     </div>
   </div>
 </div>
@@ -924,6 +924,60 @@
     <div class="modal-actions">
       <button type="button" style="width:auto;" @click="submitEditStudent()">Opslaan</button>
     </div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div class="modal-overlay" x-show="showHelpModal" x-cloak @keydown.escape.window="showHelpModal = false">
+  <div class="modal-box modal-box--large" style="max-height:80vh;overflow-y:auto;">
+    <span class="modal-close-btn" @click="showHelpModal = false" role="button" tabindex="0"
+          @keydown.enter="showHelpModal = false" @keydown.space.prevent="showHelpModal = false">✕</span>
+    <h3>Gebruikershandleiding</h3>
+
+    <h4 style="margin-top:1.2rem;">🎫 Tickets</h4>
+    <p>Overzicht van alle gemelde problemen per laptop.</p>
+    <ul>
+      <li>Scan een serienummer in de zoekbalk bovenaan om een laptop direct op te zoeken.</li>
+      <li>Klik <strong>+ Defect</strong> om een nieuw probleem te melden. Vul het serienummer, de categorie en een beschrijving in.</li>
+      <li>Filter op status via de knoppen <em>Aangemeld / Open / Opgelost / Alles</em>.</li>
+      <li>Klik op een ticket in de lijst om de tijdlijn te openen. Voeg daar entries toe om de voortgang bij te houden.</li>
+      <li>Een reserve-laptop kan bij het aanmaken of bewerken van een ticket worden meegegeven.</li>
+    </ul>
+
+    <h4 style="margin-top:1.2rem;">📋 Registreer</h4>
+    <p>Koppel een laptop aan een leerling via barcode of serienummer.</p>
+    <ul>
+      <li>Selecteer eerst een leerling uit de lijst links, of gebruik de navigatiebarcodes <code>1UP</code> / <code>1DOWN</code> om door de lijst te bladeren.</li>
+      <li>Scan daarna het serienummer van de laptop in het scanveld. De koppeling wordt automatisch opgeslagen.</li>
+      <li>Scan de barcode <code>eigen laptop</code> als een leerling een eigen toestel meebrengt (geen serienummer vereist).</li>
+      <li>Na elke koppeling springt de focus terug naar het scanveld en wordt automatisch de volgende leerling geselecteerd.</li>
+      <li>Gebruik het filter bovenaan de studentenlijst om te zoeken op naam, klas of status.</li>
+    </ul>
+
+    <h4 style="margin-top:1.2rem;">⚙️ Instellingen</h4>
+    <p>Beheer studenten, laptops en uitleenkasten.</p>
+    <ul>
+      <li><strong>Studenten:</strong> importeer een CSV-bestand met leerlinggegevens. Bestaande leerlingen worden bijgewerkt (upsert op stamnummer). Leerlingen die niet in de laatste import staan krijgen de badge <em>Uitgeschreven</em>.</li>
+      <li>Zoek op naam, klas, gebruikersnaam, stamnummer of pointer. Vink <em>Toon uitgeschreven</em> aan om ook oud-leerlingen te zien.</li>
+      <li>Selecteer meerdere leerlingen en klik <strong>Verwijder geselecteerde</strong> om ze te verwijderen.</li>
+      <li><strong>Laptops:</strong> bekijk alle laptops, filter op type (normaal / reserve / kast) en voeg nieuwe toe.</li>
+      <li><strong>Kasten:</strong> beheer uitleenkasten en hun inhoud.</li>
+    </ul>
+
+    <h4 style="margin-top:1.2rem;">📷 Foto's</h4>
+    <p>Upload en bekijk foto's per laptop.</p>
+    <ul>
+      <li>Zoek op serienummer om een laptop te selecteren.</li>
+      <li>Upload foto's via de knop of sleep ze naar het uploadgebied. Op iOS kan je ook een foto maken met de camera.</li>
+      <li>Klik op een foto om ze te vergroten. Klik op de prullenbak om een foto te verwijderen.</li>
+    </ul>
+
+    <h4 style="margin-top:1.2rem;">⌨️ Sneltoetsen</h4>
+    <ul>
+      <li><kbd>⌘K</kbd> — focus naar de globale scanbar bovenaan</li>
+      <li><code>1UP</code> / <code>1DOWN</code> scannen — vorige / volgende leerling selecteren</li>
+      <li><kbd>Escape</kbd> — sluit dit venster</li>
+    </ul>
   </div>
 </div>
 

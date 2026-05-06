@@ -77,6 +77,7 @@ function laptopApp() {
     showEditCabinetModal: false,
     editCabinet:          { id: null, name: '', location: '', description: '', capacity: '' },
     editCabinetStatus:    { text: '', type: '' },
+    showHelpModal:        false,
 
     // ── Lifecycle ──────────────────────────────────────────
     toggleTheme() {

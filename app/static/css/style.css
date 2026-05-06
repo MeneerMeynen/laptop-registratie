@@ -18,6 +18,8 @@
   --accent-wash-2:#162421;
   --red:          #e07272;
   --red-wash:     #2e1c1d;
+  --green:        #4caf74;
+  --green-hover:  #5ec484;
   --amber:        #dba34c;
   --amber-wash:   #2e2417;
 
@@ -89,6 +91,8 @@
   --accent-wash-2:#e8f3f1;
   --red:          #b4393b;
   --red-wash:     #f7e0e0;
+  --green:        #2d8f52;
+  --green-hover:  #27a05c;
   --amber:        #b57318;
   --amber-wash:   #f7e8cf;
 
@@ -824,11 +828,16 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   transition: background var(--tx), box-shadow var(--tx), transform var(--tx);
   /* width: 100%; */
 }
-button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.pg-delete):hover {
+button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.pg-delete):not(.student-option):hover {
   background: var(--red); box-shadow: 0 0 16px var(--accent-glow);
 }
 button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.pg-delete):active { transform: scale(.98); }
 
+.btn-save {
+  background: var(--green) !important; color: #fff !important;
+  box-shadow: 0 0 0 0 transparent;
+}
+.btn-save:hover { background: var(--green-hover) !important; box-shadow: 0 0 14px rgba(76,175,116,.3) !important; }
 .btn-danger {
   background: var(--red); color: #0d1117;
 }
@@ -946,7 +955,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   transition: background var(--tx);
 }
 .student-option:last-child    { border-bottom: none; }
-.student-option:hover         { background: var(--surface-2); outline: none; }
+.student-option:hover         { background: var(--accent-wash); outline: none; }
 .student-option.active        { background: var(--accent-faint); box-shadow: inset 3px 0 0 var(--accent); }
 [data-theme="light"] .student-option.active { background: var(--accent-wash); }
 .student-option[hidden]       { display: none; }
@@ -1182,14 +1191,13 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .modal-box h3 { margin-top: 0; padding-right: 36px; font-size: 1rem; color: var(--text); font-family: var(--sans); }
 .modal-close-btn {
   position: absolute; top: 14px; right: 14px;
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface-2); border: 1px solid var(--border-mid);
-  border-radius: 50%; color: var(--muted); font-size: .9rem; font-weight: 700;
+  background: transparent; border: none;
+  border-radius: 50%; color: var(--muted); font-size: 1.1rem; line-height: 1;
   cursor: pointer; transition: background var(--tx), color var(--tx); user-select: none;
-  margin: 0; padding: 0; width: auto;
 }
-.modal-close-btn:hover { background: var(--red-wash); color: var(--red); border-color: var(--danger-border); box-shadow: none; }
+.modal-close-btn:hover { background: var(--surface-2); color: var(--text); }
 .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
 .modal-actions button { margin: 0; }
 

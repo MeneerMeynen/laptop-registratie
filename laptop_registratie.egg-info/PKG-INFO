@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laptop-registratie
-Version: 2.0.0
+Version: 1.0.0
 Summary: Web application to link laptops to students.
 Requires-Python: >=3.11
 Requires-Dist: fastapi<1.0,>=0.115
