@@ -159,15 +159,19 @@
       </div>
       <div class="ctx" x-show="ltSelectedSerial">
         <div class="ctx-block">
-          <div class="h">Leerling</div>
-          <div class="student-card" x-show="ltStudentInfo">
+          <div class="h" style="display:flex; align-items:center; gap:8px;">
+            <span>Leerling</span>
+            <span class="lt-badge-uitleen" x-show="ltLaptopType === 'uitleen'" x-cloak>Uitleen</span>
+            <span class="lt-badge-reserve" x-show="ltLaptopType === 'reserve'" x-cloak>Reserve</span>
+          </div>
+          <div class="student-card" x-show="ltStudentInfo?.naam_volledig">
             <div class="av" x-text="ltStudentInitials">??</div>
             <div style="flex:1; min-width: 0;">
-              <div class="s-name" x-text="ltStudentInfo?.naam_volledig || ltSelectedSerial"></div>
+              <div class="s-name" x-text="ltStudentInfo?.naam_volledig"></div>
               <div class="s-sub" x-text="ltStudentInfo?.klas || '—'"></div>
             </div>
           </div>
-          <div x-show="!ltStudentInfo" style="font-size: 12px; color: var(--dim);">Geen leerling gekoppeld</div>
+          <div x-show="!ltStudentInfo?.naam_volledig" style="font-size: 12px; color: var(--dim);">Geen leerling gekoppeld</div>
         </div>
         <div class="ctx-block">
           <div class="h">Snelle acties</div>

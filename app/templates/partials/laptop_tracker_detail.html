@@ -13,6 +13,11 @@
         </div>
     </div>
     <div class="lt-topbar-right">
+        {% if laptop_type == 'reserve' %}
+        <span class="lt-badge-reserve">Reserve</span>
+        {% elif laptop_type == 'uitleen' %}
+        <span class="lt-badge-uitleen">Uitleen</span>
+        {% endif %}
         {% if aangemeld_count > 0 %}
         <span class="lt-badge-aangemeld">{{ aangemeld_count }} aangemeld</span>
         {% endif %}

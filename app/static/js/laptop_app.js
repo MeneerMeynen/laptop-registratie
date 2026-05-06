@@ -20,6 +20,7 @@ function laptopApp() {
     ltStatusFilter:     ['aangemeld', 'open'],
     ltSelectedSerial:   null,
     ltStudentInfo:      null,
+    ltLaptopType:       null,
     issueStatus:        { text: '', type: '' },
     showNewIssueModal:  false,
     newIssueSerial:     '',
@@ -454,10 +455,14 @@ function laptopApp() {
 
     async _loadStudentInfo(serial) {
       this.ltStudentInfo = null;
+      this.ltLaptopType = null;
       try {
-        const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(serial)}`);
-        if (res.ok) {
-          const list = await res.json();
+        const [searchRes, infoRes] = await Promise.all([
+          fetch(`/api/laptops/search?q=${encodeURIComponent(serial)}`),
+          fetch(`/api/laptops/info?serial=${encodeURIComponent(serial)}`),
+        ]);
+        if (searchRes.ok) {
+          const list = await searchRes.json();
           const match = list.find(s => s.serial_number === serial);
           if (match) {
             this.ltStudentInfo = {
@@ -465,6 +470,10 @@ function laptopApp() {
               klas: match.klas || '',
             };
           }
+        }
+        if (infoRes.ok) {
+          const info = await infoRes.json();
+          this.ltLaptopType = info.laptop_type || null;
         }
       } catch(e) {}
     },

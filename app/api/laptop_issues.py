@@ -20,6 +20,7 @@ from app.services.laptop_issue_service import (
     get_entries_for_issue,
     get_global_stats,
     get_issues_for_serial,
+    get_laptop_type,
     get_student_for_serial,
     list_issues,
     list_laptops_with_issues,
@@ -127,6 +128,12 @@ def laptop_search(q: str = "", db: Session = Depends(get_db)):
     return search_laptops_for_autocomplete(db, q)
 
 
+@router.get("/api/laptops/info")
+def laptop_info(serial: str, db: Session = Depends(get_db)):
+    """Return laptop type info for the context panel."""
+    return {"laptop_type": get_laptop_type(db, serial)}
+
+
 @router.get("/ui/laptop-issues", response_class=HTMLResponse)
 def laptop_issues_partial(
     request: Request,
@@ -166,6 +173,7 @@ def laptop_tracker_detail(
 ):
     issues = get_issues_for_serial(db, serial)
     student = get_student_for_serial(db, serial)
+    laptop_type = get_laptop_type(db, serial)
     history = get_assignment_history(db, serial)
     open_count = sum(1 for i in issues if i["status"] == "open")
     gesloten_count = sum(1 for i in issues if i["status"] == "gesloten")
@@ -180,6 +188,7 @@ def laptop_tracker_detail(
         {
             "serial": serial,
             "student": student,
+            "laptop_type": laptop_type,
             "issues": issues,
             "history": history,
             "open_count": open_count,

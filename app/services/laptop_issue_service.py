@@ -419,6 +419,23 @@ def get_global_stats(db: Session) -> dict:
     }
 
 
+def get_laptop_type(db: Session, serial: str) -> str | None:
+    """Return 'reserve' or 'uitleen' for special laptop types, None for regular."""
+    row = db.execute(
+        select(Laptop.is_reserve, Laptop.storage_cabinet_id)
+        .where(Laptop.serial_number == serial)
+        .order_by(Laptop.unlinked_at.is_(None).desc(), Laptop.id.desc())
+        .limit(1)
+    ).first()
+    if not row:
+        return None
+    if row.is_reserve:
+        return "reserve"
+    if row.storage_cabinet_id is not None:
+        return "uitleen"
+    return None
+
+
 def search_laptops_for_autocomplete(db: Session, q: str) -> list[dict]:
     """Return laptops matching serial number or student name for autocomplete."""
     pattern = f"%{q}%"
