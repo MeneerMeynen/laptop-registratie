@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -34,7 +35,7 @@ def create_app() -> FastAPI:
             "(set DEBUG=true to bypass for local development)."
         )
 
-    app = FastAPI(title="Laptop Registratie", version="2.0.0", lifespan=lifespan)
+    app = FastAPI(title="Laptop Registratie", version=pkg_version("laptop-registratie"), lifespan=lifespan)
 
     # Static files (CSS, JS)
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

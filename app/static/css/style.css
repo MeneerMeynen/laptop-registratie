@@ -555,6 +555,8 @@ a { color: inherit; text-decoration: none; }
 .reg-step.active .n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .reg-step b { display: block; font-size: 12px; font-weight: 600; letter-spacing: -0.005em; color: var(--ink); }
 .reg-step span { font-size: 11px; color: var(--dim); }
+.reg-step.done b { font-size: 11px; font-weight: 500; color: var(--dim); }
+.reg-step.done span { font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
 .reg-step-linked { color: var(--accent) !important; font-weight: 600; }
 
 /* Student list in registreer */
@@ -813,7 +815,7 @@ textarea { resize: vertical; min-height: 80px; }
 .field { margin-bottom: 16px; }
 
 /* Legacy button fallback (for htmx-rendered partials) */
-button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.student-option) {
+button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.student-option):not(.pg-delete) {
   border-radius: var(--r-md); border: none;
   font-family: var(--sans); font-size: .88rem; font-weight: 700;
   padding: 10px 16px; margin-top: 12px;
@@ -822,10 +824,10 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   transition: background var(--tx), box-shadow var(--tx), transform var(--tx);
   /* width: 100%; */
 }
-button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):hover {
+button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.pg-delete):hover {
   background: var(--red); box-shadow: 0 0 16px var(--accent-glow);
 }
-button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):active { transform: scale(.98); }
+button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.chip):not(.go):not(.lt-entry-form button):not(.lt-toggle-btn):not(.pg-delete):active { transform: scale(.98); }
 
 .btn-danger {
   background: var(--red); color: #0d1117;
@@ -1042,6 +1044,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   flex-shrink: 0; gap: 12px;
 }
 .lt-device-id  { font-family: var(--mono); font-size: .95rem; font-weight: 500; color: var(--accent); letter-spacing: .02em; }
+.lt-device-student { font-family: var(--font-sans, inherit); color: var(--text); font-weight: 500; letter-spacing: 0; }
 .lt-device-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
 .lt-topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
@@ -1238,16 +1241,24 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 /* Shared delete button */
 .pg-delete {
   position: absolute; top: 8px; right: 8px;
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1px solid rgba(224,114,114,.35); background: rgba(13,17,23,.75);
-  color: var(--red); font-size: 1rem; font-weight: 700;
-  /* display: flex; align-items: center; justify-content: center; */
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(13,17,23,.65);
+  color: rgba(255,255,255,.85);
+  display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; padding: 0; opacity: 0;
-  transition: opacity var(--tx), background var(--tx); backdrop-filter: blur(4px);
+  transition: opacity var(--tx), background var(--tx), border-color var(--tx), color var(--tx), transform var(--tx);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
+.pg-delete svg { display: block; }
 .pg-hero:hover .pg-delete,
-.pg-thumb:hover .pg-delete { opacity: 1; }
-.pg-delete:hover { background: var(--red-wash); box-shadow: none; }
+.pg-thumb:hover .pg-delete,
+.pg-delete:focus-visible { opacity: 1; }
+.pg-delete:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pg-delete:hover {
+  background: var(--red); border-color: var(--red);
+  color: #fff; transform: scale(1.05);
+}
+.pg-delete--sm { width: 24px; height: 24px; top: 6px; right: 6px; }
 
 /* Empty state */
 .pg-empty {

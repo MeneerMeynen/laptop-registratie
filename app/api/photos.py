@@ -6,7 +6,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services.photo_service import delete_photo, list_photos, save_photo
+from app.services.photo_service import (
+    delete_photo,
+    get_latest_serial_with_photos,
+    list_photos,
+    save_photo,
+)
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
 
@@ -14,6 +19,12 @@ router = APIRouter(prefix="/api/photos", tags=["photos"])
 class PhotoBase64Request(BaseModel):
     serial_number: str
     image_data: str  # base64 encoded JPEG
+
+
+@router.get("/latest/serial")
+def latest_serial(db: Session = Depends(get_db)):
+    """Return the serial number of the most recently uploaded photo."""
+    return {"serial_number": get_latest_serial_with_photos(db)}
 
 
 @router.get("/{serial_number}")

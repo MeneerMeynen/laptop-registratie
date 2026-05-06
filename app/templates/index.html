@@ -358,7 +358,7 @@
   </div>
 </section>
 
-<!-- ══════════════════ SCREEN 03 · STUDENTEN ══════════════════ -->
+<!-- ══════════════════ SCREEN 03 · INSTELLINGEN ══════════════════ -->
 <section x-show="activeTab === 'instellingen'" x-cloak>
   <div class="stu-layout">
 
@@ -367,13 +367,13 @@
       <div class="stu-side-section">
         <div class="h">Sectie</div>
         <div class="stu-side-nav">
-          <div class="stu-side-item" :class="instellingenSection === 'studenten' ? 'on' : ''"
-               @click="instellingenSection = 'studenten'">
-            <span>Studenten</span>
-          </div>
           <div class="stu-side-item" :class="instellingenSection === 'laptops' ? 'on' : ''"
                @click="instellingenSection = 'laptops'; refreshLaptopManage()">
             <span>Laptops</span>
+          </div>
+          <div class="stu-side-item" :class="instellingenSection === 'Import Informat' ? 'on' : ''"
+               @click="instellingenSection = 'Import Informat'">
+            <span>Import Informat</span>
           </div>
           <div class="stu-side-item" :class="instellingenSection === 'kasten' ? 'on' : ''"
                @click="instellingenSection = 'kasten'; refreshCabinetManage()">
@@ -383,7 +383,7 @@
       </div>
 
       <!-- Student filters, only visible in studenten section -->
-      <div x-show="instellingenSection === 'studenten'" class="stu-side-section" style="margin-top:8px;">
+      <div x-show="instellingenSection === 'Import Informat'" class="stu-side-section" style="margin-top:8px;">
         <div class="h">Overzicht</div>
         <div class="stu-side-nav">
           <div class="stu-side-item" :class="stuSideFilter === 'all' ? 'on' : ''"
@@ -417,110 +417,6 @@
 
     <!-- Main content -->
     <main class="stu-main">
-
-      <!-- ── Studenten sectie ── -->
-      <div x-show="instellingenSection === 'studenten'">
-
-        <div class="stu-top">
-          <div>
-            <h1>Beheer studenten</h1>
-            <div class="sub">Upload CSV · zoek · filter · verwijder</div>
-          </div>
-          <div class="stu-top-actions">
-            <button type="button" class="btn sm"
-                    @click="showNewStudentForm = !showNewStudentForm"
-                    :class="showNewStudentForm ? 'accent' : ''">+ Nieuw</button>
-            <form hx-post="/ui/students/import"
-                  hx-encoding="multipart/form-data"
-                  hx-target="#import-result"
-                  hx-swap="innerHTML"
-                  @htmx:after-request="onImportComplete"
-                  style="margin:0;">
-              <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
-                ↑ CSV import
-              </label>
-              <input id="student-import-file" name="file" type="file"
-                     accept=".csv,text/csv" required style="display:none;"
-                     onchange="this.closest('form').requestSubmit()">
-            </form>
-            <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
-          </div>
-        </div>
-
-        <!-- Nieuw student formulier -->
-        <div x-show="showNewStudentForm" x-cloak
-             style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer *</label>
-            <input class="input" type="text" placeholder="bijv. 12345" x-model="newStudent.stamnummer">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Voornaam</label>
-            <input class="input" type="text" x-model="newStudent.voornaam">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam</label>
-            <input class="input" type="text" x-model="newStudent.naam">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klas</label>
-            <input class="input" type="text" x-model="newStudent.klas">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klasnummer</label>
-            <input class="input" type="text" x-model="newStudent.klasnummer">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klascode</label>
-            <input class="input" type="text" x-model="newStudent.klascode">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Gebruikersnaam</label>
-            <input class="input" type="text" x-model="newStudent.gebruikersnaam" @keydown.enter="createStudent()">
-          </div>
-          <div>
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Instellingsnummer</label>
-            <input class="input" type="text" x-model="newStudent.instellingsnummer">
-          </div>
-          <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
-            <button type="button" class="btn sm accent" @click="createStudent()">Toevoegen</button>
-            <div class="status"
-                 :class="{ error: newStudentStatus.type === 'error', success: newStudentStatus.type === 'success' }"
-                 x-text="newStudentStatus.text" style="margin:0; font-size:12px;"></div>
-          </div>
-        </div>
-
-        <div class="stu-search">
-          <input class="input" type="text"
-                 placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
-                 x-model="manageSearch" @input="filterManage">
-          <button type="button" class="btn sm"
-                  :class="showUitgeschreven ? 'accent' : ''"
-                  @click="toggleUitgeschreven"
-                  x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
-          <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
-        </div>
-
-        <div id="manage-student-list" class="manage-list">
-          {% include "partials/manage_student_list.html" %}
-        </div>
-
-        <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn sm danger" @click="deleteSelected">
-            Verwijder geselecteerde
-          </button>
-          <div class="status"
-               :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
-               x-text="manageStatus.text" aria-live="polite"
-               style="margin:0; font-size:12px; flex:1;"></div>
-        </div>
-
-        <p class="import-help" style="margin-top: 14px;">
-          Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
-        </p>
-
-      </div>
-
       <!-- ── Laptops sectie ── -->
       <div x-show="instellingenSection === 'laptops'">
 
@@ -638,6 +534,111 @@
         </p>
 
       </div>
+      
+      <!-- ── Studenten sectie ── -->
+      <div x-show="instellingenSection === 'Import Informat'">
+
+        <div class="stu-top">
+          <div>
+            <h1>Import Informat</h1>
+            <div class="sub">Upload CSV · zoek · filter · verwijder</div>
+          </div>
+          <div class="stu-top-actions">
+            <button type="button" class="btn sm"
+                    @click="showNewStudentForm = !showNewStudentForm"
+                    :class="showNewStudentForm ? 'accent' : ''">+ Nieuw</button>
+            <form hx-post="/ui/students/import"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-result"
+                  hx-swap="innerHTML"
+                  @htmx:after-request="onImportComplete"
+                  style="margin:0;">
+              <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
+                ↑ CSV import
+              </label>
+              <input id="student-import-file" name="file" type="file"
+                     accept=".csv,text/csv" required style="display:none;"
+                     onchange="this.closest('form').requestSubmit()">
+            </form>
+            <div id="import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <!-- Nieuw student formulier -->
+        <div x-show="showNewStudentForm" x-cloak
+             style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px;">
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer *</label>
+            <input class="input" type="text" placeholder="bijv. 12345" x-model="newStudent.stamnummer">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Voornaam</label>
+            <input class="input" type="text" x-model="newStudent.voornaam">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam</label>
+            <input class="input" type="text" x-model="newStudent.naam">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klas</label>
+            <input class="input" type="text" x-model="newStudent.klas">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klasnummer</label>
+            <input class="input" type="text" x-model="newStudent.klasnummer">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Klascode</label>
+            <input class="input" type="text" x-model="newStudent.klascode">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Gebruikersnaam</label>
+            <input class="input" type="text" x-model="newStudent.gebruikersnaam" @keydown.enter="createStudent()">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Instellingsnummer</label>
+            <input class="input" type="text" x-model="newStudent.instellingsnummer">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn sm accent" @click="createStudent()">Toevoegen</button>
+            <div class="status"
+                 :class="{ error: newStudentStatus.type === 'error', success: newStudentStatus.type === 'success' }"
+                 x-text="newStudentStatus.text" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <div class="stu-search">
+          <input class="input" type="text"
+                 placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
+                 x-model="manageSearch" @input="filterManage">
+          <button type="button" class="btn sm"
+                  :class="showUitgeschreven ? 'accent' : ''"
+                  @click="toggleUitgeschreven"
+                  x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
+          <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
+        </div>
+
+        <div id="manage-student-list" class="manage-list">
+          {% include "partials/manage_student_list.html" %}
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn sm danger" @click="deleteSelected">
+            Verwijder geselecteerde
+          </button>
+          <div class="status"
+               :class="{ error: manageStatus.type === 'error', success: manageStatus.type === 'success' }"
+               x-text="manageStatus.text" aria-live="polite"
+               style="margin:0; font-size:12px; flex:1;"></div>
+        </div>
+
+        <p class="import-help" style="margin-top: 14px;">
+          Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
+        </p>
+
+      </div>
+
+
 
       <!-- ── Uitleenkasten sectie ── -->
       <div x-show="instellingenSection === 'kasten'" x-cloak>
@@ -756,6 +757,7 @@
       </div>
       <div class="ph-search">
         <input class="input" type="text"
+               id="photo-search-input"
                list="photo-laptop-suggestions"
                placeholder="🔍 Serienummer of naam leerling…"
                x-model="photoSearch"
@@ -935,5 +937,7 @@
 </div>
 
 </div><!-- end x-data -->
+
+<div style="position:fixed;bottom:10px;left:12px;font-size:10px;color:var(--muted,#999);opacity:.45;pointer-events:none;user-select:none;">v{{ app_version }}</div>
 
 {% endblock %}

@@ -14,7 +14,14 @@
     <span class="pg-hero-date">{{ photos[0].created_at[:16].replace('T', ' ') if photos[0].created_at else '' }}</span>
     <button class="pg-delete"
             onclick="event.stopPropagation(); deleteGalleryPhoto({{ photos[0].id }}, '{{ serial_number }}')"
-            title="Verwijder">&times;</button>
+            title="Verwijder foto" aria-label="Verwijder foto">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+      </svg>
+    </button>
   </div>
 
   {% if photos|length > 1 %}
@@ -23,9 +30,15 @@
     <div class="pg-thumb" onclick="openLightbox('{{ photo.url }}')">
       <img src="{{ photo.url }}" alt="Foto {{ photo.id }}" loading="lazy" draggable="false">
       <div class="pg-thumb-date">{{ photo.created_at[:16].replace('T', ' ') if photo.created_at else '' }}</div>
-      <button class="pg-delete"
+      <button class="pg-delete pg-delete--sm"
               onclick="event.stopPropagation(); deleteGalleryPhoto({{ photo.id }}, '{{ serial_number }}')"
-              title="Verwijder">&times;</button>
+              title="Verwijder foto" aria-label="Verwijder foto">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        </svg>
+      </button>
     </div>
     {% endfor %}
   </div>

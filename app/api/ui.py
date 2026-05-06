@@ -1,5 +1,6 @@
 """UI routes – serve full pages and HTMX HTML partials."""
 import io
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request, UploadFile
@@ -27,6 +28,7 @@ def static_v(path: str) -> str:
 
 
 templates.env.globals["static_v"] = static_v
+templates.env.globals["app_version"] = pkg_version("laptop-registratie")
 
 router = APIRouter(tags=["ui"])
 

@@ -50,7 +50,7 @@ function laptopApp() {
     stuSideFilter:      'all',
     stuCounts:          { all: null, met: null, zonder: null, eigen: null, oud: null },
     // Instellingen
-    instellingenSection: 'studenten',
+    instellingenSection: 'laptops',
     laptopManageSearch: '',
     laptopManageFilter: 'all',
     laptopManageKind:   'all',
@@ -101,8 +101,16 @@ function laptopApp() {
       this.$watch('activeTab', (tab) => {
         if (tab === 'laptops') this.refreshLaptopSidebar();
         if (tab === 'instellingen') this.$nextTick(() => this._computeStuCounts());
+        if (tab === 'fotos') {
+          if (!this.photoSearch.trim()) this.loadLatestPhotos();
+          this.$nextTick(() => this.focusPhotoSearch());
+        }
       });
       if (this.activeTab === 'laptops') this.refreshLaptopSidebar();
+      if (this.activeTab === 'fotos') {
+        if (!this.photoSearch.trim()) this.loadLatestPhotos();
+        this.$nextTick(() => this.focusPhotoSearch());
+      }
 
       document.body.addEventListener('htmx:beforeRequest', (e) => {
         const id = e.detail.target?.id;
@@ -631,6 +639,26 @@ function laptopApp() {
       htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
         target: '#photo-gallery', swap: 'innerHTML',
       });
+    },
+
+    focusPhotoSearch() {
+      const el = document.getElementById('photo-search-input');
+      if (!el) return;
+      el.focus();
+      el.select();
+    },
+
+    async loadLatestPhotos() {
+      try {
+        const res = await fetch('/api/photos/latest/serial');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.serial_number) {
+          this.photoSearch = data.serial_number;
+          this.loadPhotoGallery();
+          this.$nextTick(() => this.focusPhotoSearch());
+        }
+      } catch (_) { /* ignore */ }
     },
 
     // ── Laptop management (Instellingen) ───────────────────

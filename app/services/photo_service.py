@@ -54,6 +54,12 @@ def list_photos(db: Session, serial_number: str) -> list[dict]:
     ]
 
 
+def get_latest_serial_with_photos(db: Session) -> str | None:
+    """Return the serial number of the most recently uploaded photo, or None."""
+    photo = db.query(LaptopPhoto).order_by(LaptopPhoto.created_at.desc()).first()
+    return photo.serial_number if photo else None
+
+
 def delete_photo(db: Session, photo_id: int) -> bool:
     """Delete a photo from disk and database. Returns True if found."""
     photo = db.query(LaptopPhoto).filter(LaptopPhoto.id == photo_id).first()
