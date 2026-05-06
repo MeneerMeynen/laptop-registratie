@@ -6,3 +6,4 @@ __pycache__/
 certs/
 # Local environment file with secrets — never commit. Use .env.example as template.
 .env
+cert_setup.sh
