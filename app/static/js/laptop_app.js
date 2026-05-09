@@ -44,6 +44,11 @@ function laptopApp() {
     photoSearch:        '',
     photoSuggestions:   [],
     photoStatus:        { text: '', type: '' },
+    // Laptop info / rapport tab
+    rapportSearch:      '',
+    rapportSuggestions: [],
+    rapportData:        null,
+    rapportStatus:      { text: '', type: '' },
     // Recent links (session)
     recentLinks:        [],
     // Studenten sidebar
@@ -499,6 +504,106 @@ function laptopApp() {
           target: '#lt-detail', swap: 'innerHTML',
         });
       }
+    },
+
+    // ── Laptop info (rapport) tab ──────────────────────────
+    async fetchRapportSuggestions() {
+      const q = (this.rapportSearch || '').trim();
+      if (q.length < 2) { this.rapportSuggestions = []; return; }
+      try {
+        const r = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
+        this.rapportSuggestions = r.ok ? await r.json() : [];
+      } catch (e) {
+        this.rapportSuggestions = [];
+      }
+    },
+
+    async loadRapport(input) {
+      const raw = (input || '').trim();
+      if (!raw) { this.rapportData = null; this.rapportStatus = { text: '', type: '' }; return; }
+      // If user typed/selected a name rather than a serial, resolve via search
+      let serial = raw;
+      const matches = this.rapportSuggestions.filter(s =>
+        s.serial_number === raw ||
+        ((s.voornaam || '') + ' ' + (s.naam || '')).trim().toLowerCase() === raw.toLowerCase()
+      );
+      if (matches.length > 0) serial = matches[0].serial_number;
+      this.rapportData = null;
+      this.rapportStatus = { text: 'Laden…', type: '' };
+      try {
+        const r = await fetch(`/api/laptops/report?serial=${encodeURIComponent(serial)}`);
+        if (!r.ok) {
+          this.rapportStatus = { text: 'Geen laptop gevonden voor deze zoekopdracht.', type: 'error' };
+          return;
+        }
+        const data = await r.json();
+        const empty = !data.student && (!data.history || data.history.length === 0)
+          && (!data.issues || data.issues.length === 0)
+          && (!data.photos || data.photos.length === 0);
+        if (empty) {
+          this.rapportStatus = { text: 'Geen gegevens voor dit serienummer.', type: 'error' };
+          return;
+        }
+        this.rapportData = data;
+        this.rapportStatus = { text: '', type: '' };
+      } catch (e) {
+        this.rapportStatus = { text: 'Fout bij laden.', type: 'error' };
+      }
+    },
+
+    formatRapportDate(value) {
+      if (!value) return '—';
+      // Accept Date, ISO datetime, or yyyy-mm-dd; render as dd-mm-yyyy
+      const d = (typeof value === 'string') ? new Date(value) : value;
+      if (!d || isNaN(d.getTime?.() ?? d)) {
+        // Fallback: yyyy-mm-dd → dd-mm-yyyy
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          const [y, m, day] = value.slice(0, 10).split('-');
+          return `${day}-${m}-${y}`;
+        }
+        return String(value);
+      }
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `${dd}-${mm}-${d.getFullYear()}`;
+    },
+
+    rapportTicketTitle(description) {
+      if (!description) return '(geen omschrijving)';
+      const firstLine = String(description).split('\n')[0].trim();
+      return firstLine.length > 90 ? firstLine.slice(0, 87) + '…' : firstLine;
+    },
+
+    openIssueInTicketsTab(serial, issueId) {
+      this.setTab('laptops');
+      this.$nextTick(() => {
+        this.selectLaptop(serial);
+        const onSwap = (ev) => {
+          if (ev.detail.target?.id !== 'lt-detail') return;
+          document.body.removeEventListener('htmx:afterSwap', onSwap);
+          requestAnimationFrame(() => {
+            let el = document.querySelector(`#issue-${issueId}`);
+            if (!el) return;
+            // If the target is a closed issue hidden behind the toggle, expand first.
+            if (el.classList.contains('lt-issue-card-closed') && el.offsetParent === null) {
+              const toggle = document.querySelector('.lt-section [x-data] .lt-link, .lt-section button.lt-toggle-closed, .lt-section [\\@click*="showClosed"]');
+              // Fallback: try the section-level toggle button (first match within the issues section)
+              const altToggle = Array.from(document.querySelectorAll('.lt-section button, .lt-section a'))
+                .find(b => /toon\s+gesloten/i.test(b.textContent || ''));
+              (toggle || altToggle)?.click();
+            }
+            // Re-query after potential reflow
+            requestAnimationFrame(() => {
+              el = document.querySelector(`#issue-${issueId}`);
+              if (!el) return;
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              el.classList.add('issue-highlight');
+              setTimeout(() => el.classList.remove('issue-highlight'), 2000);
+            });
+          });
+        };
+        document.body.addEventListener('htmx:afterSwap', onSwap);
+      });
     },
 
     openNewIssueModal(serial = '') {

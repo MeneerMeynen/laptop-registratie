@@ -29,6 +29,7 @@ from app.services.laptop_issue_service import (
     update_issue,
 )
 from app.services.laptop_service import get_assignment_history
+from app.services.photo_service import list_photos
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -132,6 +133,43 @@ def laptop_search(q: str = "", db: Session = Depends(get_db)):
 def laptop_info(serial: str, db: Session = Depends(get_db)):
     """Return laptop type info for the context panel."""
     return {"laptop_type": get_laptop_type(db, serial)}
+
+
+@router.get("/api/laptops/report")
+def laptop_report(serial: str, db: Session = Depends(get_db)):
+    """Bundled report data for the 'Laptop info' tab."""
+    serial = (serial or "").strip()
+    if not serial:
+        return {
+            "serial": "",
+            "laptop_type": None,
+            "student": None,
+            "history": [],
+            "issues": [],
+            "photos": [],
+        }
+    issues = get_issues_for_serial(db, serial)
+    student = get_student_for_serial(db, serial)
+    laptop_type = get_laptop_type(db, serial)
+    history = get_assignment_history(db, serial)
+    photos = list_photos(db, serial)[:5]
+    return {
+        "serial": serial,
+        "laptop_type": laptop_type,
+        "student": student,
+        "history": history,
+        "issues": [
+            {
+                "id": i["id"],
+                "description": i["description"],
+                "status": i["status"],
+                "category": i["category"],
+                "reported_date": i["reported_date"],
+            }
+            for i in issues
+        ],
+        "photos": photos,
+    }
 
 
 @router.get("/ui/laptop-issues", response_class=HTMLResponse)

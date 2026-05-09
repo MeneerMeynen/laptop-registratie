@@ -25,6 +25,10 @@
               :aria-selected="activeTab === 'laptops'"
               @click="setTab('laptops')">Tickets</button>
       <button type="button" role="tab"
+              :class="{ on: activeTab === 'rapport' }"
+              :aria-selected="activeTab === 'rapport'"
+              @click="setTab('rapport')">Laptop info</button>
+      <button type="button" role="tab"
               :class="{ on: activeTab === 'registreer' }"
               :aria-selected="activeTab === 'registreer'"
               @click="setTab('registreer')">Registreer</button>
@@ -741,6 +745,154 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════════ SCREEN · LAPTOP INFO (RAPPORT) ══════════════════ -->
+<section x-show="activeTab === 'rapport'" x-cloak>
+  <div class="ph-wrap">
+
+    <div class="ph-head">
+      <div>
+        <h1>Laptop info</h1>
+        <div class="sub">
+          Zoek een laptop op serienummer of leerlingnaam voor een volledig overzicht.
+        </div>
+      </div>
+      <div class="ph-search">
+        <input class="input" type="text"
+               id="rapport-search-input"
+               list="rapport-laptop-suggestions"
+               placeholder="🔍 Serienummer of naam leerling…"
+               x-model="rapportSearch"
+               @input.debounce.300ms="fetchRapportSuggestions()"
+               @change="loadRapport(rapportSearch)">
+        <datalist id="rapport-laptop-suggestions">
+          <template x-for="s in rapportSuggestions" :key="s.serial_number">
+            <option :value="s.serial_number"
+                    :label="(s.voornaam || '') + ' ' + (s.naam || '')"></option>
+          </template>
+        </datalist>
+      </div>
+    </div>
+
+    <template x-if="!rapportData && !rapportStatus.text">
+      <div class="pg-empty">
+        <div class="pg-empty-icon">🖥</div>
+        <div class="pg-empty-title">Zoek een laptop</div>
+        <div class="pg-empty-sub">Typ een serienummer of naam om het rapport te bekijken.</div>
+      </div>
+    </template>
+
+    <template x-if="rapportStatus.text && !rapportData">
+      <div class="pg-empty">
+        <div class="pg-empty-title" x-text="rapportStatus.text"></div>
+      </div>
+    </template>
+
+    <template x-if="rapportData">
+      <div class="rapport">
+
+        <!-- Header -->
+        <div class="rapport-header">
+          <div class="rapport-header-main">
+            <div class="rapport-serial" x-text="rapportData.serial">—</div>
+            <div class="rapport-badges">
+              <span class="lt-badge-uitleen" x-show="rapportData.laptop_type === 'uitleen'">Uitleen</span>
+              <span class="lt-badge-reserve" x-show="rapportData.laptop_type === 'reserve'">Reserve</span>
+            </div>
+          </div>
+          <div class="rapport-student" x-show="rapportData.student">
+            <span class="rapport-student-name"
+                  x-text="((rapportData.student?.voornaam || '') + ' ' + (rapportData.student?.naam || '')).trim()"></span>
+            <span class="rapport-student-klas" x-text="rapportData.student?.klas || ''"></span>
+          </div>
+          <div class="rapport-student dim" x-show="!rapportData.student">Geen leerling gekoppeld</div>
+        </div>
+
+        <!-- Foto's -->
+        <div class="rapport-block">
+          <div class="rapport-block-h">📷 Foto's <span class="rapport-block-sub">(max. 5 meest recente)</span></div>
+          <template x-if="rapportData.photos && rapportData.photos.length > 0">
+            <div class="rapport-photos">
+              <template x-for="p in rapportData.photos" :key="p.id">
+                <div class="rapport-photo">
+                  <img :src="p.url" :alt="'Foto ' + p.id"
+                       loading="lazy"
+                       @click="openLightbox(p.url)">
+                </div>
+              </template>
+            </div>
+          </template>
+          <template x-if="!rapportData.photos || rapportData.photos.length === 0">
+            <div class="rapport-empty">Geen foto's beschikbaar.</div>
+          </template>
+        </div>
+
+        <!-- Uitleenhistoriek -->
+        <div class="rapport-block">
+          <div class="rapport-block-h">📅 Uitleenhistoriek</div>
+          <template x-if="rapportData.history && rapportData.history.length > 0">
+            <table class="rapport-table">
+              <thead>
+                <tr>
+                  <th>Leerling</th>
+                  <th>Klas</th>
+                  <th>Van</th>
+                  <th>Tot</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="h in rapportData.history" :key="h.id">
+                  <tr>
+                    <td x-text="((h.voornaam || '') + ' ' + (h.naam || '')).trim() || '—'"></td>
+                    <td x-text="h.klas || '—'"></td>
+                    <td x-text="formatRapportDate(h.linked_at)"></td>
+                    <td x-text="h.unlinked_at ? formatRapportDate(h.unlinked_at) : '—'"></td>
+                    <td>
+                      <span class="rapport-active" x-show="h.is_active">Actief</span>
+                      <span class="dim" x-show="!h.is_active">Ingeleverd</span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </template>
+          <template x-if="!rapportData.history || rapportData.history.length === 0">
+            <div class="rapport-empty">Geen uitleen-geschiedenis.</div>
+          </template>
+        </div>
+
+        <!-- Tickets -->
+        <div class="rapport-block">
+          <div class="rapport-block-h">🎫 Tickets</div>
+          <template x-if="rapportData.issues && rapportData.issues.length > 0">
+            <ul class="rapport-tickets">
+              <template x-for="issue in rapportData.issues" :key="issue.id">
+                <li class="rapport-ticket"
+                    @click="openIssueInTicketsTab(rapportData.serial, issue.id)"
+                    role="button" tabindex="0"
+                    @keydown.enter="openIssueInTicketsTab(rapportData.serial, issue.id)">
+                  <span class="rapport-ticket-status"
+                        :class="'rapport-ticket-' + issue.status"
+                        x-text="issue.status"></span>
+                  <span class="rapport-ticket-date" x-text="formatRapportDate(issue.reported_date)"></span>
+                  <span class="rapport-ticket-cat" x-show="issue.category" x-text="issue.category"></span>
+                  <span class="rapport-ticket-title" x-text="rapportTicketTitle(issue.description)"></span>
+                  <span class="rapport-ticket-arrow">→</span>
+                </li>
+              </template>
+            </ul>
+          </template>
+          <template x-if="!rapportData.issues || rapportData.issues.length === 0">
+            <div class="rapport-empty">Geen defecten geregistreerd.</div>
+          </template>
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+</section>
 
 <!-- ══════════════════ SCREEN 04 · FOTO'S ══════════════════ -->
 <section x-show="activeTab === 'fotos'" x-cloak>
