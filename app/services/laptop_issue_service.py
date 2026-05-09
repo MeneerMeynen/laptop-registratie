@@ -112,8 +112,7 @@ def create_issue(
         reserve_laptop_id=reserve_laptop.id if reserve_laptop else None,
     )
     db.add(issue)
-    db.commit()
-    db.refresh(issue)
+    db.flush()  # populate issue.id without committing
 
     if reserve_laptop is not None:
         student = _student_for_issue(db, issue)
@@ -121,11 +120,15 @@ def create_issue(
             student.get("naam") if student else None,
             student.get("voornaam") if student else None,
         )
-        add_issue_entry(
-            db,
-            issue.id,
-            f"Reserve-laptop {_reserve_label(reserve_laptop)} uitgeleend aan {student_label}.",
+        db.add(
+            LaptopIssueEntry(
+                issue_id=issue.id,
+                text=f"Reserve-laptop {_reserve_label(reserve_laptop)} uitgeleend aan {student_label}.",
+            )
         )
+
+    db.commit()
+    db.refresh(issue)
     return issue
 
 
@@ -159,18 +162,14 @@ def update_issue(db: Session, issue_id: int, data: dict) -> Optional[LaptopIssue
         auto_released_reserve_id = issue.reserve_laptop_id
         issue.reserve_laptop_id = None
 
-    db.commit()
-    db.refresh(issue)
-
-    # Timeline entries (after commit so they show up in chronological order).
+    # Build timeline entries before committing so the whole change is atomic.
     final_reserve_id = issue.reserve_laptop_id
+    entry_texts: list[str] = []
     if auto_released_reserve_id is not None:
         laptop = db.get(Laptop, auto_released_reserve_id)
         if laptop is not None:
-            add_issue_entry(
-                db,
-                issue.id,
-                f"Reserve-laptop {_reserve_label(laptop)} teruggebracht (issue gesloten).",
+            entry_texts.append(
+                f"Reserve-laptop {_reserve_label(laptop)} teruggebracht (issue gesloten)."
             )
     elif reserve_changed and old_reserve_id != final_reserve_id:
         student = _student_for_issue(db, issue)
@@ -181,29 +180,28 @@ def update_issue(db: Session, issue_id: int, data: dict) -> Optional[LaptopIssue
         if final_reserve_id is None and old_reserve_id is not None:
             old_laptop = db.get(Laptop, old_reserve_id)
             if old_laptop is not None:
-                add_issue_entry(
-                    db,
-                    issue.id,
-                    f"Reserve-laptop {_reserve_label(old_laptop)} teruggebracht.",
+                entry_texts.append(
+                    f"Reserve-laptop {_reserve_label(old_laptop)} teruggebracht."
                 )
         elif final_reserve_id is not None:
             new_laptop = db.get(Laptop, final_reserve_id)
             if new_laptop is not None:
                 if old_reserve_id is None:
-                    add_issue_entry(
-                        db,
-                        issue.id,
-                        f"Reserve-laptop {_reserve_label(new_laptop)} uitgeleend aan {student_label}.",
+                    entry_texts.append(
+                        f"Reserve-laptop {_reserve_label(new_laptop)} uitgeleend aan {student_label}."
                     )
                 else:
                     old_laptop = db.get(Laptop, old_reserve_id)
                     old_label = _reserve_label(old_laptop) if old_laptop else f"#{old_reserve_id}"
-                    add_issue_entry(
-                        db,
-                        issue.id,
-                        f"Reserve-laptop gewijzigd: {old_label} → {_reserve_label(new_laptop)}.",
+                    entry_texts.append(
+                        f"Reserve-laptop gewijzigd: {old_label} → {_reserve_label(new_laptop)}."
                     )
 
+    for entry_text in entry_texts:
+        db.add(LaptopIssueEntry(issue_id=issue.id, text=entry_text.strip()))
+
+    db.commit()
+    db.refresh(issue)
     return issue
 
 
