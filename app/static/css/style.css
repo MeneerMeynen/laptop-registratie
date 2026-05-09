@@ -1290,6 +1290,88 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .import-help  { color: var(--muted); margin-top: 0; font-size: .88rem; line-height: 1.6; }
 .file-input   { background: var(--surface-2); }
 
+/* ── Laptop info / rapport tab ──────────────────────────────── */
+.rapport { display: flex; flex-direction: column; gap: 18px; margin-top: 16px; }
+.rapport-header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 14px 16px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md, 8px);
+}
+.rapport-header-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rapport-serial { font-family: var(--mono); font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.rapport-badges { display: inline-flex; gap: 6px; }
+.rapport-student { display: inline-flex; gap: 8px; align-items: baseline; font-size: .92rem; }
+.rapport-student-name { font-weight: 600; color: var(--ink); }
+.rapport-student-klas { color: var(--muted); font-size: .82rem; }
+.rapport-student.dim { color: var(--muted); font-style: italic; }
+
+.rapport-block {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md, 8px); padding: 14px 16px;
+}
+.rapport-block-h { font-weight: 600; color: var(--ink); margin-bottom: 10px; font-size: .95rem; }
+.rapport-block-sub { color: var(--muted); font-weight: 400; font-size: .8rem; margin-left: 6px; }
+.rapport-empty { color: var(--muted); font-style: italic; font-size: .88rem; padding: 6px 0; }
+
+.rapport-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.rapport-photo img {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--r-xs, 4px);
+  cursor: zoom-in; border: 1px solid var(--line); transition: transform .15s, border-color .15s;
+}
+.rapport-photo img:hover { transform: scale(1.02); border-color: var(--accent); }
+
+.rapport-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.rapport-table th, .rapport-table td {
+  padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line);
+}
+.rapport-table th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+.rapport-table tr:last-child td { border-bottom: none; }
+.rapport-active {
+  display: inline-block; padding: 2px 8px; font-size: .72rem; font-weight: 700;
+  border-radius: var(--r-xs, 4px); background: var(--accent-wash, rgba(61,198,178,.15));
+  color: var(--accent); text-transform: uppercase; letter-spacing: .04em;
+}
+.rapport-table .dim { color: var(--muted); font-size: .82rem; }
+
+.rapport-tickets { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.rapport-ticket {
+  display: grid; grid-template-columns: auto auto auto 1fr auto; gap: 12px; align-items: center;
+  padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--r-xs, 4px); cursor: pointer;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.rapport-ticket:hover { background: var(--surface-3, var(--surface-2)); border-color: var(--accent); }
+.rapport-ticket:active { transform: translateY(1px); }
+.rapport-ticket-status {
+  font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: var(--r-xs, 4px);
+  text-transform: uppercase; letter-spacing: .04em; min-width: 80px; text-align: center;
+}
+.rapport-ticket-open      { background: var(--red-wash); color: var(--red); }
+.rapport-ticket-aangemeld { background: var(--amber-wash); color: var(--amber); }
+.rapport-ticket-gesloten  { background: var(--accent-wash, rgba(61,198,178,.15)); color: var(--accent); }
+.rapport-ticket-date { color: var(--muted); font-size: .82rem; font-family: var(--mono); }
+.rapport-ticket-cat {
+  font-size: .72rem; padding: 2px 6px; border-radius: var(--r-xs, 4px);
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+}
+.rapport-ticket-title { color: var(--ink); font-size: .92rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rapport-ticket-arrow { color: var(--muted); font-size: 1rem; }
+
+/* Highlight target issue when deep-linking from rapport → tickets */
+.issue-highlight {
+  animation: issueFlash 2s ease-out;
+}
+@keyframes issueFlash {
+  0%   { box-shadow: 0 0 0 3px var(--accent), 0 0 12px var(--accent); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 0 0 transparent; }
+}
+
+@media (max-width: 700px) {
+  .rapport-ticket { grid-template-columns: auto 1fr auto; }
+  .rapport-ticket-date, .rapport-ticket-cat { display: none; }
+  .rapport-table th:nth-child(2), .rapport-table td:nth-child(2) { display: none; }
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .split { grid-template-columns: 260px 1fr; }

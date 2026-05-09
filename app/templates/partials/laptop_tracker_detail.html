@@ -105,7 +105,7 @@
 
         <!-- Active issues (aangemeld / open) -->
         {% for issue in active_issues %}
-        <div class="lt-issue-card">
+        <div class="lt-issue-card" id="issue-{{ issue.id }}">
             <div class="lt-issue-card-header">
                 <div class="lt-issue-header-left">
                     <div class="lt-issue-title">{{ issue.description }}</div>
@@ -182,7 +182,7 @@
 
         <!-- Closed issues (hidden by default) -->
         {% for issue in closed_issues %}
-        <div class="lt-issue-card lt-issue-card-closed" x-show="showClosed" x-cloak>
+        <div class="lt-issue-card lt-issue-card-closed" id="issue-{{ issue.id }}" x-show="showClosed" x-cloak>
             <div class="lt-issue-card-header">
                 <div class="lt-issue-header-left">
                     <div class="lt-issue-title lt-issue-title-closed">{{ issue.description }}</div>
