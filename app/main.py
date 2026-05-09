@@ -29,9 +29,14 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    if not settings.debug and (not settings.auth_password or not settings.session_secret):
+    if not settings.session_secret:
         raise RuntimeError(
-            "AUTH_PASSWORD and SESSION_SECRET must be set in production "
+            "SESSION_SECRET must be set. Generate one with: "
+            "python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    if not settings.debug and not settings.auth_password:
+        raise RuntimeError(
+            "AUTH_PASSWORD must be set in production "
             "(set DEBUG=true to bypass for local development)."
         )
 
@@ -59,7 +64,7 @@ def create_app() -> FastAPI:
     app.add_middleware(AuthMiddleware)
     app.add_middleware(
         SessionMiddleware,
-        secret_key=settings.session_secret or "dev-insecure-secret-do-not-use",
+        secret_key=settings.session_secret,
         same_site="lax",
         https_only=not settings.debug,
         max_age=60 * 60 * 8,
