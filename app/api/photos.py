@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.services.photo_service import (
+    PhotoValidationError,
     delete_photo,
     get_latest_serial_with_photos,
     list_photos,
@@ -46,7 +47,10 @@ def upload_photo(file: UploadFile, serial_number: str, db: Session = Depends(get
         if len(parts) == 2:
             ext = f".{parts[1].lower()}"
 
-    photo = save_photo(db, serial_number.strip(), content, ext)
+    try:
+        photo = save_photo(db, serial_number.strip(), content, ext)
+    except PhotoValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "id": photo.id,
         "serial_number": photo.serial_number,
@@ -71,7 +75,10 @@ def upload_photo_base64(req: PhotoBase64Request, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=400, detail="Ongeldige base64 data.")
 
-    photo = save_photo(db, req.serial_number.strip(), file_bytes, ".jpg")
+    try:
+        photo = save_photo(db, req.serial_number.strip(), file_bytes, ".jpg")
+    except PhotoValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "id": photo.id,
         "serial_number": photo.serial_number,
