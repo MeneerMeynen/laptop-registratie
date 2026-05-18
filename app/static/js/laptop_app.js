@@ -730,6 +730,26 @@ function laptopApp() {
       this.refreshLaptopSidebar();
     },
 
+    async setIssueStatus(id, status, currentStatus) {
+      if (status === currentStatus) return;
+      const body = { status };
+      if (status === 'gesloten') body.solution = null;
+      const res = await fetch(`/api/laptop-issues/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        this.issueStatus = { text: data.detail || 'Status wijzigen mislukt.', type: 'error' };
+        return;
+      }
+      const labels = { aangemeld: 'Aangemeld', open: 'Open', gesloten: 'Gesloten' };
+      this.issueStatus = { text: `✓ Status gewijzigd naar ${labels[status]}.`, type: 'success' };
+      this.refreshLaptopDetail();
+      this.refreshLaptopSidebar();
+    },
+
     // ── Photo tab ──────────────────────────────────────────
     async fetchPhotoSuggestions() {
       const q = this.photoSearch.trim();

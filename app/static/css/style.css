@@ -1167,6 +1167,14 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .lt-gs-gesloten  { background: var(--accent-wash); color: var(--accent); }
 .lt-gs-dot       { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
+.lt-status-switch { display: inline-flex; align-items: center; gap: 0; border-radius: 99px; padding: 2px; background: var(--surface-2); border: 1px solid var(--border-mid); }
+.lt-status-btn { padding: 2px 8px !important; border-radius: 99px !important; font-size: .62rem !important; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1px solid transparent !important; background: transparent !important; color: var(--text-2) !important; cursor: pointer; white-space: nowrap; line-height: 1.4; width: auto !important; margin: 0 !important; font-family: var(--sans); transition: background .12s, color .12s, border-color .12s; }
+.lt-status-btn:hover { background: var(--surface-3) !important; color: var(--text) !important; box-shadow: none !important; }
+.lt-status-btn.is-active { cursor: default; }
+.lt-status-btn-aangemeld.is-active { background: var(--amber-wash) !important; color: var(--amber) !important; border-color: rgba(219,163,76,.3) !important; }
+.lt-status-btn-open.is-active      { background: var(--red-wash)   !important; color: var(--red)   !important; border-color: rgba(224,114,114,.3) !important; }
+.lt-status-btn-closed.is-active    { background: var(--accent-wash) !important; color: var(--accent) !important; border-color: rgba(61,198,178,.3) !important; }
+
 .lt-date-cell   { color: var(--muted-light); font-size: .72rem; white-space: nowrap; font-family: var(--mono); }
 .lt-issue-actions { display: flex; gap: 5px; }
 .lt-empty        { text-align: center; color: var(--muted-light); font-size: .8rem; padding: 24px; margin: 0; }

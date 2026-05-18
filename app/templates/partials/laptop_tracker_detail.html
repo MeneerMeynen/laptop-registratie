@@ -114,10 +114,26 @@
                     {% endif %}
                 </div>
                 <div class="lt-issue-card-meta">
-                    <span class="lt-pill {% if issue.status == 'open' %}lt-pill-open{% elif issue.status == 'aangemeld' %}lt-pill-aangemeld{% else %}lt-pill-closed{% endif %}">
-                        <span class="lt-pill-dot {% if issue.status == 'open' %}lt-pdot-open{% elif issue.status == 'aangemeld' %}lt-pdot-aangemeld{% else %}lt-pdot-closed{% endif %}"></span>
-                        {{ 'Open' if issue.status == 'open' else ('Aangemeld' if issue.status == 'aangemeld' else 'Gesloten') }}
-                    </span>
+                    <div class="lt-status-switch" role="group" aria-label="Status wijzigen">
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-aangemeld {% if issue.status == 'aangemeld' %}is-active{% endif %}"
+                                title="Markeer als Aangemeld"
+                                @click="setIssueStatus({{ issue.id }}, 'aangemeld', '{{ issue.status }}')">
+                            Aangemeld
+                        </button>
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-open {% if issue.status == 'open' %}is-active{% endif %}"
+                                title="Markeer als Open"
+                                @click="setIssueStatus({{ issue.id }}, 'open', '{{ issue.status }}')">
+                            Open
+                        </button>
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-closed {% if issue.status == 'gesloten' %}is-active{% endif %}"
+                                title="Markeer als Gesloten"
+                                @click="setIssueStatus({{ issue.id }}, 'gesloten', '{{ issue.status }}')">
+                            Gesloten
+                        </button>
+                    </div>
                     <span class="lt-date-cell">{{ issue.reported_date.strftime('%-d %b %Y') }}</span>
                     <button type="button" class="lt-icon-btn lt-icon-btn-edit"
                         title="Bewerken"
@@ -191,10 +207,25 @@
                     {% endif %}
                 </div>
                 <div class="lt-issue-card-meta">
-                    <span class="lt-pill lt-pill-closed">
-                        <span class="lt-pill-dot lt-pdot-closed"></span>
-                        Gesloten
-                    </span>
+                    <div class="lt-status-switch" role="group" aria-label="Status wijzigen">
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-aangemeld"
+                                title="Heropen als Aangemeld"
+                                @click="setIssueStatus({{ issue.id }}, 'aangemeld', '{{ issue.status }}')">
+                            Aangemeld
+                        </button>
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-open"
+                                title="Heropen als Open"
+                                @click="setIssueStatus({{ issue.id }}, 'open', '{{ issue.status }}')">
+                            Open
+                        </button>
+                        <button type="button"
+                                class="lt-status-btn lt-status-btn-closed is-active"
+                                title="Gesloten">
+                            Gesloten
+                        </button>
+                    </div>
                     <span class="lt-date-cell">{{ issue.reported_date.strftime('%-d %b %Y') }}</span>
                     <button type="button" class="lt-icon-btn lt-icon-btn-edit"
                         title="Bewerken"
