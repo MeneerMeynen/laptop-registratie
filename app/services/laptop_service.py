@@ -1,4 +1,5 @@
 import csv
+import re
 from datetime import datetime
 from typing import TextIO
 
@@ -41,6 +42,10 @@ class LaptopValidationError(ValueError):
 # ---------------------------------------------------------------------------
 
 _EIGEN_LAPTOP_TRIGGER = "eigen laptop"
+
+# Serienummers komen van barcode-scans: alfanumeriek plus enkele scheidingstekens.
+_SERIAL_RE = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+_RESERVE_ALIAS_RE = re.compile(r"^Reserve-(\d+)$")
 
 
 def is_eigen_laptop_scan(serial: str) -> bool:
@@ -360,6 +365,107 @@ def create_laptop(
     session.commit()
     session.refresh(laptop)
     return laptop
+
+
+def _next_reserve_alias_number(session: Session) -> int:
+    """Hoogste bestaande ``Reserve-N``-nummer + 1 (default 1)."""
+    aliases = session.scalars(
+        select(Laptop.alias).where(
+            Laptop.is_reserve.is_(True), Laptop.alias.isnot(None)
+        )
+    ).all()
+    highest = 0
+    for alias in aliases:
+        match = _RESERVE_ALIAS_RE.match(alias or "")
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return highest + 1
+
+
+def bulk_create_laptops(
+    session: Session,
+    serials: list[str],
+    *,
+    is_reserve: bool = False,
+    storage_cabinet_id: int | None = None,
+) -> dict:
+    """Maak meerdere reserve- of kast-laptops aan vanuit een lijst serienummers.
+
+    - Reserve: aliassen worden automatisch genummerd (``Reserve-N``).
+    - Kast: ``storage_cabinet_id`` is verplicht en de kast moet bestaan.
+    Dubbele serials binnen de invoer en al actief gekoppelde serials worden
+    overgeslagen. Retourneert ``{created, skipped, errors}``.
+    """
+    if is_reserve and storage_cabinet_id is not None:
+        raise LaptopValidationError(
+            "Een laptop kan niet tegelijk reserve en in een uitleenkast zijn."
+        )
+    if not is_reserve and storage_cabinet_id is None:
+        raise LaptopValidationError(
+            "Kies een doel: reserve-pool of een uitleenkast."
+        )
+
+    if storage_cabinet_id is not None:
+        cabinet = session.get(StorageCabinet, storage_cabinet_id)
+        if cabinet is None:
+            raise LaptopValidationError(f"Uitleenkast {storage_cabinet_id} bestaat niet.")
+
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+    seen: set[str] = set()
+    next_alias = _next_reserve_alias_number(session) if is_reserve else 0
+
+    for raw in serials:
+        serial = (raw or "").strip()
+        if not serial:
+            continue
+        if not _SERIAL_RE.fullmatch(serial):
+            errors.append(f"Ongeldig serienummer: {serial}")
+            continue
+        if serial in seen:
+            skipped += 1
+            continue
+        seen.add(serial)
+
+        if is_reserve:
+            existing = session.scalars(
+                select(Laptop).where(
+                    Laptop.serial_number == serial,
+                    Laptop.is_reserve.is_(True),
+                )
+            ).first()
+            if existing is not None:
+                skipped += 1
+                continue
+            session.add(Laptop(
+                serial_number=serial,
+                is_reserve=True,
+                alias=f"Reserve-{next_alias}",
+                linked_at=None,
+            ))
+            next_alias += 1
+            created += 1
+        else:
+            existing = session.scalars(
+                select(Laptop).where(
+                    Laptop.serial_number == serial,
+                    Laptop.unlinked_at.is_(None),
+                    Laptop.is_reserve.is_(False),
+                )
+            ).first()
+            if existing is not None:
+                skipped += 1
+                continue
+            session.add(Laptop(
+                serial_number=serial,
+                storage_cabinet_id=storage_cabinet_id,
+                linked_at=datetime.now(),
+            ))
+            created += 1
+
+    session.commit()
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 
 _UNSET = object()

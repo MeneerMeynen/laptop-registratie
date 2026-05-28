@@ -62,6 +62,18 @@ class LaptopImportResult(BaseModel):
     errors: list[str]
 
 
+class LaptopBulkCreate(BaseModel):
+    serials: list[str]
+    is_reserve: bool = False
+    storage_cabinet_id: int | None = None
+
+
+class LaptopBulkResult(BaseModel):
+    created: int
+    skipped: int
+    errors: list[str]
+
+
 class ReserveLaptopOption(BaseModel):
     id: int
     alias: str | None = None

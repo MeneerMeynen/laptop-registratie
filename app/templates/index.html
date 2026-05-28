@@ -433,6 +433,9 @@
             <button type="button" class="btn sm"
                     @click="showNewLaptopForm = !showNewLaptopForm"
                     :class="showNewLaptopForm ? 'accent' : ''">+ Nieuw</button>
+            <button type="button" class="btn sm"
+                    @click="showBulkLaptopForm = !showBulkLaptopForm; if (showBulkLaptopForm && bulkLaptopType === 'cabinet') ensureCabinetsLoaded()"
+                    :class="showBulkLaptopForm ? 'accent' : ''">Bulk toevoegen</button>
             <form hx-post="/ui/laptops/import"
                   hx-encoding="multipart/form-data"
                   hx-target="#laptop-import-result"
@@ -491,6 +494,37 @@
                x-text="newLaptopStatus.text" style="width:100%; margin:4px 0 0; font-size:12px;"></div>
         </div>
 
+        <!-- Bulk laptops toevoegen -->
+        <div x-show="showBulkLaptopForm" x-cloak
+             style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:16px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+          <div style="width:100%; display:flex; gap:14px; align-items:center; font-size:12px; color:var(--muted); margin:0;">
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="bulkLaptopType" value="reserve" x-model="bulkLaptopType" style="margin:0;"> Reserve
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="bulkLaptopType" value="cabinet" x-model="bulkLaptopType" @change="ensureCabinetsLoaded()" style="margin:0;"> Uitleenkast
+            </label>
+          </div>
+          <div style="flex:1; min-width:160px;" x-show="bulkLaptopType === 'cabinet'" x-cloak>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Uitleenkast</label>
+            <select class="input" x-model.number="bulkLaptopCabinetId">
+              <option value="">— kies kast —</option>
+              <template x-for="cab in cabinetOptions" :key="cab.id">
+                <option :value="cab.id" x-text="cab.name + (cab.location ? ' (' + cab.location + ')' : '')"></option>
+              </template>
+            </select>
+          </div>
+          <div style="width:100%;">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummers</label>
+            <textarea class="input" rows="6" placeholder="één serienummer per regel — scan of plak"
+                      x-model="bulkLaptopSerials" style="resize:vertical; font-family:monospace;"></textarea>
+          </div>
+          <button type="button" class="btn sm accent" @click="bulkCreateLaptops()">Toevoegen</button>
+          <div class="status"
+               :class="{ error: bulkLaptopStatus.type === 'error', success: bulkLaptopStatus.type === 'success' }"
+               x-text="bulkLaptopStatus.text" style="width:100%; margin:4px 0 0; font-size:12px;"></div>
+        </div>
+
         <!-- Zoek + filter -->
         <div class="stu-search">
           <input class="input" type="text"
@@ -534,7 +568,7 @@
 
         <p class="import-help" style="margin-top:14px;">
           CSV-formaat: <code>serial_number,stamnummer</code> — één laptop per rij, stamnummer verplicht.
-          Reserve-laptops kun je alleen via het formulier hierboven aanmaken.
+          Reserve- en kast-laptops voeg je toe via <strong>+ Nieuw</strong> of in bulk via <strong>Bulk toevoegen</strong> (serienummers scannen/plakken).
         </p>
 
       </div>

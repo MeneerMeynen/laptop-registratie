@@ -66,6 +66,12 @@ function laptopApp() {
     newLaptopAlias:     '',
     newLaptopCabinetId: '',
     newLaptopStatus:    { text: '', type: '' },
+    // Bulk laptops toevoegen
+    showBulkLaptopForm: false,
+    bulkLaptopType:     'reserve', // 'reserve' | 'cabinet'
+    bulkLaptopCabinetId:'',
+    bulkLaptopSerials:  '',
+    bulkLaptopStatus:   { text: '', type: '' },
     // Studenten CRUD
     showNewStudentForm: false,
     newStudent:         { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '' },
@@ -848,6 +854,45 @@ function laptopApp() {
       this.newLaptopAlias = '';
       this.newLaptopCabinetId = '';
       this.newLaptopType = 'normal';
+      this.refreshLaptopManage();
+    },
+
+    async bulkCreateLaptops() {
+      const serials = (this.bulkLaptopSerials || '')
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+      const isReserve = this.bulkLaptopType === 'reserve';
+
+      if (serials.length === 0) {
+        this.bulkLaptopStatus = { text: 'Voer minstens één serienummer in.', type: 'error' }; return;
+      }
+      if (!isReserve && !this.bulkLaptopCabinetId) {
+        this.bulkLaptopStatus = { text: 'Kies een uitleenkast.', type: 'error' }; return;
+      }
+
+      const payload = {
+        serials,
+        is_reserve: isReserve,
+        storage_cabinet_id: isReserve ? null : Number(this.bulkLaptopCabinetId),
+      };
+
+      this.bulkLaptopStatus = { text: 'Bezig…', type: '' };
+      const res = await fetch('/api/laptops/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        this.bulkLaptopStatus = { text: data.detail || 'Toevoegen mislukt.', type: 'error' }; return;
+      }
+      const errPart = data.errors.length ? ` (${data.errors.length} fout(en))` : '';
+      this.bulkLaptopStatus = {
+        text: `✓ ${data.created} aangemaakt, ${data.skipped} overgeslagen${errPart}.`,
+        type: 'success',
+      };
+      this.bulkLaptopSerials = '';
       this.refreshLaptopManage();
     },
 

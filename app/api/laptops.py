@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas.laptop import (
+    LaptopBulkCreate,
+    LaptopBulkResult,
     LaptopCreate,
     LaptopImportResult,
     LaptopLinkRequest,
@@ -20,6 +22,7 @@ from app.services.laptop_service import (
     LaptopValidationError,
     StudentAlreadyHasLaptopError,
     StudentNotFoundError,
+    bulk_create_laptops,
     create_laptop,
     delete_laptop_permanently,
     get_all_laptops,
@@ -66,6 +69,19 @@ def create(payload: LaptopCreate, db: Session = Depends(get_db)):
     except LaptopAlreadyLinkedError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     return laptop
+
+
+@router.post("/bulk", response_model=LaptopBulkResult)
+def bulk_create(payload: LaptopBulkCreate, db: Session = Depends(get_db)):
+    try:
+        return bulk_create_laptops(
+            db,
+            payload.serials,
+            is_reserve=payload.is_reserve,
+            storage_cabinet_id=payload.storage_cabinet_id,
+        )
+    except LaptopValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/import", response_model=LaptopImportResult)
