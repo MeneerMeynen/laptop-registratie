@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class StorageCabinetCreate(BaseModel):
     name: str
+    kind: str = "kast"
     location: str | None = None
     description: str | None = None
     capacity: int | None = None
@@ -22,6 +23,7 @@ class StorageCabinetRead(BaseModel):
 
     id: int
     name: str
+    kind: str = "kast"
     location: str | None = None
     description: str | None = None
     capacity: int | None = None

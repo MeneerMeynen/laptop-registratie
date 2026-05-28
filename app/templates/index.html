@@ -383,6 +383,10 @@
                @click="instellingenSection = 'kasten'; refreshCabinetManage()">
             <span>Uitleenkasten</span>
           </div>
+          <div class="stu-side-item" :class="instellingenSection === 'magazijnen' ? 'on' : ''"
+               @click="instellingenSection = 'magazijnen'; refreshMagazijnManage()">
+            <span>Magazijnen</span>
+          </div>
         </div>
       </div>
 
@@ -466,6 +470,9 @@
             <label style="display:flex; align-items:center; gap:6px; margin:0;">
               <input type="radio" name="newLaptopType" value="cabinet" x-model="newLaptopType" @change="ensureCabinetsLoaded()" style="margin:0;"> Uitleenkast
             </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="newLaptopType" value="magazijn" x-model="newLaptopType" @change="ensureMagazijnenLoaded()" style="margin:0;"> Magazijn
+            </label>
           </div>
           <div style="flex:1; min-width:160px;">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
@@ -488,6 +495,15 @@
               </template>
             </select>
           </div>
+          <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'magazijn'" x-cloak>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Magazijn</label>
+            <select class="input" x-model.number="newLaptopMagazijnId">
+              <option value="">— kies magazijn —</option>
+              <template x-for="mag in magazijnOptions" :key="mag.id">
+                <option :value="mag.id" x-text="mag.name + (mag.location ? ' (' + mag.location + ')' : '')"></option>
+              </template>
+            </select>
+          </div>
           <button type="button" class="btn sm accent" @click="createLaptop()">Toevoegen</button>
           <div class="status"
                :class="{ error: newLaptopStatus.type === 'error', success: newLaptopStatus.type === 'success' }"
@@ -504,6 +520,9 @@
             <label style="display:flex; align-items:center; gap:6px; margin:0;">
               <input type="radio" name="bulkLaptopType" value="cabinet" x-model="bulkLaptopType" @change="ensureCabinetsLoaded()" style="margin:0;"> Uitleenkast
             </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;">
+              <input type="radio" name="bulkLaptopType" value="magazijn" x-model="bulkLaptopType" @change="ensureMagazijnenLoaded()" style="margin:0;"> Magazijn
+            </label>
           </div>
           <div style="flex:1; min-width:160px;" x-show="bulkLaptopType === 'cabinet'" x-cloak>
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Uitleenkast</label>
@@ -511,6 +530,15 @@
               <option value="">— kies kast —</option>
               <template x-for="cab in cabinetOptions" :key="cab.id">
                 <option :value="cab.id" x-text="cab.name + (cab.location ? ' (' + cab.location + ')' : '')"></option>
+              </template>
+            </select>
+          </div>
+          <div style="flex:1; min-width:160px;" x-show="bulkLaptopType === 'magazijn'" x-cloak>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Magazijn</label>
+            <select class="input" x-model.number="bulkLaptopMagazijnId">
+              <option value="">— kies magazijn —</option>
+              <template x-for="mag in magazijnOptions" :key="mag.id">
+                <option :value="mag.id" x-text="mag.name + (mag.location ? ' (' + mag.location + ')' : '')"></option>
               </template>
             </select>
           </div>
@@ -537,6 +565,7 @@
             <option value="normal">Leerling-laptops</option>
             <option value="reserve">Reserve-laptops</option>
             <option value="cabinet">Kast-laptops</option>
+            <option value="magazijn">Magazijn-laptops</option>
           </select>
           <select class="input" x-model="laptopManageFilter" @change="refreshLaptopManage()"
                   style="width:auto; padding:0 10px;">
@@ -729,7 +758,7 @@
         </div>
 
         <div id="manage-cabinet-list" class="manage-list"
-             hx-get="/ui/storage-cabinets/manage"
+             hx-get="/ui/storage-cabinets/manage?kind=kast"
              hx-trigger="load">
         </div>
 
@@ -737,6 +766,67 @@
           Een uitleenkast bevat laptops die in een klaslokaal staan en niet aan een leerling toebehoren.
           Voeg laptops toe via <strong>Beheer laptops</strong> → "+ Nieuw" → type <em>Uitleenkast</em>.
           Een kast kan pas verwijderd worden als ze leeg is.
+        </p>
+
+      </div>
+
+      <!-- ── Magazijnen sectie ── -->
+      <div x-show="instellingenSection === 'magazijnen'" x-cloak>
+
+        <div class="stu-top">
+          <div>
+            <h1>Beheer magazijnen</h1>
+            <div class="sub">Opslaglocaties waaruit laptops later aan een leerling toegekend kunnen worden</div>
+          </div>
+          <div class="stu-top-actions">
+            <button type="button" class="btn sm"
+                    @click="showNewMagazijnForm = !showNewMagazijnForm"
+                    :class="showNewMagazijnForm ? 'accent' : ''">+ Nieuw</button>
+          </div>
+        </div>
+
+        <!-- Nieuw magazijn formulier -->
+        <div x-show="showNewMagazijnForm" x-cloak
+             style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam *</label>
+            <input class="input" type="text" placeholder="bijv. Magazijn ICT" x-model="newMagazijn.name">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Lokaal</label>
+            <input class="input" type="text" placeholder="bijv. K012" x-model="newMagazijn.location">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Capaciteit</label>
+            <input class="input" type="number" min="0" placeholder="bv. 50" x-model.number="newMagazijn.capacity">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Beschrijving</label>
+            <input class="input" type="text" placeholder="optioneel" x-model="newMagazijn.description"
+                   @keydown.enter="createMagazijn()">
+          </div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn sm accent" @click="createMagazijn()">Toevoegen</button>
+            <div class="status"
+                 :class="{ error: newMagazijnStatus.type === 'error', success: newMagazijnStatus.type === 'success' }"
+                 x-text="newMagazijnStatus.text" style="margin:0; font-size:12px;"></div>
+          </div>
+        </div>
+
+        <div class="stu-search">
+          <input class="input" type="text"
+                 placeholder="🔍 Zoek op naam of lokaal…"
+                 x-model="magazijnSearch"
+                 @input.debounce.200ms="refreshMagazijnManage()">
+        </div>
+
+        <div id="manage-magazijn-list" class="manage-list"></div>
+
+        <p class="import-help" style="margin-top:14px;">
+          Een magazijn bevat laptops in voorraad. Een laptop uit een magazijn kan later aan een leerling
+          toegekend worden (scan het serienummer in de tab <strong>Registreer</strong>); de laptop verlaat dan het magazijn.
+          Voeg laptops toe via <strong>Beheer laptops</strong> → "+ Nieuw" → type <em>Magazijn</em> of in bulk.
+          Een magazijn kan pas verwijderd worden als het leeg is.
         </p>
 
       </div>
@@ -751,7 +841,7 @@
      style="position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
   <div @click.outside="showEditCabinetModal = false"
        style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:20px; min-width:320px; max-width:520px; width:90%;">
-    <h2 style="margin:0 0 12px 0; font-size:16px;">Bewerk uitleenkast</h2>
+    <h2 style="margin:0 0 12px 0; font-size:16px;">Bewerk locatie</h2>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div style="grid-column:1/-1;">
         <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Naam</label>

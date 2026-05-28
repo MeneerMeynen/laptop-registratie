@@ -11,6 +11,9 @@ class StorageCabinet(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
+    # "kast": laptops mogen niet aan een student gekoppeld worden;
+    # "magazijn": laptops kunnen later aan een student toegekend worden.
+    kind = Column(String(20), nullable=False, server_default="kast")
     location = Column(String(100), nullable=True)
     description = Column(Text, nullable=True)
     capacity = Column(Integer, nullable=True)

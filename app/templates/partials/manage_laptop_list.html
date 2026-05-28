@@ -20,7 +20,11 @@
   <td class="lt-manage-student">
     <span class="lt-manage-display">
       {% if in_cabinet %}
-        <span class="badge" style="background:var(--accent); color:#fff;">Kast</span>
+        {% if laptop.cabinet_kind == 'magazijn' %}
+          <span class="badge" style="background:var(--accent); color:#fff;">Magazijn</span>
+        {% else %}
+          <span class="badge" style="background:var(--accent); color:#fff;">Kast</span>
+        {% endif %}
         <strong style="margin-left:6px;">{{ laptop.cabinet_name }}</strong>
         {% if laptop.cabinet_location %}
           <small style="color:var(--muted)"> ({{ laptop.cabinet_location }})</small>

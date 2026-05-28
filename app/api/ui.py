@@ -125,7 +125,7 @@ def laptops_manage_partial(
     elif active == "inactief":
         active_filter = False
 
-    if kind not in ("all", "normal", "reserve", "cabinet"):
+    if kind not in ("all", "normal", "reserve", "cabinet", "magazijn"):
         kind = "all"
 
     laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
@@ -147,10 +147,11 @@ def laptops_manage_partial(
 def storage_cabinets_manage_partial(
     request: Request,
     q: str = "",
+    kind: str = "",
     db: Session = Depends(get_db),
 ):
     """Instellingen-tab cabinet list (HTMX refresh target)."""
-    cabinets = list_cabinets(db, q=q or None)
+    cabinets = list_cabinets(db, q=q or None, kind=kind or None)
     return templates.TemplateResponse(
         request,
         "partials/manage_cabinet_list.html",
