@@ -114,6 +114,52 @@ def test_link_eigen_laptop_overwrites_existing(client, db_session):
     assert resp.json()["eigen_laptop"] is True
 
 
+def test_relinking_same_laptop_is_idempotent(client, db_session):
+    """Re-scanning the same laptop for the same student must not create a new
+    history record each time (regression: duplicate uitleengeschiedenis entries)."""
+    from app.models.laptop import Laptop
+
+    _add_student(db_session, "S070")
+    first = _link(client, "S070", "REPEAT-001")
+    assert first.status_code == 200
+
+    second = _link(client, "S070", "REPEAT-001")
+    third = _link(client, "S070", "REPEAT-001")
+
+    assert second.status_code == 200
+    assert third.status_code == 200
+    # Same record returned every time, none of them closed.
+    assert second.json()["id"] == first.json()["id"]
+    assert third.json()["id"] == first.json()["id"]
+    assert second.json()["unlinked_at"] is None
+
+    rows = (
+        db_session.query(Laptop)
+        .filter(Laptop.serial_number == "REPEAT-001")
+        .all()
+    )
+    assert len(rows) == 1
+
+
+def test_relinking_same_eigen_laptop_is_idempotent(client, db_session):
+    """Re-scanning 'eigen laptop' for a student who already has one is a no-op."""
+    from app.models.laptop import Laptop
+
+    _add_student(db_session, "S071")
+    first = _link(client, "S071", "eigen laptop")
+    second = _link(client, "S071", "eigen laptop")
+
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+
+    rows = (
+        db_session.query(Laptop)
+        .filter(Laptop.stamnummer == "S071", Laptop.eigen_laptop.is_(True))
+        .all()
+    )
+    assert len(rows) == 1
+
+
 def test_multiple_students_can_each_have_eigen_laptop(client, db_session):
     """NULL serial_number must be allowed for multiple students simultaneously."""
     _add_student(db_session, "S060")

@@ -130,22 +130,34 @@ def link_laptop_to_student(
                 f"Laptop {normalized_serial} is already linked to {owner_name} ({existing.stamnummer})."
             )
 
-    # 3. Does this student already have an active (non-reserve) laptop other than this one?
+    # 3. Does this student already have an active (non-reserve) laptop?
     active_laptops = [lap for lap in student.laptops if lap.is_active and not lap.is_reserve]
-    other_laptops = [
-        lap for lap in active_laptops
-        if not (is_own and lap.eigen_laptop)  # skip if same eigen_laptop slot
-        and not (not is_own and lap.serial_number == normalized_serial)  # skip if same serial
-    ]
+    existing_match = next(
+        (
+            lap for lap in active_laptops
+            if (is_own and lap.eigen_laptop)  # same eigen_laptop slot
+            or (not is_own and lap.serial_number == normalized_serial)  # same serial
+        ),
+        None,
+    )
+    other_laptops = [lap for lap in active_laptops if lap is not existing_match]
     if other_laptops and not overwrite_existing:
         raise StudentAlreadyHasLaptopError(
             stamnummer=normalized_stamnummer,
             existing_serials=[describe_serial(lap) for lap in other_laptops],
         )
 
-    # 4. Unlink existing active laptops if overwriting.
-    for lap in active_laptops:
+    # 4. Unlink the *other* active laptops when overwriting; keep the matching one.
+    for lap in other_laptops:
         lap.unlinked_at = datetime.now()
+
+    # Idempotent: this exact laptop is already linked to this student → no new record.
+    if existing_match is not None:
+        if other_laptops:
+            session.commit()
+            session.refresh(existing_match)
+        return existing_match
+
     session.flush()
 
     # 5. Create the new laptop record.
