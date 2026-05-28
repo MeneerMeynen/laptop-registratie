@@ -24,17 +24,18 @@ class StorageCabinetInUseError(ValueError):
     def __init__(self, cabinet_ids: list[int]):
         self.cabinet_ids = cabinet_ids
         super().__init__(
-            "Eén of meer kasten bevatten nog laptops. Verplaats die laptops eerst."
+            "Eén of meer locaties bevatten nog laptops. Verplaats die laptops eerst."
         )
 
 
-_EDITABLE_FIELDS = ("name", "location", "description", "capacity")
+_VALID_KINDS = ("kast", "magazijn")
 
 
 def _serialize(cabinet: StorageCabinet, laptop_count: int = 0) -> dict:
     return {
         "id": cabinet.id,
         "name": cabinet.name,
+        "kind": cabinet.kind,
         "location": cabinet.location,
         "description": cabinet.description,
         "capacity": cabinet.capacity,
@@ -43,8 +44,13 @@ def _serialize(cabinet: StorageCabinet, laptop_count: int = 0) -> dict:
     }
 
 
-def list_cabinets(session: Session, q: str | None = None) -> list[dict]:
-    """Return all cabinets with the count of currently-attached laptops."""
+def list_cabinets(
+    session: Session, q: str | None = None, kind: str | None = None
+) -> list[dict]:
+    """Return all cabinets with the count of currently-attached laptops.
+
+    ``kind`` filtert optioneel op ``"kast"`` of ``"magazijn"``.
+    """
     count_subq = (
         select(
             Laptop.storage_cabinet_id.label("cabinet_id"),
@@ -60,6 +66,8 @@ def list_cabinets(session: Session, q: str | None = None) -> list[dict]:
         .outerjoin(count_subq, count_subq.c.cabinet_id == StorageCabinet.id)
         .order_by(StorageCabinet.name.asc())
     )
+    if kind is not None:
+        stmt = stmt.where(StorageCabinet.kind == kind)
 
     rows = session.execute(stmt).all()
     results = []
@@ -99,6 +107,7 @@ def create_cabinet(
     session: Session,
     *,
     name: str,
+    kind: str = "kast",
     location: str | None = None,
     description: str | None = None,
     capacity: int | None = None,
@@ -106,17 +115,20 @@ def create_cabinet(
     normalized_name = (name or "").strip()
     if not normalized_name:
         raise StorageCabinetValidationError("Naam is verplicht.")
+    if kind not in _VALID_KINDS:
+        raise StorageCabinetValidationError(f"Ongeldig type: {kind}.")
 
     existing = session.scalars(
         select(StorageCabinet).where(StorageCabinet.name == normalized_name)
     ).first()
     if existing is not None:
         raise StorageCabinetAlreadyExistsError(
-            f"Uitleenkast met naam '{normalized_name}' bestaat al."
+            f"Locatie met naam '{normalized_name}' bestaat al."
         )
 
     cabinet = StorageCabinet(
         name=normalized_name,
+        kind=kind,
         location=(location or "").strip() or None,
         description=(description or "").strip() or None,
         capacity=_normalize_capacity(capacity),

@@ -106,7 +106,8 @@ def link_laptop_to_student(
         raise StudentNotFoundError(f"Student {normalized_stamnummer} does not exist.")
 
     # 2. For regular serials: check if that serial is already actively linked to *someone else*,
-    #    or sits in a storage cabinet.
+    #    or sits in a storage location (kast or magazijn).
+    from_magazijn: Laptop | None = None
     if not is_own:
         stmt = select(Laptop).where(
             Laptop.serial_number == normalized_serial,
@@ -116,12 +117,16 @@ def link_laptop_to_student(
         existing = session.scalars(stmt).first()
         if existing is not None and existing.storage_cabinet_id is not None:
             cabinet = session.get(StorageCabinet, existing.storage_cabinet_id)
-            cabinet_label = cabinet.name if cabinet else f"#{existing.storage_cabinet_id}"
-            raise LaptopInCabinetError(
-                f"Laptop {normalized_serial} staat in uitleenkast '{cabinet_label}' "
-                f"en kan niet aan een leerling gekoppeld worden."
-            )
-        if existing is not None and existing.stamnummer != normalized_stamnummer:
+            if cabinet is not None and cabinet.kind == "magazijn":
+                # Een magazijn-laptop mag toegekend worden: hij verlaat het magazijn.
+                from_magazijn = existing
+            else:
+                cabinet_label = cabinet.name if cabinet else f"#{existing.storage_cabinet_id}"
+                raise LaptopInCabinetError(
+                    f"Laptop {normalized_serial} staat in uitleenkast '{cabinet_label}' "
+                    f"en kan niet aan een leerling gekoppeld worden."
+                )
+        if existing is not None and from_magazijn is None and existing.stamnummer != normalized_stamnummer:
             owner = session.get(Student, existing.stamnummer) if existing.stamnummer else None
             owner_name = (
                 f"{owner.voornaam} {owner.naam}" if owner else (existing.stamnummer or "?")
@@ -160,7 +165,17 @@ def link_laptop_to_student(
 
     session.flush()
 
-    # 5. Create the new laptop record.
+    # 5a. Magazijn-laptop: haal hetzelfde record uit het magazijn en ken het toe.
+    #     Zo blijft er één actief record per serienummer (geen duplicaat).
+    if from_magazijn is not None:
+        from_magazijn.storage_cabinet_id = None
+        from_magazijn.stamnummer = normalized_stamnummer
+        from_magazijn.linked_at = datetime.now()
+        session.commit()
+        session.refresh(from_magazijn)
+        return from_magazijn
+
+    # 5b. Create the new laptop record.
     laptop = Laptop(
         serial_number=None if is_own else normalized_serial,
         stamnummer=normalized_stamnummer,
@@ -236,7 +251,8 @@ def get_all_laptops(
     """Return all laptop records with joined student/cabinet info, optionally filtered.
 
     ``kind`` can be ``"all"`` (default), ``"normal"`` (excludes reserve and cabinet),
-    ``"reserve"`` (only reserve laptops), or ``"cabinet"`` (only cabinet laptops).
+    ``"reserve"`` (only reserve laptops), ``"cabinet"`` (only kast laptops), or
+    ``"magazijn"`` (only magazijn laptops).
     """
     stmt = (
         select(
@@ -246,6 +262,7 @@ def get_all_laptops(
             Student.klas,
             StorageCabinet.name.label("cabinet_name"),
             StorageCabinet.location.label("cabinet_location"),
+            StorageCabinet.kind.label("cabinet_kind"),
         )
         .outerjoin(Student, Student.stamnummer == Laptop.stamnummer)
         .outerjoin(StorageCabinet, StorageCabinet.id == Laptop.storage_cabinet_id)
@@ -256,7 +273,15 @@ def get_all_laptops(
     if kind == "reserve":
         stmt = stmt.where(Laptop.is_reserve.is_(True))
     elif kind == "cabinet":
-        stmt = stmt.where(Laptop.storage_cabinet_id.isnot(None))
+        stmt = stmt.where(
+            Laptop.storage_cabinet_id.isnot(None),
+            StorageCabinet.kind == "kast",
+        )
+    elif kind == "magazijn":
+        stmt = stmt.where(
+            Laptop.storage_cabinet_id.isnot(None),
+            StorageCabinet.kind == "magazijn",
+        )
     elif kind == "normal":
         stmt = stmt.where(
             Laptop.is_reserve.is_(False),
@@ -288,6 +313,7 @@ def get_all_laptops(
             "storage_cabinet_id": row.Laptop.storage_cabinet_id,
             "cabinet_name": row.cabinet_name,
             "cabinet_location": row.cabinet_location,
+            "cabinet_kind": row.cabinet_kind,
             "linked_at": row.Laptop.linked_at,
             "unlinked_at": row.Laptop.unlinked_at,
             "is_active": row.Laptop.is_active,

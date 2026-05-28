@@ -24,8 +24,10 @@ router = APIRouter(prefix="/api/storage-cabinets", tags=["storage-cabinets"])
 
 
 @router.get("", response_model=list[StorageCabinetRead])
-def get_cabinets(q: str | None = None, db: Session = Depends(get_db)):
-    return list_cabinets(db, q=q)
+def get_cabinets(
+    q: str | None = None, kind: str | None = None, db: Session = Depends(get_db)
+):
+    return list_cabinets(db, q=q, kind=kind)
 
 
 @router.post("", response_model=StorageCabinetRead)

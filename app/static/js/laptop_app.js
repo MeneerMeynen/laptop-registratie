@@ -62,14 +62,16 @@ function laptopApp() {
     showNewLaptopForm:  false,
     newLaptopSerial:    '',
     newLaptopStamnummer:'',
-    newLaptopType:      'normal', // 'normal' | 'reserve' | 'cabinet'
+    newLaptopType:      'normal', // 'normal' | 'reserve' | 'cabinet' | 'magazijn'
     newLaptopAlias:     '',
     newLaptopCabinetId: '',
+    newLaptopMagazijnId:'',
     newLaptopStatus:    { text: '', type: '' },
     // Bulk laptops toevoegen
     showBulkLaptopForm: false,
-    bulkLaptopType:     'reserve', // 'reserve' | 'cabinet'
+    bulkLaptopType:     'reserve', // 'reserve' | 'cabinet' | 'magazijn'
     bulkLaptopCabinetId:'',
+    bulkLaptopMagazijnId:'',
     bulkLaptopSerials:  '',
     bulkLaptopStatus:   { text: '', type: '' },
     // Studenten CRUD
@@ -88,6 +90,12 @@ function laptopApp() {
     showEditCabinetModal: false,
     editCabinet:          { id: null, name: '', location: '', description: '', capacity: '' },
     editCabinetStatus:    { text: '', type: '' },
+    // Magazijnen CRUD
+    magazijnSearch:       '',
+    magazijnOptions:      [],
+    showNewMagazijnForm:  false,
+    newMagazijn:          { name: '', location: '', description: '', capacity: '' },
+    newMagazijnStatus:    { text: '', type: '' },
     showHelpModal:        false,
 
     // ── Lifecycle ──────────────────────────────────────────
@@ -830,6 +838,13 @@ function laptopApp() {
         }
         payload = { serial_number: serial, storage_cabinet_id: Number(cabinetId) };
         label = serial;
+      } else if (type === 'magazijn') {
+        const magazijnId = this.newLaptopMagazijnId;
+        if (!serial || !magazijnId) {
+          this.newLaptopStatus = { text: 'Serienummer en magazijn zijn verplicht voor een magazijn-laptop.', type: 'error' }; return;
+        }
+        payload = { serial_number: serial, storage_cabinet_id: Number(magazijnId) };
+        label = serial;
       } else {
         if (!serial || !stamnummer) {
           this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
@@ -853,6 +868,7 @@ function laptopApp() {
       this.newLaptopStamnummer = '';
       this.newLaptopAlias = '';
       this.newLaptopCabinetId = '';
+      this.newLaptopMagazijnId = '';
       this.newLaptopType = 'normal';
       this.refreshLaptopManage();
     },
@@ -862,19 +878,24 @@ function laptopApp() {
         .split('\n')
         .map(s => s.trim())
         .filter(Boolean);
-      const isReserve = this.bulkLaptopType === 'reserve';
+      const type = this.bulkLaptopType;
+      const isReserve = type === 'reserve';
 
       if (serials.length === 0) {
         this.bulkLaptopStatus = { text: 'Voer minstens één serienummer in.', type: 'error' }; return;
       }
-      if (!isReserve && !this.bulkLaptopCabinetId) {
-        this.bulkLaptopStatus = { text: 'Kies een uitleenkast.', type: 'error' }; return;
+      const targetId = type === 'magazijn' ? this.bulkLaptopMagazijnId : this.bulkLaptopCabinetId;
+      if (!isReserve && !targetId) {
+        this.bulkLaptopStatus = {
+          text: type === 'magazijn' ? 'Kies een magazijn.' : 'Kies een uitleenkast.',
+          type: 'error',
+        }; return;
       }
 
       const payload = {
         serials,
         is_reserve: isReserve,
-        storage_cabinet_id: isReserve ? null : Number(this.bulkLaptopCabinetId),
+        storage_cabinet_id: isReserve ? null : Number(targetId),
       };
 
       this.bulkLaptopStatus = { text: 'Bezig…', type: '' };
@@ -899,22 +920,63 @@ function laptopApp() {
     // ── Uitleenkasten CRUD (Instellingen) ──────────────────
     async ensureCabinetsLoaded() {
       if (this.cabinetOptions.length > 0) return;
-      const res = await fetch('/api/storage-cabinets');
+      const res = await fetch('/api/storage-cabinets?kind=kast');
       this.cabinetOptions = res.ok ? await res.json() : [];
     },
 
+    async ensureMagazijnenLoaded() {
+      if (this.magazijnOptions.length > 0) return;
+      const res = await fetch('/api/storage-cabinets?kind=magazijn');
+      this.magazijnOptions = res.ok ? await res.json() : [];
+    },
+
     refreshCabinetManage() {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ kind: 'kast' });
       const q = (this.cabinetSearch || '').trim();
       if (q) params.set('q', q);
-      const url = params.toString()
-        ? `/ui/storage-cabinets/manage?${params}`
-        : '/ui/storage-cabinets/manage';
-      htmx.ajax('GET', url, {
+      htmx.ajax('GET', `/ui/storage-cabinets/manage?${params}`, {
         target: '#manage-cabinet-list', swap: 'innerHTML',
       });
       // Refresh dropdown options too
-      fetch('/api/storage-cabinets').then(r => r.ok ? r.json() : []).then(d => { this.cabinetOptions = d; });
+      fetch('/api/storage-cabinets?kind=kast').then(r => r.ok ? r.json() : []).then(d => { this.cabinetOptions = d; });
+    },
+
+    refreshMagazijnManage() {
+      const params = new URLSearchParams({ kind: 'magazijn' });
+      const q = (this.magazijnSearch || '').trim();
+      if (q) params.set('q', q);
+      htmx.ajax('GET', `/ui/storage-cabinets/manage?${params}`, {
+        target: '#manage-magazijn-list', swap: 'innerHTML',
+      });
+      fetch('/api/storage-cabinets?kind=magazijn').then(r => r.ok ? r.json() : []).then(d => { this.magazijnOptions = d; });
+    },
+
+    async createMagazijn() {
+      const name = (this.newMagazijn.name || '').trim();
+      if (!name) {
+        this.newMagazijnStatus = { text: 'Naam is verplicht.', type: 'error' }; return;
+      }
+      this.newMagazijnStatus = { text: 'Bezig…', type: '' };
+      const payload = {
+        name,
+        kind: 'magazijn',
+        location: (this.newMagazijn.location || '').trim() || null,
+        description: (this.newMagazijn.description || '').trim() || null,
+        capacity: this.newMagazijn.capacity === '' || this.newMagazijn.capacity === null
+          ? null : Number(this.newMagazijn.capacity),
+      };
+      const res = await fetch('/api/storage-cabinets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        this.newMagazijnStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
+      }
+      this.newMagazijnStatus = { text: `✓ Magazijn "${name}" aangemaakt.`, type: 'success' };
+      this.newMagazijn = { name: '', location: '', description: '', capacity: '' };
+      this.refreshMagazijnManage();
     },
 
     async createCabinet() {
@@ -980,10 +1042,11 @@ function laptopApp() {
       this.editCabinetStatus = { text: '✓ Opgeslagen.', type: 'success' };
       this.showEditCabinetModal = false;
       this.refreshCabinetManage();
+      this.refreshMagazijnManage();
     },
 
     async deleteCabinet(id, label) {
-      if (!confirm(`Uitleenkast "${label}" verwijderen?`)) return;
+      if (!confirm(`Locatie "${label}" verwijderen?`)) return;
       const res = await fetch('/api/storage-cabinets', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -995,6 +1058,7 @@ function laptopApp() {
         return;
       }
       this.refreshCabinetManage();
+      this.refreshMagazijnManage();
     },
 
     // ── Studenten CRUD (Instellingen) ──────────────────────
