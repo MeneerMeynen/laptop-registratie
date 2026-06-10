@@ -57,6 +57,20 @@
       {{ 'Actief' if laptop.is_active else 'Inactief' }}
     </span>
   </td>
+  <td style="font-size:12px; white-space:nowrap;">
+    {% if laptop.is_active or laptop.is_reserve or in_cabinet or laptop.eigen_laptop %}
+      <span style="color:var(--muted);">—</span>
+    {% else %}
+      <span title="Beschermhoes bij laatste inlevering"
+            style="color: {% if laptop.hoes_ingeleverd %}var(--success, #2e7d32){% else %}var(--danger, #c62828){% endif %};">
+        {% if laptop.hoes_ingeleverd %}✓{% else %}✕{% endif %} hoes
+      </span>
+      <span title="Oplader bij laatste inlevering"
+            style="margin-left:8px; color: {% if laptop.oplader_ingeleverd %}var(--success, #2e7d32){% else %}var(--danger, #c62828){% endif %};">
+        {% if laptop.oplader_ingeleverd %}✓{% else %}✕{% endif %} oplader
+      </span>
+    {% endif %}
+  </td>
   <td style="color:var(--muted); font-size:12px;">
     {{ laptop.linked_at.strftime('%d/%m/%Y') if laptop.linked_at else '—' }}
   </td>
@@ -74,5 +88,5 @@
   </td>
 </tr>
 {% else %}
-<tr><td colspan="6" style="padding:16px; color:var(--muted); text-align:center;">Geen laptops gevonden.</td></tr>
+<tr><td colspan="7" style="padding:16px; color:var(--muted); text-align:center;">Geen laptops gevonden.</td></tr>
 {% endfor %}

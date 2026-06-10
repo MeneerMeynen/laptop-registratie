@@ -347,6 +347,8 @@ def get_all_laptops(
             "linked_at": row.Laptop.linked_at,
             "unlinked_at": row.Laptop.unlinked_at,
             "is_active": row.Laptop.is_active,
+            "hoes_ingeleverd": row.Laptop.hoes_ingeleverd,
+            "oplader_ingeleverd": row.Laptop.oplader_ingeleverd,
             "naam": row.naam,
             "voornaam": row.voornaam,
             "klas": row.klas,
