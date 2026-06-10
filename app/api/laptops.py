@@ -11,6 +11,7 @@ from app.schemas.laptop import (
     LaptopImportResult,
     LaptopLinkRequest,
     LaptopLinkResponse,
+    LaptopUnlinkRequest,
     LaptopUpdate,
     ReserveLaptopOption,
 )
@@ -150,9 +151,19 @@ def link_laptop(payload: LaptopLinkRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/{laptop_id}/unlink", response_model=LaptopLinkResponse)
-def unlink(laptop_id: int, db: Session = Depends(get_db)):
+def unlink(
+    laptop_id: int,
+    payload: LaptopUnlinkRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    accessories = payload or LaptopUnlinkRequest()
     try:
-        laptop = unlink_laptop(session=db, laptop_id=laptop_id)
+        laptop = unlink_laptop(
+            session=db,
+            laptop_id=laptop_id,
+            hoes_ingeleverd=accessories.hoes_ingeleverd,
+            oplader_ingeleverd=accessories.oplader_ingeleverd,
+        )
     except LaptopNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except LaptopAlreadyUnlinkedError as exc:

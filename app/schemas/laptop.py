@@ -9,6 +9,11 @@ class LaptopLinkRequest(BaseModel):
     overwrite_existing: bool = False
 
 
+class LaptopUnlinkRequest(BaseModel):
+    hoes_ingeleverd: bool = True
+    oplader_ingeleverd: bool = True
+
+
 class LaptopLinkResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,6 +26,8 @@ class LaptopLinkResponse(BaseModel):
     storage_cabinet_id: int | None = None
     linked_at: datetime | None = None
     unlinked_at: datetime | None = None
+    hoes_ingeleverd: bool = True
+    oplader_ingeleverd: bool = True
 
 
 class LaptopCreate(BaseModel):
@@ -54,6 +61,8 @@ class LaptopListItem(BaseModel):
     naam: str | None = None
     voornaam: str | None = None
     klas: str | None = None
+    hoes_ingeleverd: bool = True
+    oplader_ingeleverd: bool = True
 
 
 class LaptopImportResult(BaseModel):

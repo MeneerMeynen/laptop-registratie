@@ -1066,6 +1066,30 @@
 
 <!-- ══════════════════ MODALS ══════════════════ -->
 
+<!-- Inleveren accessoires modal -->
+<div class="modal-overlay" x-show="showUnlinkModal" x-cloak>
+  <div class="modal-box">
+    <span class="modal-close-btn" @click="closeUnlinkModal()" role="button" tabindex="0"
+          @keydown.enter="closeUnlinkModal()" @keydown.space.prevent="closeUnlinkModal()">✕</span>
+    <h3>Laptop inleveren</h3>
+    <p class="import-help">Vink uit wat ontbreekt bij de inlevering:</p>
+    <div class="field">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" x-model="unlinkAccessories.hoes"> Beschermhoes aanwezig
+      </label>
+    </div>
+    <div class="field">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" x-model="unlinkAccessories.oplader"> Oplader aanwezig
+      </label>
+    </div>
+    <div class="modal-actions" style="display:flex; gap:10px;">
+      <button type="button" class="btn" @click="closeUnlinkModal()">Annuleren</button>
+      <button type="button" class="btn-save" style="width:auto;" @click="confirmUnlink()">Bevestig inleveren</button>
+    </div>
+  </div>
+</div>
+
 <!-- New issue modal -->
 <div class="modal-overlay" x-show="showNewIssueModal" x-cloak>
   <div class="modal-box modal-box--large">
@@ -1091,7 +1115,8 @@
         <option value="">— Geen categorie —</option>
         <option>Scherm</option><option>Toetsenbord</option>
         <option>Software</option><option>Oplader</option>
-        <option>Batterij</option><option>Luidspreker</option><option>Overig</option>
+        <option>Batterij</option><option>Luidspreker</option>
+        <option>Accessoires</option><option>Overig</option>
       </select>
     </div>
     <div class="field">
@@ -1149,7 +1174,8 @@
         <option value="">— Geen categorie —</option>
         <option>Scherm</option><option>Toetsenbord</option>
         <option>Software</option><option>Oplader</option>
-        <option>Batterij</option><option>Luidspreker</option><option>Overig</option>
+        <option>Batterij</option><option>Luidspreker</option>
+        <option>Accessoires</option><option>Overig</option>
       </select>
     </div>
     <div class="field" x-show="editIssueStatus === 'gesloten'">

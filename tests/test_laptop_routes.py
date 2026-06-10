@@ -174,19 +174,29 @@ def test_multiple_students_can_each_have_eigen_laptop(client, db_session):
 
 # ── Unlink (INLEVEREN) ────────────────────────────────────────────────────────
 
-def _unlink(client, laptop_id: int):
-    return client.post(f"/api/laptops/{laptop_id}/unlink")
+def _unlink(client, laptop_id: int, hoes: bool = True, oplader: bool = True):
+    return client.post(
+        f"/api/laptops/{laptop_id}/unlink",
+        json={"hoes_ingeleverd": hoes, "oplader_ingeleverd": oplader},
+    )
 
 
 def test_unlink_sets_unlinked_at(client, db_session):
     """Scanning INLEVEREN must set unlinked_at on the laptop record."""
+    from app.models.laptop_issue import LaptopIssue
+
     _add_student(db_session, "S100")
     laptop_id = _link(client, "S100", "UNL-001").json()["id"]
 
     resp = _unlink(client, laptop_id)
 
     assert resp.status_code == 200
-    assert resp.json()["unlinked_at"] is not None
+    data = resp.json()
+    assert data["unlinked_at"] is not None
+    assert data["hoes_ingeleverd"] is True
+    assert data["oplader_ingeleverd"] is True
+    # No issue created when both accessories are present.
+    assert db_session.query(LaptopIssue).filter_by(serial_number="UNL-001").count() == 0
 
 
 def test_unlink_returns_404_for_unknown_laptop(client, db_session):
@@ -204,6 +214,80 @@ def test_unlink_already_unlinked_returns_409(client, db_session):
     resp = _unlink(client, laptop_id)
 
     assert resp.status_code == 409
+
+
+def test_unlink_without_body_uses_defaults(client, db_session):
+    """Backward compatibility: POST /unlink without body still works."""
+    _add_student(db_session, "S105")
+    laptop_id = _link(client, "S105", "UNL-NB").json()["id"]
+
+    resp = client.post(f"/api/laptops/{laptop_id}/unlink")
+
+    assert resp.status_code == 200
+    assert resp.json()["hoes_ingeleverd"] is True
+    assert resp.json()["oplader_ingeleverd"] is True
+
+
+def test_unlink_with_missing_accessories_creates_issue(client, db_session):
+    """When an accessory is missing, an issue must be created automatically."""
+    from app.models.laptop import Laptop
+    from app.models.laptop_issue import LaptopIssue
+
+    _add_student(db_session, "S120")
+    laptop_id = _link(client, "S120", "UNL-MISS").json()["id"]
+
+    resp = _unlink(client, laptop_id, hoes=False, oplader=True)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["hoes_ingeleverd"] is False
+    assert data["oplader_ingeleverd"] is True
+
+    laptop = db_session.get(Laptop, laptop_id)
+    assert laptop.hoes_ingeleverd is False
+    assert laptop.oplader_ingeleverd is True
+
+    issues = db_session.query(LaptopIssue).filter_by(serial_number="UNL-MISS").all()
+    assert len(issues) == 1
+    assert issues[0].category == "Accessoires"
+    assert issues[0].status == "aangemeld"
+    assert "hoes" in issues[0].description.lower()
+    assert "oplader" not in issues[0].description.lower()
+
+
+def test_unlink_with_both_accessories_missing_lists_both_in_issue(client, db_session):
+    from app.models.laptop_issue import LaptopIssue
+
+    _add_student(db_session, "S121")
+    laptop_id = _link(client, "S121", "UNL-BOTH").json()["id"]
+
+    resp = _unlink(client, laptop_id, hoes=False, oplader=False)
+
+    assert resp.status_code == 200
+    issues = db_session.query(LaptopIssue).filter_by(serial_number="UNL-BOTH").all()
+    assert len(issues) == 1
+    desc = issues[0].description.lower()
+    assert "hoes" in desc
+    assert "oplader" in desc
+
+
+def test_relink_resets_accessory_flags(client, db_session):
+    """Heruitgifte aan een nieuwe leerling: vlaggen terug op True (nieuwe accessoires uitgereikt)."""
+    from app.models.laptop import Laptop
+
+    _add_student(db_session, "S130")
+    _add_student(db_session, "S131")
+    first_id = _link(client, "S130", "UNL-RST").json()["id"]
+    _unlink(client, first_id, hoes=False, oplader=False)
+
+    second_resp = _link(client, "S131", "UNL-RST")
+    assert second_resp.status_code == 200
+    second_id = second_resp.json()["id"]
+    assert second_id != first_id  # new history row
+
+    new_record = db_session.get(Laptop, second_id)
+    assert new_record.hoes_ingeleverd is True
+    assert new_record.oplader_ingeleverd is True
 
 
 # ── Reserve laptops ───────────────────────────────────────────────────────────

@@ -10,7 +10,16 @@ from app.models.laptop_issue_entry import LaptopIssueEntry
 from app.models.student import Student
 
 VALID_STATUSES = ("aangemeld", "open", "gesloten")
-VALID_CATEGORIES = ("Scherm", "Toetsenbord", "Software", "Oplader", "Batterij", "Luidspreker", "Overig")
+VALID_CATEGORIES = (
+    "Scherm",
+    "Toetsenbord",
+    "Software",
+    "Oplader",
+    "Batterij",
+    "Luidspreker",
+    "Accessoires",
+    "Overig",
+)
 
 
 class IssueValidationError(ValueError):

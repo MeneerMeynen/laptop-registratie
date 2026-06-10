@@ -9,6 +9,9 @@ function laptopApp() {
     laptopSearch:       '',
     serialValue:        '',
     linkStatus:         { text: '', type: '' },
+    showUnlinkModal:    false,
+    unlinkLaptopId:     null,
+    unlinkAccessories:  { hoes: true, oplader: true },
     manageSearch:       '',
     showUitgeschreven:  false,
     manageStatus:       { text: '', type: '' },
@@ -428,11 +431,38 @@ function laptopApp() {
     },
 
     // ── Laptop unlink ──────────────────────────────────────
-    async unlinkLaptop(laptopId) {
-      if (!confirm('Weet je zeker dat je deze laptop wilt inleveren?')) return;
-      const res = await fetch(`/api/laptops/${laptopId}/unlink`, { method: 'POST' });
+    unlinkLaptop(laptopId) {
+      this.unlinkLaptopId = laptopId;
+      this.unlinkAccessories = { hoes: true, oplader: true };
+      this.showUnlinkModal = true;
+    },
+
+    closeUnlinkModal() {
+      this.showUnlinkModal = false;
+      this.unlinkLaptopId = null;
+    },
+
+    async confirmUnlink() {
+      const laptopId = this.unlinkLaptopId;
+      const accessories = {
+        hoes_ingeleverd: this.unlinkAccessories.hoes,
+        oplader_ingeleverd: this.unlinkAccessories.oplader,
+      };
+      this.closeUnlinkModal();
+      if (!laptopId) return;
+      const res = await fetch(`/api/laptops/${laptopId}/unlink`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(accessories),
+      });
       if (res.ok) {
-        this.linkStatus = { text: '✓ Laptop ingeleverd.', type: 'success' };
+        const missing = [];
+        if (!accessories.hoes_ingeleverd) missing.push('hoes');
+        if (!accessories.oplader_ingeleverd) missing.push('oplader');
+        const note = missing.length
+          ? ` Ontbrekend: ${missing.join(', ')} — issue aangemaakt.`
+          : '';
+        this.linkStatus = { text: `✓ Laptop ingeleverd.${note}`, type: 'success' };
         this.selectedLaptopId = null;
         // Update student row in-place to preserve filter and selection
         const option = document.querySelector(`.student-option[data-stamnummer="${this.selectedStamnummer}"]`);

@@ -1,6 +1,6 @@
 import csv
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import TextIO
 
 from sqlalchemy import and_, func, select
@@ -171,6 +171,8 @@ def link_laptop_to_student(
         from_magazijn.storage_cabinet_id = None
         from_magazijn.stamnummer = normalized_stamnummer
         from_magazijn.linked_at = datetime.now()
+        from_magazijn.hoes_ingeleverd = True
+        from_magazijn.oplader_ingeleverd = True
         session.commit()
         session.refresh(from_magazijn)
         return from_magazijn
@@ -196,14 +198,42 @@ class LaptopAlreadyUnlinkedError(ValueError):
     pass
 
 
-def unlink_laptop(session: Session, laptop_id: int) -> Laptop:
-    """Mark a laptop assignment as returned (ingeleverd)."""
+def unlink_laptop(
+    session: Session,
+    laptop_id: int,
+    hoes_ingeleverd: bool = True,
+    oplader_ingeleverd: bool = True,
+) -> Laptop:
+    """Mark a laptop assignment as returned (ingeleverd).
+
+    When the case (hoes) or charger (oplader) is missing, an issue is created
+    automatically in the laptop issue tracker so the missing item is followed up.
+    """
     laptop = session.get(Laptop, laptop_id)
     if laptop is None:
         raise LaptopNotFoundError("Laptop niet gevonden.")
     if laptop.unlinked_at is not None:
         raise LaptopAlreadyUnlinkedError("Laptop is al ingeleverd.")
     laptop.unlinked_at = datetime.now()
+    laptop.hoes_ingeleverd = hoes_ingeleverd
+    laptop.oplader_ingeleverd = oplader_ingeleverd
+
+    if (not hoes_ingeleverd or not oplader_ingeleverd) and laptop.serial_number:
+        missing: list[str] = []
+        if not hoes_ingeleverd:
+            missing.append("hoes")
+        if not oplader_ingeleverd:
+            missing.append("oplader")
+        session.add(
+            LaptopIssue(
+                serial_number=laptop.serial_number,
+                description=f"Bij inlevering ontbraken: {', '.join(missing)}.",
+                reported_date=date.today(),
+                status="aangemeld",
+                category="Accessoires",
+            )
+        )
+
     session.commit()
     session.refresh(laptop)
     return laptop

@@ -28,6 +28,8 @@ class Laptop(Base):
     )
     linked_at = Column(DateTime, nullable=True)
     unlinked_at = Column(DateTime, nullable=True)
+    hoes_ingeleverd = Column(Boolean, default=True, nullable=False, server_default="1")
+    oplader_ingeleverd = Column(Boolean, default=True, nullable=False, server_default="1")
 
     @property
     def is_active(self) -> bool:
