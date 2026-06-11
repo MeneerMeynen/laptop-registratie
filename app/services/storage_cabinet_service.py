@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Iterable
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.laptop import Laptop
@@ -69,19 +69,21 @@ def list_cabinets(
     if kind is not None:
         stmt = stmt.where(StorageCabinet.kind == kind)
 
+    if q:
+        pattern = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                StorageCabinet.name.ilike(pattern),
+                StorageCabinet.location.ilike(pattern),
+                StorageCabinet.description.ilike(pattern),
+            )
+        )
+
     rows = session.execute(stmt).all()
-    results = []
-    for row in rows:
-        cabinet = row.StorageCabinet
-        if q:
-            q_lower = q.lower()
-            searchable = (
-                f"{cabinet.name or ''} {cabinet.location or ''} {cabinet.description or ''}"
-            ).lower()
-            if q_lower not in searchable:
-                continue
-        results.append(_serialize(cabinet, laptop_count=row.laptop_count or 0))
-    return results
+    return [
+        _serialize(row.StorageCabinet, laptop_count=row.laptop_count or 0)
+        for row in rows
+    ]
 
 
 def get_cabinet(session: Session, cabinet_id: int) -> StorageCabinet:

@@ -59,7 +59,8 @@
             <div class="lt-info-row">
                 <span class="lt-info-label">Foto's</span>
                 <span class="lt-info-val">
-                    <a href="#" class="lt-link" onclick="event.preventDefault(); document.querySelectorAll('[role=tab]')[3].click(); setTimeout(function(){ var el=document.querySelector('[x-data]'); var d=Alpine.$data(el); d.photoSearch='{{ serial }}'; d.loadPhotoGallery(); }, 150);">
+                    <a href="#" class="lt-link"
+                       @click.prevent="photoSearch = '{{ serial | e }}'; setTab('fotos'); loadPhotoGallery()">
                         {{ photo_count }} foto('s) bekijken
                     </a>
                 </span>

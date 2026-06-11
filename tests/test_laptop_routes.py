@@ -419,10 +419,10 @@ def test_export_laptops_includes_accessory_status(client, db_session):
     assert resp.status_code == 200
     line = next(li for li in resp.text.splitlines() if "EXP-MISS" in li)
     cols = line.split(";")
-    # Hoes ingeleverd = nee, Oplader ingeleverd = ja, Status = Inactief
-    assert "Inactief" in cols
-    assert "nee" in cols
-    assert "ja" in cols
+    # Kolommen: 7 = Status, 8 = Hoes ingeleverd, 9 = Oplader ingeleverd
+    assert cols[7] == "Inactief"
+    assert cols[8] == "nee"
+    assert cols[9] == "ja"
 
 
 def test_export_laptops_respects_kind_filter(client, db_session):

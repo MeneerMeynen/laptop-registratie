@@ -63,8 +63,9 @@
 | | `POST /api/students/import` | CSV-import |
 | | `DELETE /api/students` | Studenten verwijderen |
 | `api/laptops.py` | `POST /api/laptops/link` | Laptop koppelen |
-| | `DELETE /api/laptops/{id}/unlink` | Laptop ontkoppelen |
-| `api/photos.py` | `GET /api/photos` | Foto's per serienummer |
+| | `POST /api/laptops/{id}/unlink` | Laptop inleveren (ontkoppelen) |
+| | `GET /api/laptops/export` | CSV-export beheeroverzicht |
+| `api/photos.py` | `GET /api/photos/{serial}` | Foto's per serienummer |
 | | `POST /api/photos` | Foto uploaden (file) |
 | | `POST /api/photos/base64` | Foto uploaden (base64, iOS) |
 | | `DELETE /api/photos/{id}` | Foto verwijderen |

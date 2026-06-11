@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas.laptop_issue import LaptopIssueCreate, LaptopIssueRead, LaptopIssueUpdate
+from app.services.csv_utils import csv_safe
 from app.services.laptop_issue_service import (
     VALID_CATEGORIES,
     IssueValidationError,
@@ -65,12 +66,12 @@ def export_issues(
         writer.writerow([
             issue["id"],
             issue["serial_number"],
-            leerling,
+            csv_safe(leerling),
             issue.get("category") or "",
-            issue["description"],
+            csv_safe(issue["description"]),
             issue["status"],
             issue["reported_date"],
-            issue.get("solution") or "",
+            csv_safe(issue.get("solution")),
         ])
 
     output.seek(0)
@@ -99,7 +100,7 @@ def post_issue(body: LaptopIssueCreate, db: Session = Depends(get_db)):
     except IssueValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     # Re-fetch via list_issues so reserve laptop info is included in response.
-    rows = [r for r in list_issues(db, include_closed=True) if r["id"] == issue.id]
+    rows = list_issues(db, include_closed=True, issue_id=issue.id)
     return rows[0] if rows else issue
 
 
@@ -112,7 +113,7 @@ def patch_issue(issue_id: int, body: LaptopIssueUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=422, detail=str(exc))
     if not issue:
         raise HTTPException(status_code=404, detail="Probleem niet gevonden.")
-    rows = [r for r in list_issues(db, include_closed=True) if r["id"] == issue.id]
+    rows = list_issues(db, include_closed=True, issue_id=issue.id)
     return rows[0] if rows else issue
 
 
@@ -170,21 +171,6 @@ def laptop_report(serial: str, db: Session = Depends(get_db)):
         ],
         "photos": photos,
     }
-
-
-@router.get("/ui/laptop-issues", response_class=HTMLResponse)
-def laptop_issues_partial(
-    request: Request,
-    search: str = "",
-    include_closed: bool = False,
-    db: Session = Depends(get_db),
-):
-    issues = list_issues(db, search=search, include_closed=include_closed)
-    return templates.TemplateResponse(
-        request,
-        "partials/laptop_issues_list.html",
-        {"issues": issues},
-    )
 
 
 @router.get("/ui/laptop-tracker/sidebar", response_class=HTMLResponse)

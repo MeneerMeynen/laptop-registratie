@@ -3,7 +3,7 @@ import re
 from datetime import date, datetime
 from typing import TextIO
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.laptop import Laptop
@@ -50,13 +50,6 @@ _RESERVE_ALIAS_RE = re.compile(r"^Reserve-(\d+)$")
 
 def is_eigen_laptop_scan(serial: str) -> bool:
     return serial.strip().lower() == _EIGEN_LAPTOP_TRIGGER
-
-
-def display_serial(laptop: Laptop) -> str:
-    """Return the serial number as shown in the UI (empty for eigen laptop)."""
-    if laptop.eigen_laptop:
-        return ""
-    return laptop.serial_number or ""
 
 
 def describe_serial(laptop: Laptop) -> str:
@@ -268,8 +261,13 @@ def get_assignment_history(session: Session, serial_number: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-class LaptopDeleteError(ValueError):
-    pass
+VALID_KINDS = ("all", "normal", "reserve", "cabinet", "magazijn")
+
+
+def parse_laptop_filters(active: str, kind: str) -> tuple[bool | None, str]:
+    """Vertaal UI-queryparams (active='actief'/'inactief'/'all') naar get_all_laptops-args."""
+    active_filter = {"actief": True, "inactief": False}.get(active)
+    return active_filter, kind if kind in VALID_KINDS else "all"
 
 
 def get_all_laptops(
@@ -318,24 +316,32 @@ def get_all_laptops(
             Laptop.storage_cabinet_id.is_(None),
         )
 
+    if active is not None:
+        stmt = stmt.where(
+            Laptop.unlinked_at.is_(None) if active else Laptop.unlinked_at.isnot(None)
+        )
+
+    if q:
+        pattern = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Laptop.serial_number.ilike(pattern),
+                Laptop.stamnummer.ilike(pattern),
+                Laptop.alias.ilike(pattern),
+                Student.naam.ilike(pattern),
+                Student.voornaam.ilike(pattern),
+                Student.klas.ilike(pattern),
+                StorageCabinet.name.ilike(pattern),
+                StorageCabinet.location.ilike(pattern),
+            )
+        )
+
     rows = session.execute(stmt).all()
     results = []
     for row in rows:
-        if active is not None and row.Laptop.is_active != active:
-            continue
-        serial = row.Laptop.serial_number or ""
-        if q:
-            q_lower = q.lower()
-            searchable = (
-                f"{serial} {row.Laptop.stamnummer or ''} {row.Laptop.alias or ''} "
-                f"{row.naam or ''} {row.voornaam or ''} {row.klas or ''} "
-                f"{row.cabinet_name or ''} {row.cabinet_location or ''}"
-            ).lower()
-            if q_lower not in searchable:
-                continue
         results.append({
             "id": row.Laptop.id,
-            "serial_number": serial,
+            "serial_number": row.Laptop.serial_number or "",
             "stamnummer": row.Laptop.stamnummer,
             "eigen_laptop": row.Laptop.eigen_laptop,
             "is_reserve": row.Laptop.is_reserve,

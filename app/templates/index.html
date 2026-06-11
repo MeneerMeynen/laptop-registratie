@@ -54,7 +54,7 @@
     </div>
 
     <div class="chrome-right">
-      <button class="icon-btn" @click="toggleTheme()"
+      <button class="icon-btn theme-toggle" @click="toggleTheme()"
               :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
               x-text="theme === 'dark' ? '☀' : '☾'"></button>
       <button class="icon-btn" title="Help" @click="showHelpModal = true">?</button>
@@ -68,13 +68,6 @@
 
 <!-- ══════════════════ SCREEN 01 · TICKETS ══════════════════ -->
 <section x-show="activeTab === 'laptops'" x-cloak>
-
-  <!-- <div class="lt-new-card">
-    <button type="button" class="lt-btn-new lt-btn-new-lg"
-            @click="openNewIssueModal(ltSelectedSerial || '')">
-      + Defect melden
-    </button>
-  </div> -->
 
   <div class="lt-global-stats">
     <div class="lt-stat-card lt-stat-toggle"
@@ -563,7 +556,7 @@
           <input class="input" type="text"
                  placeholder="🔍 Zoek op serienummer, stamnummer, alias of naam…"
                  x-model="laptopManageSearch"
-                 @input="refreshLaptopManage()">
+                 @input.debounce.300ms="refreshLaptopManage()">
           <select class="input" x-model="laptopManageKind" @change="refreshLaptopManage()"
                   style="width:auto; padding:0 10px;">
             <option value="all">Alle types</option>

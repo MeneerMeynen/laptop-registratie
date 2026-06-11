@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.services.csv_utils import csv_safe
 from app.schemas.laptop import (
     LaptopBulkCreate,
     LaptopBulkResult,
@@ -33,6 +34,7 @@ from app.services.laptop_service import (
     import_laptops_csv,
     link_laptop_to_student,
     list_available_reserve_laptops,
+    parse_laptop_filters,
     unlink_laptop,
     update_laptop,
 )
@@ -58,17 +60,11 @@ def export_laptops(
     db: Session = Depends(get_db),
 ):
     """Download the laptop management list as a CSV file (respects current filters)."""
-    active_filter: bool | None = None
-    if active == "actief":
-        active_filter = True
-    elif active == "inactief":
-        active_filter = False
-
-    if kind not in ("all", "normal", "reserve", "cabinet", "magazijn"):
-        kind = "all"
-
+    active_filter, kind = parse_laptop_filters(active, kind)
     laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
 
+    # Labels hieronder spiegelen de weergave in partials/manage_laptop_list.html —
+    # houd beide in sync bij wijzigingen.
     def _type_label(laptop: dict) -> str:
         if laptop["eigen_laptop"]:
             return "Eigen laptop"
@@ -102,11 +98,11 @@ def export_laptops(
         writer.writerow([
             laptop["serial_number"] or "",
             _type_label(laptop),
-            leerling,
+            csv_safe(leerling),
             laptop["stamnummer"] or "",
-            laptop.get("klas") or "",
-            laptop.get("alias") or "",
-            locatie,
+            csv_safe(laptop.get("klas")),
+            csv_safe(laptop.get("alias")),
+            csv_safe(locatie),
             "Actief" if laptop["is_active"] else "Inactief",
             _ja_nee(laptop, "hoes_ingeleverd"),
             _ja_nee(laptop, "oplader_ingeleverd"),

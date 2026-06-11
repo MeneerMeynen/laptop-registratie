@@ -46,7 +46,12 @@ def _validate_reserve_laptop(db: Session, reserve_laptop_id: int) -> Laptop:
     return laptop
 
 
-def list_issues(db: Session, search: str = "", include_closed: bool = False) -> list[dict]:
+def list_issues(
+    db: Session,
+    search: str = "",
+    include_closed: bool = False,
+    issue_id: int | None = None,
+) -> list[dict]:
     reserve = aliased(Laptop)
     stmt = (
         select(
@@ -65,6 +70,9 @@ def list_issues(db: Session, search: str = "", include_closed: bool = False) -> 
         .outerjoin(reserve, reserve.id == LaptopIssue.reserve_laptop_id)
         .order_by(LaptopIssue.reported_date.desc(), LaptopIssue.id.desc())
     )
+
+    if issue_id is not None:
+        stmt = stmt.where(LaptopIssue.id == issue_id)
 
     if not include_closed:
         stmt = stmt.where(LaptopIssue.status != "gesloten")

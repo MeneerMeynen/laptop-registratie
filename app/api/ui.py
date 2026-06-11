@@ -9,7 +9,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services.laptop_service import get_all_laptops, import_laptops_csv, list_students
+from app.services.laptop_service import (
+    get_all_laptops,
+    import_laptops_csv,
+    list_students,
+    parse_laptop_filters,
+)
 from app.services.storage_cabinet_service import list_cabinets
 from app.services.student_import import import_students_from_stream
 
@@ -119,23 +124,13 @@ def laptops_manage_partial(
     db: Session = Depends(get_db),
 ):
     """Instellingen-tab laptop list (HTMX refresh target)."""
-    active_filter: bool | None = None
-    if active == "actief":
-        active_filter = True
-    elif active == "inactief":
-        active_filter = False
-
-    if kind not in ("all", "normal", "reserve", "cabinet", "magazijn"):
-        kind = "all"
-
+    active_filter, kind = parse_laptop_filters(active, kind)
     laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
-    students = list_students(db)
     return templates.TemplateResponse(
         request,
         "partials/manage_laptop_list.html",
         {
             "laptops": laptops,
-            "students": students,
             "q": q,
             "active": active,
             "kind": kind,

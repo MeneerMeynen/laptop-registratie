@@ -14,7 +14,7 @@
     role="option"
     aria-selected="false"
     @click="selectStudent('{{ student.stamnummer }}', '{{ student.naam }}, {{ student.voornaam }} – {{ student.klas }} ({{ student.stamnummer }})')"
-    @keydown.tab.prevent="$el.closest('form').querySelector('#serial_number').focus()"
+    @keydown.tab.prevent="document.getElementById('serial_number').focus()"
 >
     <span class="student-option-name">{{ student.naam }}, {{ student.voornaam }}</span>
     <span class="student-option-meta">{{ student.klascode }} | {{ student.klas }}</span>
