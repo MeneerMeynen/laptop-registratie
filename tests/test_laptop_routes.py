@@ -387,3 +387,53 @@ def test_update_laptop_alias(client, db_session):
 
     assert resp.status_code == 200
     assert resp.json()["alias"] == "Nieuw-Alias"
+
+
+# ── CSV export ────────────────────────────────────────────────────────────────
+
+
+def test_export_laptops_returns_csv(client, db_session):
+    """GET /api/laptops/export returns a CSV attachment with a header row."""
+    _add_student(db_session, "S300", naam="Jansen", voornaam="Lotte")
+    _link(client, "S300", "EXP-001")
+
+    resp = client.get("/api/laptops/export")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/csv")
+    assert "attachment" in resp.headers["content-disposition"]
+    body = resp.text
+    assert "Serienummer;Type;Leerling" in body
+    assert "EXP-001" in body
+    assert "Lotte Jansen" in body
+
+
+def test_export_laptops_includes_accessory_status(client, db_session):
+    """Ingeleverde laptops must show ja/nee for hoes and oplader in the export."""
+    _add_student(db_session, "S310")
+    laptop_id = _link(client, "S310", "EXP-MISS").json()["id"]
+    _unlink(client, laptop_id, hoes=False, oplader=True)
+
+    resp = client.get("/api/laptops/export")
+
+    assert resp.status_code == 200
+    line = next(li for li in resp.text.splitlines() if "EXP-MISS" in li)
+    cols = line.split(";")
+    # Hoes ingeleverd = nee, Oplader ingeleverd = ja, Status = Inactief
+    assert "Inactief" in cols
+    assert "nee" in cols
+    assert "ja" in cols
+
+
+def test_export_laptops_respects_kind_filter(client, db_session):
+    """The kind filter must scope the export the same way the list does."""
+    _add_student(db_session, "S320")
+    _link(client, "S320", "EXP-NORM")
+    _create_reserve(client, "Reserve-Exp", serial="EXP-RES")
+
+    resp = client.get("/api/laptops/export?kind=reserve")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "EXP-RES" in body
+    assert "EXP-NORM" not in body

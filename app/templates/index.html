@@ -453,6 +453,11 @@
                      accept=".csv,text/csv" required style="display:none;"
                      onchange="this.closest('form').requestSubmit()">
             </form>
+            <a :href="'/api/laptops/export?' + new URLSearchParams({ q: laptopManageSearch, kind: laptopManageKind, active: laptopManageFilter }).toString()"
+               class="btn sm" style="height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;"
+               download>
+              ↓ CSV export
+            </a>
             <div id="laptop-import-result" class="status" aria-live="polite" style="margin:0; font-size:12px;"></div>
           </div>
         </div>
