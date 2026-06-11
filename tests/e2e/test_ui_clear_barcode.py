@@ -10,7 +10,7 @@ def test_clear_barcode_wipes_input(page: Page, base_url: str):
     """
     page.goto(base_url)
 
-    page.get_by_role("tab", name="Registreer laptops").click()
+    page.get_by_role("tab", name="Registreer").click()
 
     serial_input = page.locator("#serial_number")
 

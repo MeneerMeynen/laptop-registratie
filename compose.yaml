@@ -83,7 +83,7 @@ services:
       E2E_USERNAME: ${AUTH_USERNAME:-admin}
       E2E_PASSWORD: ${AUTH_PASSWORD:-changeme}
     command: >
-      bash -c "pip install --quiet pytest pytest-playwright &&
+      bash -c "pip install --quiet pytest pytest-playwright playwright==1.58.0 &&
                until curl -sf http://app:8000/login > /dev/null; do sleep 2; done &&
                pytest tests/e2e/ -v --base-url http://app:8000 --confcutdir=tests/e2e"
     depends_on:

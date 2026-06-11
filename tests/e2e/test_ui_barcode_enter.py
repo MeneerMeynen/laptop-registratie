@@ -9,20 +9,20 @@ def test_barcode_enter_without_student_shows_error(page: Page, base_url: str):
     """
     page.goto(base_url)
 
-    page.get_by_role("tab", name="Registreer laptops").click()
+    page.get_by_role("tab", name="Registreer").click()
 
     serial_input = page.locator("#serial_number")
     serial_input.fill("HP-NB-2024-XZ99")
     serial_input.press("Enter")
 
-    expect(page.locator(".status")).to_have_text("Selecteer eerst een leerling.")
+    expect(page.locator(".reg-main .status")).to_have_text("Selecteer eerst een leerling.")
 
 
 def test_barcode_enter_clears_field_on_escape(page: Page, base_url: str):
     """Escape wist het invoerveld na het typen van een barcode."""
     page.goto(base_url)
 
-    page.get_by_role("tab", name="Registreer laptops").click()
+    page.get_by_role("tab", name="Registreer").click()
 
     serial_input = page.locator("#serial_number")
     serial_input.fill("HP-NB-2024-XZ99")
