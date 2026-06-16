@@ -1128,6 +1128,8 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .lt-icon-btn-edit:hover { background: var(--surface-3); color: var(--text); box-shadow: none; }
 .lt-icon-btn-delete { background: var(--red-wash); color: var(--red); border-color: var(--danger-border); width: 26px; }
 .lt-icon-btn-delete:hover { background: rgba(224,114,114,.22); box-shadow: none; }
+.lt-icon-btn-fiche  { background: var(--surface-2); color: var(--text-2); border-color: var(--border-mid); width: 26px; }
+.lt-icon-btn-fiche:hover { background: var(--surface-3); color: var(--text); box-shadow: none; }
 
 .lt-issue-solution-text { margin-top: 5px; font-size: .78rem; color: var(--muted); padding: 5px 9px; background: var(--accent-faint); border-radius: var(--r-sm); border-left: 2px solid var(--accent); line-height: 1.5; }
 .lt-entries { margin-top: 8px; display: flex; flex-direction: column; }

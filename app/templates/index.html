@@ -1095,6 +1095,9 @@
     <span class="modal-close-btn" @click="closeNewIssueModal()" role="button" tabindex="0"
           @keydown.enter="closeNewIssueModal()" @keydown.space.prevent="closeNewIssueModal()">✕</span>
     <h3>Nieuw probleem melden</h3>
+
+    <!-- Invoerstap -->
+    <div x-show="!newIssueCreatedId">
     <div class="field">
       <label for="new-issue-serial">Serienummer laptop</label>
       <input id="new-issue-serial" type="text" list="laptop-suggestions"
@@ -1140,6 +1143,16 @@
     </div>
     <div class="modal-actions">
       <button type="button" class="btn-save" style="width:auto;" @click="submitNewIssue()">Opslaan</button>
+    </div>
+    </div><!-- /invoerstap -->
+
+    <!-- Bevestigingsstap: fiche afdrukken -->
+    <div x-show="newIssueCreatedId" x-cloak>
+      <p class="import-help" style="margin-bottom:16px;">✓ Het probleem is geregistreerd. Druk de defectfiche af om bij het toestel te voegen.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-save" style="width:auto;" @click="printIssueFiche(newIssueCreatedId)">🖨 Fiche afdrukken</button>
+        <button type="button" class="btn-secondary" style="width:auto;" @click="closeNewIssueModal()">Klaar</button>
+      </div>
     </div>
   </div>
 </div>

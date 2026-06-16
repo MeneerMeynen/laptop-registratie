@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defectfiche – {{ issue.serial_number }}</title>
+  {% set voornaam = (student.voornaam if student else issue.voornaam) or '' %}
+  {% set naam = (student.naam if student else issue.naam) or '' %}
+  {% set klas = (student.klas if student else '') or '' %}
+  {% set reserve_alias = issue.reserve_laptop_alias or '' %}
+  {% set reserve_serial = issue.reserve_laptop_serial or '' %}
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #3dc6b2;
+      --ink:    #14161a;
+      --dim:    #767b85;
+      --line:   #d6d9de;
+      --paper:  #ffffff;
+    }
+
+    body {
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      background: #f4f5f7;
+      color: var(--ink);
+      padding: 32px;
+    }
+
+    /* ── Screen header (hidden when printing) ── */
+    .screen-header {
+      width: 210mm;
+      max-width: 100%;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .screen-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    .screen-header p { font-size: 13px; color: var(--dim); margin-top: 2px; }
+    .btn-print {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent); color: #fff;
+      font-size: 14px; font-weight: 600;
+      border: none; border-radius: 8px; padding: 10px 20px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-print:hover { opacity: .88; }
+
+    /* ── A4 sheet ── */
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      max-width: 100%;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 16mm 16mm 14mm;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10);
+    }
+
+    .half {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .divider {
+      border-top: 2px dashed var(--line);
+      margin: 8mm 0;
+    }
+
+    .fiche-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      padding: 8px 18px;
+      align-self: flex-start;
+      margin-bottom: 14px;
+    }
+
+    /* ── Blocks ── */
+    .block {
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 14px;
+    }
+    .block-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--dim);
+      margin-bottom: 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 28px;
+    }
+    .field { display: flex; flex-direction: column; gap: 2px; }
+    .k { font-size: 11px; color: var(--dim); font-weight: 600; }
+    .v { font-size: 16px; font-weight: 600; color: var(--ink); }
+    .v.empty { color: var(--dim); font-weight: 400; }
+
+    .desc {
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    /* ── Reserve line (bottom half) ── */
+    .reserve-line {
+      display: flex; align-items: baseline; gap: 10px;
+      border: 1.5px solid var(--ink);
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
+    }
+    .reserve-line .k { font-size: 14px; color: var(--ink); }
+    .reserve-line .v { font-size: 18px; }
+    .reserve-blank {
+      flex: 1; border-bottom: 1.5px solid var(--ink);
+      min-width: 60mm; height: 1.1em;
+    }
+
+    /* ── Manual fill-in area ── */
+    .block.fill { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .lines {
+      flex: 1;
+      min-height: 45mm;
+      background-image: repeating-linear-gradient(
+        to bottom, transparent, transparent 9mm,
+        var(--line) 9mm, var(--line) calc(9mm + 1px)
+      );
+      margin-top: 4px;
+    }
+
+    .date-field {
+      display: flex; align-items: baseline; gap: 12px;
+      align-self: flex-end;
+      margin-top: 12px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 18px;
+    }
+    .date-field .k { font-size: 13px; }
+    .date-blank { border-bottom: 1.5px solid var(--ink); width: 45mm; height: 1.1em; }
+
+    /* ── Print ── */
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      body { background: white; padding: 0; }
+      .screen-header { display: none; }
+      .sheet {
+        width: 210mm; min-height: 297mm; height: 297mm;
+        box-shadow: none; margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="screen-header">
+    <div>
+      <h1>Defectfiche</h1>
+      <p>Print op A4 en voeg toe bij het toestel dat ter herstelling gaat.</p>
+    </div>
+    <button class="btn-print" onclick="window.print()">🖨 Afdrukken</button>
+  </div>
+
+  <div class="sheet">
+
+    <!-- ── Bovenste helft: Defect fiche ── -->
+    <section class="half">
+      <div class="fiche-title">Defect fiche</div>
+
+      <div class="block">
+        <div class="block-label">Leerling &amp; toestel</div>
+        <div class="grid">
+          <div class="field">
+            <span class="k">Naam leerling</span>
+            {% if voornaam or naam %}
+            <span class="v">{{ voornaam }} {{ naam }}</span>
+            {% else %}
+            <span class="v empty">Niet gekoppeld</span>
+            {% endif %}
+          </div>
+          <div class="field">
+            <span class="k">Klas</span>
+            <span class="v {% if not klas %}empty{% endif %}">{{ klas or '—' }}</span>
+          </div>
+          <div class="field">
+            <span class="k">Serienummer laptop</span>
+            <span class="v">{{ issue.serial_number }}</span>
+          </div>
+          <div class="field">
+            <span class="k">Datum aanmelding</span>
+            <span class="v">{{ issue.reported_date.strftime('%-d %B %Y') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-label">Defect</div>
+        <div class="grid">
+          <div class="field">
+            <span class="k">Type defect</span>
+            <span class="v {% if not issue.category %}empty{% endif %}">{{ issue.category or '—' }}</span>
+          </div>
+        </div>
+        {% if issue.description %}
+        <div class="desc">{{ issue.description }}</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── Onderste helft: Herstel Fiche ── -->
+    <section class="half">
+      <div class="fiche-title">Herstel Fiche</div>
+
+      <div class="reserve-line">
+        <span class="k">In te leveren reserve toestel:</span>
+        {% if reserve_alias or reserve_serial %}
+        <span class="v">{{ reserve_alias }}{% if reserve_serial %} ({{ reserve_serial }}){% endif %}</span>
+        {% else %}
+        <span class="reserve-blank"></span>
+        {% endif %}
+      </div>
+
+      <div class="block fill">
+        <div class="block-label">Notitie herstelling — handmatig invullen</div>
+        <div class="lines"></div>
+      </div>
+
+      <div class="date-field">
+        <span class="k">Datum hersteld</span>
+        <span class="date-blank"></span>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

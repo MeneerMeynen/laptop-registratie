@@ -224,6 +224,25 @@ def laptop_tracker_detail(
     )
 
 
+@router.get("/laptop-issues/{issue_id}/fiche", response_class=HTMLResponse)
+def laptop_issue_fiche(
+    request: Request,
+    issue_id: int,
+    db: Session = Depends(get_db),
+):
+    """Render an A4 print sheet (defect- + herstelfiche) for a single ticket."""
+    rows = list_issues(db, include_closed=True, issue_id=issue_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Ticket niet gevonden.")
+    issue = rows[0]
+    student = get_student_for_serial(db, issue["serial_number"])
+    return templates.TemplateResponse(
+        request,
+        "issue_fiche.html",
+        {"issue": issue, "student": student},
+    )
+
+
 @router.post("/ui/laptop-issues/{issue_id}/entries", response_class=HTMLResponse)
 def post_issue_entry(
     request: Request,

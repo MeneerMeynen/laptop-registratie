@@ -31,6 +31,7 @@ function laptopApp() {
     newIssueDate:       new Date().toISOString().slice(0, 10),
     newIssueCategory:   '',
     newIssueSuggestions:[],
+    newIssueCreatedId:  null,
     showEditIssueModal: false,
     editIssueId:        null,
     editIssueSerial:    '',
@@ -657,6 +658,7 @@ function laptopApp() {
       this.newIssueCategory          = '';
       this.newIssueSuggestions       = [];
       this.newIssueReserveLaptopId   = '';
+      this.newIssueCreatedId         = null;
       this.showNewIssueModal         = true;
       this.loadAvailableReserves();
       this.$nextTick(() => document.getElementById('new-issue-serial').focus());
@@ -685,7 +687,9 @@ function laptopApp() {
       return base;
     },
 
-    closeNewIssueModal() { this.showNewIssueModal = false; },
+    closeNewIssueModal() { this.showNewIssueModal = false; this.newIssueCreatedId = null; },
+
+    printIssueFiche(id) { window.open(`/laptop-issues/${id}/fiche`, '_blank'); },
 
     async fetchLaptopSuggestions() {
       const q = this.newIssueSerial.trim();
@@ -715,8 +719,10 @@ function laptopApp() {
         const data = await res.json();
         this.issueStatus = { text: data.detail || 'Opslaan mislukt.', type: 'error' }; return;
       }
+      const created = await res.json();
       this.issueStatus = { text: '✓ Probleem gemeld.', type: 'success' };
-      this.closeNewIssueModal();
+      // Keep the modal open on a confirmation step that offers to print the fiche.
+      this.newIssueCreatedId = created.id;
       this.refreshLaptopDetail();
       this.refreshLaptopSidebar();
       // Also clear global scan value
