@@ -34,6 +34,7 @@ from app.services.laptop_service import (
     import_laptops_csv,
     link_laptop_to_student,
     list_available_reserve_laptops,
+    parse_column_filters,
     parse_laptop_filters,
     unlink_laptop,
     update_laptop,
@@ -57,11 +58,23 @@ def export_laptops(
     q: str | None = None,
     active: str = "all",
     kind: str = "all",
+    c_serial: str = "",
+    c_student: str = "",
+    c_klas: str = "",
+    c_status: str = "",
+    c_acc: str = "",
+    c_date: str = "",
     db: Session = Depends(get_db),
 ):
     """Download the laptop management list as a CSV file (respects current filters)."""
     active_filter, kind = parse_laptop_filters(active, kind)
-    laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
+    columns = parse_column_filters(
+        serial=c_serial, student=c_student, klas=c_klas,
+        status=c_status, acc=c_acc, date=c_date,
+    )
+    laptops = get_all_laptops(
+        db, q=q or None, active=active_filter, kind=kind, columns=columns
+    )
 
     # Labels hieronder spiegelen de weergave in partials/manage_laptop_list.html —
     # houd beide in sync bij wijzigingen.

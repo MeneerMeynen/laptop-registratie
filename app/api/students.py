@@ -31,11 +31,15 @@ def get_students(db: Session = Depends(get_db)):
 
 
 @router.post("/import")
-def import_students(file: UploadFile, db: Session = Depends(get_db)):
+def import_students(
+    file: UploadFile, leerkracht: bool = False, db: Session = Depends(get_db)
+):
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
     content = file.file.read().decode("utf-8-sig")
-    count = import_students_from_stream(db, io.StringIO(content))
+    count = import_students_from_stream(
+        db, io.StringIO(content), is_leerkracht=leerkracht
+    )
     return {"imported": count}
 
 

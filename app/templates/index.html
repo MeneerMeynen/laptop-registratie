@@ -265,14 +265,14 @@
         <div class="field" style="margin-bottom: 8px;">
           <label for="student-filter">Stap 1 · Leerling</label>
           <input id="student-filter" class="input filter-input"
-                 type="text" placeholder="🔍 Naam, klas, stamnummer…"
+                 type="text" placeholder="🔍 Naam, klas, stamnummer, afkorting…"
                  autocomplete="off"
                  x-model="laptopSearch" @input="filterStudents">
         </div>
 
         <!-- Student list redesigned -->
         <div class="stu-list" id="student-list-wrap">
-          <div id="student-list" role="listbox" aria-label="Selecteer een leerling">
+          <div id="student-list" role="listbox" aria-label="Selecteer een leerling of leerkracht">
             {% include "partials/student_list.html" %}
           </div>
         </div>
@@ -389,8 +389,18 @@
         <div class="stu-side-nav">
           <div class="stu-side-item" :class="stuSideFilter === 'all' ? 'on' : ''"
                @click="setStuFilter('all', '')">
-            <span>Alle leerlingen</span>
+            <span>Alle</span>
             <span class="count" x-text="stuCounts.all || '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'leerlingen' ? 'on' : ''"
+               @click="setStuFilter('leerlingen', '__leerlingen__')">
+            <span>Leerlingen</span>
+            <span class="count" x-text="stuCounts.leerlingen ?? '…'"></span>
+          </div>
+          <div class="stu-side-item" :class="stuSideFilter === 'leerkrachten' ? 'on' : ''"
+               @click="setStuFilter('leerkrachten', '__leerkrachten__')">
+            <span>Leerkrachten</span>
+            <span class="count" x-text="stuCounts.leerkrachten ?? '…'"></span>
           </div>
           <div class="stu-side-item" :class="stuSideFilter === 'met' ? 'on' : ''"
                @click="setStuFilter('met', '__met_laptop__')">
@@ -446,7 +456,7 @@
                      accept=".csv,text/csv" required style="display:none;"
                      onchange="this.closest('form').requestSubmit()">
             </form>
-            <a :href="'/api/laptops/export?' + new URLSearchParams({ q: laptopManageSearch, kind: laptopManageKind, active: laptopManageFilter }).toString()"
+            <a :href="'/api/laptops/export?' + laptopManageParams().toString()"
                class="btn sm" style="height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;"
                download>
               ↓ CSV export
@@ -586,6 +596,36 @@
                 <th>Gekoppeld op</th>
                 <th style="width:200px;"></th>
               </tr>
+              <tr class="lt-manage-filter-row">
+                <th><input class="input" type="search" placeholder="Filter…" aria-label="Filter op serienummer"
+                           x-model="laptopManageCols.serial" @input.debounce.300ms="refreshLaptopManage()"></th>
+                <th><input class="input" type="search" placeholder="Naam, alias, kast…" list="lt-filter-type"
+                           aria-label="Filter op type of leerling"
+                           x-model="laptopManageCols.student" @input.debounce.300ms="refreshLaptopManage()">
+                    <datalist id="lt-filter-type">
+                      <option value="Leerling"><option value="Reserve"><option value="Kast">
+                      <option value="Magazijn"><option value="Eigen laptop">
+                    </datalist></th>
+                <th><input class="input" type="search" placeholder="Klas…" aria-label="Filter op klas"
+                           x-model="laptopManageCols.klas" @input.debounce.300ms="refreshLaptopManage()"></th>
+                <th><input class="input" type="search" placeholder="Actief…" list="lt-filter-status"
+                           aria-label="Filter op status"
+                           x-model="laptopManageCols.status" @input.debounce.300ms="refreshLaptopManage()">
+                    <datalist id="lt-filter-status"><option value="Actief"><option value="Inactief"></datalist></th>
+                <th><input class="input" type="search" placeholder="Hoes, oplader…" list="lt-filter-acc"
+                           aria-label="Filter op accessoires"
+                           x-model="laptopManageCols.acc" @input.debounce.300ms="refreshLaptopManage()">
+                    <datalist id="lt-filter-acc">
+                      <option value="hoes"><option value="oplader"><option value="compleet"><option value="n.v.t.">
+                    </datalist></th>
+                <th><input class="input" type="search" placeholder="jjjj, mm/jjjj, dd/mm/jjjj"
+                           aria-label="Filter op gekoppeld op"
+                           x-model="laptopManageCols.date" @input.debounce.300ms="refreshLaptopManage()"></th>
+                <th style="text-align:right;">
+                  <button type="button" class="btn sm" x-show="hasLaptopColumnFilters()" x-cloak
+                          @click="clearLaptopColumnFilters()">Wis filters</button>
+                </th>
+              </tr>
             </thead>
             <tbody id="manage-laptop-list"
                    hx-get="/ui/laptops/manage"
@@ -620,9 +660,22 @@
                   @htmx:after-request="onImportComplete"
                   style="margin:0;">
               <label for="student-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
-                ↑ CSV import
+                ↑ CSV leerlingen
               </label>
               <input id="student-import-file" name="file" type="file"
+                     accept=".csv,text/csv" required style="display:none;"
+                     onchange="this.closest('form').requestSubmit()">
+            </form>
+            <form hx-post="/ui/students/import?leerkracht=true"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-result"
+                  hx-swap="innerHTML"
+                  @htmx:after-request="onImportComplete"
+                  style="margin:0;">
+              <label for="teacher-import-file" class="btn sm" style="cursor:pointer; height:28px; padding: 0 10px; display:inline-flex; align-items:center; font-size: 12px;">
+                ↑ CSV leerkrachten
+              </label>
+              <input id="teacher-import-file" name="file" type="file"
                      accept=".csv,text/csv" required style="display:none;"
                      onchange="this.closest('form').requestSubmit()">
             </form>
@@ -665,6 +718,15 @@
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Instellingsnummer</label>
             <input class="input" type="text" x-model="newStudent.instellingsnummer">
           </div>
+          <div>
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Afkorting</label>
+            <input class="input" type="text" placeholder="bijv. VOOEM" x-model="newStudent.afkorting">
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <label style="font-size:12px; display:flex; gap:6px; align-items:center; cursor:pointer;">
+              <input type="checkbox" x-model="newStudent.is_leerkracht"> Leerkracht
+            </label>
+          </div>
           <div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
             <button type="button" class="btn sm accent" @click="createStudent()">Toevoegen</button>
             <div class="status"
@@ -675,7 +737,7 @@
 
         <div class="stu-search">
           <input class="input" type="text"
-                 placeholder="🔍 Zoek op naam, klas, stamnummer, gebruikersnaam…"
+                 placeholder="🔍 Zoek op naam, klas, stamnummer, afkorting…"
                  x-model="manageSearch" @input="filterManage">
           <button type="button" class="btn sm"
                   :class="showUitgeschreven ? 'accent' : ''"
@@ -699,7 +761,10 @@
         </div>
 
         <p class="import-help" style="margin-top: 14px;">
-          Upload een CSV. Studenten die niet in de laatste import zitten krijgen de badge <strong>Uitgeschreven</strong>.
+          Upload een CSV met leerlingen of leerkrachten (punt­komma-, tab- of kommagescheiden).
+          Leerkrachten zonder stamnummer worden geïdentificeerd via hun gebruikersnaam; de kolom
+          <strong>Afkorting</strong> wordt mee overgenomen. Paswoord-, betaalkaart- en pincodekolommen worden genegeerd.
+          Wie niet in de laatste import van zijn groep zit, krijgt de badge <strong>Uitgeschreven</strong>.
         </p>
 
       </div>
@@ -1272,6 +1337,7 @@
     <p>Beheer studenten, laptops en uitleenkasten.</p>
     <ul>
       <li><strong>Studenten:</strong> importeer een CSV-bestand met leerlinggegevens. Bestaande leerlingen worden bijgewerkt (upsert op stamnummer). Leerlingen die niet in de laatste import staan krijgen de badge <em>Uitgeschreven</em>.</li>
+      <li><strong>Leerkrachten:</strong> importeer via <em>CSV leerkrachten</em> (export met kolommen Naam, Voornaam, Gebruikersnaam, Afkorting…; zonder stamnummer wordt de gebruikersnaam gebruikt). Leerkrachten verschijnen met de badge <em>Leerkracht</em> in de lijst op Registreer en kunnen net als leerlingen een laptop krijgen.</li>
       <li>Zoek op naam, klas, gebruikersnaam, stamnummer of pointer. Vink <em>Toon uitgeschreven</em> aan om ook oud-leerlingen te zien.</li>
       <li>Selecteer meerdere leerlingen en klik <strong>Verwijder geselecteerde</strong> om ze te verwijderen.</li>
       <li><strong>Laptops:</strong> bekijk alle laptops, filter op type (normaal / reserve / kast) en voeg nieuwe toe.</li>

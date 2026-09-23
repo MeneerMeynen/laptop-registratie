@@ -11,3 +11,6 @@ cert_setup.sh
 
 # lege mountpoint voor zxing-wasm volume (dev-override)
 app/static/zxing-wasm/
+
+# Leerkrachten-export bevat paswoorden in platte tekst — nooit committen
+teacher_data/

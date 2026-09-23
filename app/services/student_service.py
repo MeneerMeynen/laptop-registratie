@@ -27,6 +27,7 @@ _EDITABLE_FIELDS = (
     "klasnummer",
     "gebruikersnaam",
     "pointer",
+    "afkorting",
 )
 
 
@@ -46,8 +47,10 @@ def delete_students_by_stamnummers(session: Session, stamnummers: list[str]) -> 
     return len(students)
 
 
-def create_student(session: Session, *, stamnummer: str, **fields) -> Student:
-    """Create a single student manually."""
+def create_student(
+    session: Session, *, stamnummer: str, is_leerkracht: bool = False, **fields
+) -> Student:
+    """Create a single student (or teacher) manually."""
     normalized = (stamnummer or "").strip()
     if not normalized:
         raise StudentValidationError("Stamnummer is verplicht.")
@@ -55,7 +58,11 @@ def create_student(session: Session, *, stamnummer: str, **fields) -> Student:
     if session.get(Student, normalized) is not None:
         raise StudentAlreadyExistsError(f"Student {normalized} bestaat al.")
 
-    student = Student(stamnummer=normalized, last_import=datetime.now(timezone.utc))
+    student = Student(
+        stamnummer=normalized,
+        is_leerkracht=is_leerkracht,
+        last_import=datetime.now(timezone.utc),
+    )
     for key in _EDITABLE_FIELDS:
         value = fields.get(key)
         if value is not None:

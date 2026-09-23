@@ -920,6 +920,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 }
 .badge-own    { background: var(--accent-wash); color: var(--accent); border: 1px solid rgba(61,198,178,.25); }
 .badge-old    { background: var(--amber-wash);  color: var(--amber);  border: 1px solid rgba(219,163,76,.25); margin-left: 6px; }
+.badge-teacher { background: color-mix(in srgb, var(--text-2) 12%, transparent); color: var(--text-2); border: 1px solid var(--border-mid); margin-left: 6px; }
 .badge-active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border: 1px solid rgba(61,198,178,.25); }
 
 /* Laptop manage table */
@@ -937,6 +938,7 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .lt-manage-table tr:last-child td { border-bottom: none; }
 .lt-manage-table tr:hover td { background: var(--surface2); }
 .lt-manage-table .input { padding: 4px 8px; font-size: .82rem; width: 100%; }
+.lt-manage-filter-row th { padding: 4px 12px 8px; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .lt-manage-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 
 .filter-summary  { margin: 8px 0 0; color: var(--muted-light); font-size: .78rem; }

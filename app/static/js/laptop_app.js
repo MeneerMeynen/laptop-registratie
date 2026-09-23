@@ -57,12 +57,13 @@ function laptopApp() {
     recentLinks:        [],
     // Studenten sidebar
     stuSideFilter:      'all',
-    stuCounts:          { all: null, met: null, zonder: null, eigen: null, oud: null },
+    stuCounts:          { all: null, leerlingen: null, leerkrachten: null, met: null, zonder: null, eigen: null, oud: null },
     // Instellingen
     instellingenSection: 'laptops',
     laptopManageSearch: '',
     laptopManageFilter: 'all',
     laptopManageKind:   'all',
+    laptopManageCols:   { serial: '', student: '', klas: '', status: '', acc: '', date: '' },
     showNewLaptopForm:  false,
     newLaptopSerial:    '',
     newLaptopStamnummer:'',
@@ -80,7 +81,7 @@ function laptopApp() {
     bulkLaptopStatus:   { text: '', type: '' },
     // Studenten CRUD
     showNewStudentForm: false,
-    newStudent:         { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '' },
+    newStudent:         { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '', afkorting: '', is_leerkracht: false },
     newStudentStatus:   { text: '', type: '' },
     showEditStudentModal: false,
     editStudent:        { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '', pointer: '' },
@@ -110,6 +111,8 @@ function laptopApp() {
     },
 
     init() {
+      // Laat de losse ltManage*-functies de lijst herladen mét actieve filters.
+      window.ltRefreshManage = () => this.refreshLaptopManage();
       document.documentElement.setAttribute('data-theme', this.theme);
       this.activeTab         = sessionStorage.getItem('activeTab') || 'laptops';
       this.manageSearch      = sessionStorage.getItem('manageSearch') || '';
@@ -341,7 +344,7 @@ function laptopApp() {
       sessionStorage.setItem('manageSearch', this.manageSearch);
       sessionStorage.setItem('showUitgeschreven', String(this.showUitgeschreven));
 
-      const specialTokens = ['__met_laptop__', '__zonder_laptop__', '__eigen_laptop__'];
+      const specialTokens = ['__met_laptop__', '__zonder_laptop__', '__eigen_laptop__', '__leerlingen__', '__leerkrachten__'];
       const isSpecial = specialTokens.includes(q);
 
       document.querySelectorAll('.manage-row').forEach(row => {
@@ -354,6 +357,10 @@ function laptopApp() {
           matchesQ = (row.dataset.laptop || '') === 'zonder';
         } else if (q === '__eigen_laptop__') {
           matchesQ = (row.dataset.laptop || '').includes('eigen');
+        } else if (q === '__leerlingen__') {
+          matchesQ = row.dataset.group === 'leerling';
+        } else if (q === '__leerkrachten__') {
+          matchesQ = row.dataset.group === 'leerkracht';
         } else {
           matchesQ = row.dataset.manageFilter.toLowerCase().includes(q);
         }
@@ -378,6 +385,8 @@ function laptopApp() {
         this.manageSearch = '__zonder_laptop__';
       } else if (specialFilter === '__eigen_laptop__') {
         this.manageSearch = '__eigen_laptop__';
+      } else if (specialFilter === '__leerlingen__' || specialFilter === '__leerkrachten__') {
+        this.manageSearch = specialFilter;
       } else {
         this.manageSearch = '';
       }
@@ -394,6 +403,8 @@ function laptopApp() {
     _computeStuCounts() {
       const rows = [...document.querySelectorAll('.manage-row')];
       this.stuCounts.all    = rows.length;
+      this.stuCounts.leerlingen   = rows.filter(r => r.dataset.group === 'leerling').length;
+      this.stuCounts.leerkrachten = rows.filter(r => r.dataset.group === 'leerkracht').length;
       this.stuCounts.oud    = rows.filter(r => r.dataset.oldImport === 'true').length;
       this.stuCounts.met    = rows.filter(r => (r.dataset.laptop || '').includes('met')).length;
       this.stuCounts.zonder = rows.filter(r => r.dataset.laptop === 'zonder').length;
@@ -838,13 +849,29 @@ function laptopApp() {
     },
 
     // ── Laptop management (Instellingen) ───────────────────
-    refreshLaptopManage() {
+    laptopManageParams() {
       const params = new URLSearchParams({
         active: this.laptopManageFilter,
         kind:   this.laptopManageKind || 'all',
       });
       if (this.laptopManageSearch.trim()) params.set('q', this.laptopManageSearch.trim());
-      htmx.ajax('GET', `/ui/laptops/manage?${params}`, {
+      for (const [key, value] of Object.entries(this.laptopManageCols)) {
+        if (value.trim()) params.set(`c_${key}`, value.trim());
+      }
+      return params;
+    },
+
+    hasLaptopColumnFilters() {
+      return Object.values(this.laptopManageCols).some(v => v.trim());
+    },
+
+    clearLaptopColumnFilters() {
+      for (const key of Object.keys(this.laptopManageCols)) this.laptopManageCols[key] = '';
+      this.refreshLaptopManage();
+    },
+
+    refreshLaptopManage() {
+      htmx.ajax('GET', `/ui/laptops/manage?${this.laptopManageParams()}`, {
         target: '#manage-laptop-list', swap: 'innerHTML',
       });
     },
@@ -1133,8 +1160,8 @@ function laptopApp() {
         this.newStudentStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' };
         return;
       }
-      this.newStudentStatus = { text: `✓ Leerling ${stam} aangemaakt.`, type: 'success' };
-      this.newStudent = { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '' };
+      this.newStudentStatus = { text: `✓ ${this.newStudent.is_leerkracht ? 'Leerkracht' : 'Leerling'} ${stam} aangemaakt.`, type: 'success' };
+      this.newStudent = { stamnummer: '', voornaam: '', naam: '', klas: '', klasnummer: '', klascode: '', gebruikersnaam: '', instellingsnummer: '', afkorting: '', is_leerkracht: false };
       this.refreshManageStudentList();
     },
 
@@ -1277,7 +1304,7 @@ async function ltManageSave(btn, laptopId) {
     alert(data.detail || 'Opslaan mislukt.');
     return;
   }
-  htmx.ajax('GET', '/ui/laptops/manage', { target: '#manage-laptop-list', swap: 'innerHTML' });
+  window.ltRefreshManage();
 }
 
 async function ltManageDelete(btn, laptopId, serial) {
@@ -1290,7 +1317,7 @@ async function ltManageDelete(btn, laptopId, serial) {
     btn.disabled = false;
     return;
   }
-  htmx.ajax('GET', '/ui/laptops/manage', { target: '#manage-laptop-list', swap: 'innerHTML' });
+  window.ltRefreshManage();
 }
 
 function deleteGalleryPhoto(photoId, serial) {
