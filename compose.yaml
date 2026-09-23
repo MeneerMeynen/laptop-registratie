@@ -22,7 +22,7 @@ services:
     environment:
       # Override DATABASE_URL so the app always reaches the 'db' service inside Docker.
       # This takes precedence over any .env file value (which uses localhost for local dev).
-      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/laptops
+      DATABASE_URL: mysql+pymysql://root:${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-}}@db:3306/laptops
       AUTH_USERNAME: ${AUTH_USERNAME:-admin}
       AUTH_PASSWORD: ${AUTH_PASSWORD:-changeme}
       SESSION_SECRET: ${SESSION_SECRET:-dev-insecure-secret-please-set}
@@ -40,7 +40,7 @@ services:
     build: .
     profiles: ["test"]
     environment:
-      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/laptops_test
+      DATABASE_URL: mysql+pymysql://root:${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-}}@db:3306/laptops_test
       PYTHONPATH: /app
       AUTH_USERNAME: test
       AUTH_PASSWORD: test
@@ -58,7 +58,7 @@ services:
     container_name: mariadb-laptop
     restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-}}
       MYSQL_DATABASE: laptops
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
