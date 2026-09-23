@@ -1,5 +1,7 @@
 """Tests for POST /api/laptops/link."""
 
+from datetime import datetime
+
 import pytest
 
 from app.models.student import Student
@@ -437,3 +439,74 @@ def test_export_laptops_respects_kind_filter(client, db_session):
     body = resp.text
     assert "EXP-RES" in body
     assert "EXP-NORM" not in body
+
+
+# ── Kolomfilters (beheer laptops) ─────────────────────────────────────────────
+
+def _manage(client, **params):
+    resp = client.get("/ui/laptops/manage", params=params)
+    assert resp.status_code == 200
+    return resp.text
+
+
+def test_manage_column_filter_serial(client, db_session):
+    _add_student(db_session, "S400")
+    _add_student(db_session, "S401")
+    _link(client, "S400", "COL-AAA")
+    _link(client, "S401", "COL-BBB")
+
+    body = _manage(client, c_serial="aaa")
+
+    assert "COL-AAA" in body
+    assert "COL-BBB" not in body
+
+
+def test_manage_column_filter_student_and_type(client, db_session):
+    _add_student(db_session, "S410", naam="Peeters", voornaam="Anna")
+    _link(client, "S410", "COL-STU")
+    _create_reserve(client, "Reserve-Col", serial="COL-RES")
+
+    assert "COL-STU" in _manage(client, c_student="peeters")
+    assert "COL-RES" not in _manage(client, c_student="peeters")
+    assert "COL-RES" in _manage(client, c_student="Reserve")
+    assert "COL-STU" not in _manage(client, c_student="Reserve")
+
+
+def test_manage_column_filter_status_and_accessories(client, db_session):
+    _add_student(db_session, "S420")
+    _add_student(db_session, "S421")
+    _link(client, "S420", "COL-ACT")
+    laptop_id = _link(client, "S421", "COL-INACT").json()["id"]
+    _unlink(client, laptop_id, hoes=False, oplader=True)
+
+    actief = _manage(client, c_status="actief")
+    assert "COL-ACT" in actief and "COL-INACT" not in actief
+    inactief = _manage(client, c_status="inactief")
+    assert "COL-INACT" in inactief and "COL-ACT" not in inactief
+    assert "COL-INACT" in _manage(client, c_acc="hoes")
+    assert "COL-INACT" not in _manage(client, c_acc="oplader")
+    assert "COL-ACT" in _manage(client, c_acc="n.v.t.")
+
+
+def test_manage_column_filter_date_and_combination(client, db_session):
+    _add_student(db_session, "S430")
+    _link(client, "S430", "COL-DATE")
+    year = str(datetime.now().year)
+
+    assert "COL-DATE" in _manage(client, c_date=year)
+    assert "COL-DATE" not in _manage(client, c_date="1999")
+    assert "COL-DATE" not in _manage(client, c_date="onzin")
+    assert "COL-DATE" in _manage(client, c_date=year, c_klas="3A", c_serial="DATE")
+    assert "COL-DATE" not in _manage(client, c_date=year, c_klas="9Z")
+
+
+def test_export_laptops_respects_column_filters(client, db_session):
+    _add_student(db_session, "S440")
+    _add_student(db_session, "S441")
+    _link(client, "S440", "EXPCOL-ONE")
+    _link(client, "S441", "EXPCOL-TWO")
+
+    body = client.get("/api/laptops/export", params={"c_serial": "one"}).text
+
+    assert "EXPCOL-ONE" in body
+    assert "EXPCOL-TWO" not in body

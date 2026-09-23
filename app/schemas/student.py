@@ -23,7 +23,9 @@ class StudentRead(BaseModel):
     klasnummer: str | None = None
     gebruikersnaam: str | None = None
     pointer: str | None = None
+    afkorting: str | None = None
     last_import: datetime | None = None
+    is_leerkracht: bool = False
     laptops: list[LaptopInfo] = []
 
 
@@ -37,6 +39,7 @@ class StudentDeleteResponse(BaseModel):
 
 class StudentCreate(BaseModel):
     stamnummer: str
+    is_leerkracht: bool = False
     instellingsnummer: str | None = None
     naam: str | None = None
     voornaam: str | None = None
@@ -45,6 +48,7 @@ class StudentCreate(BaseModel):
     klasnummer: str | None = None
     gebruikersnaam: str | None = None
     pointer: str | None = None
+    afkorting: str | None = None
 
 
 class StudentUpdate(BaseModel):
@@ -56,3 +60,4 @@ class StudentUpdate(BaseModel):
     klasnummer: str | None = None
     gebruikersnaam: str | None = None
     pointer: str | None = None
+    afkorting: str | None = None

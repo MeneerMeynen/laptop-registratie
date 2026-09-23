@@ -1,9 +1,9 @@
 import csv
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TextIO
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.laptop import Laptop
@@ -270,11 +270,121 @@ def parse_laptop_filters(active: str, kind: str) -> tuple[bool | None, str]:
     return active_filter, kind if kind in VALID_KINDS else "all"
 
 
+COLUMN_FILTER_KEYS = ("serial", "student", "klas", "status", "acc", "date")
+
+
+def parse_column_filters(**values: str | None) -> dict[str, str]:
+    """Houd alleen de niet-lege kolomfilters over (getrimd)."""
+    return {
+        key: (values.get(key) or "").strip()
+        for key in COLUMN_FILTER_KEYS
+        if (values.get(key) or "").strip()
+    }
+
+
+def _date_range(term: str) -> tuple[datetime, datetime] | None:
+    """Vertaal 'jjjj', 'mm/jjjj' of 'dd/mm/jjjj' naar een [start, einde)-bereik."""
+    parts = re.split(r"[/\-.]", term.strip())
+    try:
+        nums = [int(p) for p in parts]
+        if len(nums) == 1:
+            year = nums[0]
+            return datetime(year, 1, 1), datetime(year + 1, 1, 1)
+        if len(nums) == 2:
+            month, year = nums
+            end = datetime(year + (month == 12), month % 12 + 1, 1)
+            return datetime(year, month, 1), end
+        if len(nums) == 3:
+            day, month, year = nums
+            start = datetime(year, month, day)
+            return start, start + timedelta(days=1)
+    except ValueError:
+        pass
+    return None
+
+
+def _apply_column_filters(stmt, columns: dict[str, str]):
+    """Filter per tabelkolom; elke waarde is een vrij in te voeren, hoofdletterongevoelige term."""
+    if serial := columns.get("serial"):
+        stmt = stmt.where(Laptop.serial_number.ilike(f"%{serial}%"))
+
+    if term := columns.get("student"):
+        pattern = f"%{term}%"
+        term_l = term.lower()
+        type_labels = {
+            "leerling": and_(Laptop.is_reserve.is_(False), Laptop.storage_cabinet_id.is_(None)),
+            "reserve": Laptop.is_reserve.is_(True),
+            "kast": and_(Laptop.storage_cabinet_id.isnot(None), StorageCabinet.kind == "kast"),
+            "magazijn": and_(
+                Laptop.storage_cabinet_id.isnot(None), StorageCabinet.kind == "magazijn"
+            ),
+            "eigen laptop": Laptop.eigen_laptop.is_(True),
+        }
+        conditions = [
+            Laptop.stamnummer.ilike(pattern),
+            Laptop.alias.ilike(pattern),
+            Student.naam.ilike(pattern),
+            Student.voornaam.ilike(pattern),
+            (Student.voornaam + " " + Student.naam).ilike(pattern),
+            StorageCabinet.name.ilike(pattern),
+            StorageCabinet.location.ilike(pattern),
+        ]
+        conditions += [cond for label, cond in type_labels.items() if term_l in label]
+        stmt = stmt.where(or_(*conditions))
+
+    if klas := columns.get("klas"):
+        stmt = stmt.where(Student.klas.ilike(f"%{klas}%"))
+
+    if term := columns.get("status"):
+        term_l = term.lower()
+        if "inactief".startswith(term_l):
+            stmt = stmt.where(Laptop.unlinked_at.isnot(None))
+        elif "actief".startswith(term_l):
+            stmt = stmt.where(Laptop.unlinked_at.is_(None))
+        else:
+            stmt = stmt.where(false())
+
+    if term := columns.get("acc"):
+        term_l = term.lower()
+        # Accessoires zijn alleen zinvol voor ingeleverde leerling-laptops (zie template).
+        applicable = and_(
+            Laptop.unlinked_at.isnot(None),
+            Laptop.is_reserve.is_(False),
+            Laptop.storage_cabinet_id.is_(None),
+            Laptop.eigen_laptop.is_(False),
+        )
+        if "hoes".startswith(term_l) or term_l.startswith("hoes"):
+            cond = and_(applicable, Laptop.hoes_ingeleverd.is_(False))
+        elif "oplader".startswith(term_l) or term_l.startswith("oplader"):
+            cond = and_(applicable, Laptop.oplader_ingeleverd.is_(False))
+        elif "compleet".startswith(term_l):
+            cond = and_(
+                applicable,
+                Laptop.hoes_ingeleverd.is_(True),
+                Laptop.oplader_ingeleverd.is_(True),
+            )
+        elif term_l in ("—", "-", "n.v.t", "nvt", "n.v.t."):
+            cond = ~applicable
+        else:
+            cond = false()
+        stmt = stmt.where(cond)
+
+    if term := columns.get("date"):
+        window = _date_range(term)
+        if window is None:
+            stmt = stmt.where(false())
+        else:
+            stmt = stmt.where(Laptop.linked_at >= window[0], Laptop.linked_at < window[1])
+
+    return stmt
+
+
 def get_all_laptops(
     session: Session,
     q: str | None = None,
     active: bool | None = None,
     kind: str = "all",
+    columns: dict[str, str] | None = None,
 ) -> list[dict]:
     """Return all laptop records with joined student/cabinet info, optionally filtered.
 
@@ -288,6 +398,7 @@ def get_all_laptops(
             Student.naam,
             Student.voornaam,
             Student.klas,
+            Student.is_leerkracht,
             StorageCabinet.name.label("cabinet_name"),
             StorageCabinet.location.label("cabinet_location"),
             StorageCabinet.kind.label("cabinet_kind"),
@@ -336,6 +447,9 @@ def get_all_laptops(
             )
         )
 
+    if columns:
+        stmt = _apply_column_filters(stmt, columns)
+
     rows = session.execute(stmt).all()
     results = []
     for row in rows:
@@ -357,7 +471,7 @@ def get_all_laptops(
             "oplader_ingeleverd": row.Laptop.oplader_ingeleverd,
             "naam": row.naam,
             "voornaam": row.voornaam,
-            "klas": row.klas,
+            "klas": row.klas or ("Leerkracht" if row.is_leerkracht else None),
         })
     return results
 

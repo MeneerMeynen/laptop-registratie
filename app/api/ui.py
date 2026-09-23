@@ -13,6 +13,7 @@ from app.services.laptop_service import (
     get_all_laptops,
     import_laptops_csv,
     list_students,
+    parse_column_filters,
     parse_laptop_filters,
 )
 from app.services.storage_cabinet_service import list_cabinets
@@ -38,10 +39,18 @@ templates.env.globals["app_version"] = pkg_version("laptop-registratie")
 router = APIRouter(tags=["ui"])
 
 
-def _latest_import_at(students):
-    """Return the most recent last_import timestamp across all students, or None."""
-    timestamps = [s.last_import for s in students if s.last_import]
-    return max(timestamps) if timestamps else None
+def _latest_import_at(students) -> dict[bool, object]:
+    """Most recent last_import per group, keyed by ``is_leerkracht``.
+
+    Scoped per group so a teacher import doesn't mark every student as
+    "Uitgeschreven" (and vice versa).
+    """
+    latest: dict[bool, object] = {False: None, True: None}
+    for s in students:
+        group = bool(s.is_leerkracht)
+        if s.last_import and (latest[group] is None or s.last_import > latest[group]):
+            latest[group] = s.last_import
+    return latest
 
 
 # ── Full page ──────────────────────────────────────────────────────────────
@@ -121,11 +130,23 @@ def laptops_manage_partial(
     q: str = "",
     active: str = "all",
     kind: str = "all",
+    c_serial: str = "",
+    c_student: str = "",
+    c_klas: str = "",
+    c_status: str = "",
+    c_acc: str = "",
+    c_date: str = "",
     db: Session = Depends(get_db),
 ):
     """Instellingen-tab laptop list (HTMX refresh target)."""
     active_filter, kind = parse_laptop_filters(active, kind)
-    laptops = get_all_laptops(db, q=q or None, active=active_filter, kind=kind)
+    columns = parse_column_filters(
+        serial=c_serial, student=c_student, klas=c_klas,
+        status=c_status, acc=c_acc, date=c_date,
+    )
+    laptops = get_all_laptops(
+        db, q=q or None, active=active_filter, kind=kind, columns=columns
+    )
     return templates.TemplateResponse(
         request,
         "partials/manage_laptop_list.html",
@@ -179,6 +200,7 @@ async def import_laptops_ui(
 async def import_students_ui(
     request: Request,
     file: UploadFile,
+    leerkracht: bool = False,
     db: Session = Depends(get_db),
 ):
     """Handle CSV import and return a status message partial.
@@ -192,7 +214,10 @@ async def import_students_ui(
             status_code=400,
         )
     content = (await file.read()).decode("utf-8-sig")
-    count = import_students_from_stream(db, io.StringIO(content))
+    count = import_students_from_stream(
+        db, io.StringIO(content), is_leerkracht=leerkracht
+    )
+    label = "leerkracht(en)" if leerkracht else "student(en)"
     return HTMLResponse(
-        f'<span class="status success">✓ {count} student(en) geïmporteerd.</span>'
+        f'<span class="status success">✓ {count} {label} geïmporteerd.</span>'
     )

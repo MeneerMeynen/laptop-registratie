@@ -1,6 +1,7 @@
 """Tests for CSV student import — both service layer and HTTP route."""
 
 import io
+from datetime import timedelta
 
 from app.models.student import Student
 from app.services.student_import import import_students_from_stream
@@ -75,3 +76,198 @@ def test_import_route_rejects_non_csv(client):
     )
 
     assert resp.status_code == 400
+
+
+# ── Leerkrachten ──────────────────────────────────────────────────────────────
+
+def test_import_teachers_sets_flag(db_session):
+    count = import_students_from_stream(
+        db_session, _csv(_row("L001", klas="")), is_leerkracht=True
+    )
+
+    assert count == 1
+    teacher = db_session.get(Student, "L001")
+    assert teacher.is_leerkracht is True
+
+
+def test_student_import_defaults_to_not_teacher(db_session):
+    import_students_from_stream(db_session, _csv(_row("S100")))
+
+    assert db_session.get(Student, "S100").is_leerkracht is False
+
+
+def test_teacher_without_stamnummer_uses_gebruikersnaam(db_session):
+    csv = io.StringIO("Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n")
+
+    count = import_students_from_stream(db_session, csv, is_leerkracht=True)
+
+    assert count == 1
+    teacher = db_session.get(Student, "an.peeters")
+    assert teacher is not None
+    assert teacher.naam == "Peeters"
+    assert teacher.is_leerkracht is True
+
+
+def test_student_without_stamnummer_is_still_skipped(db_session):
+    csv = io.StringIO("Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n")
+
+    assert import_students_from_stream(db_session, csv) == 0
+
+
+def test_teacher_import_headers_are_case_insensitive(db_session):
+    csv = io.StringIO("NAAM ; voornaam;GEBRUIKERSNAAM\nJanssens;Tom;tom.janssens\n")
+
+    import_students_from_stream(db_session, csv, is_leerkracht=True)
+
+    teacher = db_session.get(Student, "tom.janssens")
+    assert teacher.naam == "Janssens"
+    assert teacher.voornaam == "Tom"
+
+
+def test_teacher_import_does_not_convert_existing_student(db_session):
+    import_students_from_stream(db_session, _csv(_row("X001", naam="Leerling")))
+
+    count = import_students_from_stream(
+        db_session, _csv(_row("X001", naam="Leerkracht")), is_leerkracht=True
+    )
+
+    assert count == 0
+    student = db_session.get(Student, "X001")
+    assert student.is_leerkracht is False
+    assert student.naam == "Leerling"
+
+
+def test_import_route_teachers(client, db_session):
+    csv_bytes = b"Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n"
+
+    resp = client.post(
+        "/api/students/import?leerkracht=true",
+        files={"file": ("leerkrachten.csv", csv_bytes, "text/csv")},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 1
+    assert db_session.get(Student, "an.peeters").is_leerkracht is True
+
+
+def test_uitgeschreven_is_scoped_per_group(client):
+    """A teacher import must not flag students as uitgeschreven (and vice versa)."""
+    client.post(
+        "/api/students/import",
+        files={"file": ("s.csv", f"{_CSV_HEADER}\n{_row('S200')}\n".encode(), "text/csv")},
+    )
+    client.post(
+        "/api/students/import?leerkracht=true",
+        files={"file": ("l.csv", b"Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n", "text/csv")},
+    )
+
+    html = client.get("/ui/students/manage").text
+
+    assert "Uitgeschreven" not in html
+    assert "badge-teacher" in html
+    assert 'data-group="leerkracht"' in html
+    assert 'data-group="leerling"' in html
+
+
+def test_uitgeschreven_still_flags_students_missing_from_latest_import(client, db_session):
+    import_students_from_stream(db_session, _csv(_row("S300"), _row("S301")))
+    import_students_from_stream(db_session, _csv(_row("L300")), is_leerkracht=True)
+    old = db_session.get(Student, "S300")
+    old.last_import = old.last_import - timedelta(days=30)
+    db_session.commit()
+
+    html = client.get("/ui/students/list").text
+
+    assert html.count("badge-old") == 1
+
+
+def test_teacher_can_be_linked_to_laptop(client):
+    client.post(
+        "/api/students/import?leerkracht=true",
+        files={"file": ("l.csv", b"Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n", "text/csv")},
+    )
+
+    resp = client.post(
+        "/api/laptops/link",
+        json={"stamnummer": "an.peeters", "serial_number": "SN-LK-1"},
+    )
+
+    assert resp.status_code == 200
+    laptops = client.get("/api/laptops").json()
+    assert any(l["serial_number"] == "SN-LK-1" for l in laptops)
+
+
+def test_create_teacher_manually(client):
+    resp = client.post("/api/students", json={"stamnummer": "lk.manual", "is_leerkracht": True})
+
+    assert resp.status_code == 200
+    assert resp.json()["is_leerkracht"] is True
+
+
+def test_index_shows_teacher_import_and_filters(client):
+    html = client.get("/").text
+
+    assert "/ui/students/import?leerkracht=true" in html
+    assert "__leerkrachten__" in html
+
+
+# ── Echte leerkrachten-export (tab-gescheiden) ────────────────────────────────
+
+_TEACHER_HEADER = (
+    "Instellingsnummers\tNaam\tVoornaam\tRoepnaam\tGebruikersnaam\tStandaardPaswoord\t"
+    "Pointer\tBetaalkaart\tBarcode\tPincode\tPointerZonderPrefix\tGebruikersnaam AD (kort)\t"
+    "Gebruikersnaam AD\tGebruikersnaam O365\tGebruikersnaam Google\tAfkorting"
+)
+_TEACHER_ROW = (
+    "027938\tAntonis\tCéline\t\tceline.antonis\tbaan56!00\t142276\t\t11116\t14227619\t"
+    "142276\tceline.antonis\tceline.antonis@provilion.be\tceline.antonis@provilion.be\t"
+    "celine.antonis@\tANTCE"
+)
+
+
+def _teacher_csv() -> io.StringIO:
+    return io.StringIO(f"{_TEACHER_HEADER}\n{_TEACHER_ROW}\n")
+
+
+def test_real_teacher_export_is_imported(db_session):
+    count = import_students_from_stream(db_session, _teacher_csv(), is_leerkracht=True)
+
+    assert count == 1
+    teacher = db_session.get(Student, "celine.antonis")
+    assert teacher.is_leerkracht is True
+    assert teacher.naam == "Antonis"
+    assert teacher.voornaam == "Céline"
+    assert teacher.afkorting == "ANTCE"
+    assert teacher.instellingsnummer == "027938"
+    assert teacher.pointer == "142276"
+
+
+def test_teacher_export_passwords_are_not_stored(db_session):
+    import_students_from_stream(db_session, _teacher_csv(), is_leerkracht=True)
+
+    teacher = db_session.get(Student, "celine.antonis")
+    stored = {
+        str(value) for value in vars(teacher).values() if isinstance(value, str)
+    }
+    assert "baan56!00" not in stored  # StandaardPaswoord
+    assert "14227619" not in stored  # Pincode
+
+
+def test_teacher_export_is_searchable_by_afkorting(client, db_session):
+    import_students_from_stream(db_session, _teacher_csv(), is_leerkracht=True)
+
+    html = client.get("/ui/students/manage").text
+
+    assert "ANTCE" in html
+
+
+def test_semicolon_and_comma_csv_still_work(db_session):
+    import_students_from_stream(db_session, _csv(_row("S400")))
+    import_students_from_stream(
+        db_session,
+        io.StringIO("Naam,Voornaam,Gebruikersnaam\nJanssens,Tom,tom.janssens\n"),
+        is_leerkracht=True,
+    )
+
+    assert db_session.get(Student, "S400").naam == "Doe"
+    assert db_session.get(Student, "tom.janssens").naam == "Janssens"

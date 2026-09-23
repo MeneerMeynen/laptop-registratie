@@ -41,6 +41,12 @@
 ### Studentenbeheer (tab: Instellingen)
 - CSV-upload via UI, upsert op `students`
 - `students.last_import` wordt gezet bij elke import; studenten met oudere datum krijgen badge `Uitgeschreven`
+- Leerkrachten staan in dezelfde tabel met `students.is_leerkracht = true`; import via knop `CSV leerkrachten` (`POST /ui/students/import?leerkracht=true`, API: `POST /api/students/import?leerkracht=true`)
+- CSV-scheidingsteken wordt gedetecteerd (`;`, tab of `,`); headers zijn hoofdletterongevoelig, `Instellingsnummers` → `instellingsnummer`
+- Leerkracht zonder `Stamnummer` krijgt de `Gebruikersnaam` als sleutel; kolom `Afkorting` wordt bewaard in `students.afkorting` (zichtbaar in lijsten + zoekbaar)
+- Kolommen `StandaardPaswoord`, `Betaalkaart` en `Pincode` worden expliciet genegeerd (nooit opgeslagen)
+- Een import zet nooit een bestaande leerling om in een leerkracht of andersom (zo'n rij wordt overgeslagen)
+- `Uitgeschreven` wordt per groep berekend (laatste leerlingen-import vs. laatste leerkrachten-import)
 - Zoekbalk zoekt op: instellingsnummer, naam, voornaam, klas, klascode, klasnummer, gebruikersnaam, pointer, stamnummer
 - Filterknop `Toon uitgeschreven`, multi-select lijst, `Selecteer alle`, verwijderknop
 - Na verwijderen blijft de UI op tab `Beheer studenten`; zoekopdracht en filter blijven behouden
@@ -53,6 +59,8 @@
 ## Databaseschema (belangrijkste velden)
 - `students.last_import` — tijdstip van laatste CSV-import
 - `laptops.eigen_laptop` — boolean, true als leerling eigen laptop heeft
+- `students.is_leerkracht` — boolean, true voor leerkrachten
+- `students.afkorting` — leerkrachtafkorting uit de leerkrachten-export (bv. `ANTCE`)
 - Migraties via Alembic (`alembic upgrade head`)
 
 ## API-routes

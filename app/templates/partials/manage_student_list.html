@@ -1,12 +1,14 @@
 {% for student in students %}
-{% set is_old = latest_import_at and student.last_import and student.last_import < latest_import_at %}
+{% set group_latest = latest_import_at[student.is_leerkracht | default(false, true)] %}
+{% set is_old = group_latest and student.last_import and student.last_import < group_latest %}
 {% set has_eigen = student.laptops | selectattr('eigen_laptop') | list | length > 0 %}
 {% set has_serial = student.laptops | rejectattr('eigen_laptop') | selectattr('serial_number') | list | length > 0 %}
 {% set laptop_flags = ('eigen ' if has_eigen else '') + ('met ' if has_serial else '') + ('' if has_eigen or has_serial else 'zonder') %}
 <div
     class="manage-row"
-    data-manage-filter="{{ student.instellingsnummer }} {{ student.naam }} {{ student.voornaam }} {{ student.klas }} {{ student.klascode }} {{ student.klasnummer }} {{ student.gebruikersnaam }} {{ student.pointer }} {{ student.stamnummer }}"
+    data-manage-filter="{% if student.is_leerkracht %}leerkracht {% endif %}{{ student.afkorting }} {{ student.instellingsnummer }} {{ student.naam }} {{ student.voornaam }} {{ student.klas }} {{ student.klascode }} {{ student.klasnummer }} {{ student.gebruikersnaam }} {{ student.pointer }} {{ student.stamnummer }}"
     data-old-import="{{ 'true' if is_old else 'false' }}"
+    data-group="{{ 'leerkracht' if student.is_leerkracht else 'leerling' }}"
     data-laptop="{{ laptop_flags.strip() }}"
     data-stamnummer="{{ student.stamnummer }}"
     data-instellingsnummer="{{ student.instellingsnummer or '' }}"
@@ -17,12 +19,16 @@
     data-klasnummer="{{ student.klasnummer or '' }}"
     data-gebruikersnaam="{{ student.gebruikersnaam or '' }}"
     data-pointer="{{ student.pointer or '' }}"
+    data-afkorting="{{ student.afkorting or '' }}"
 >
     <label class="manage-row-main">
         <input class="manage-checkbox" type="checkbox" value="{{ student.stamnummer }}">
         <span>
             <span class="manage-name">{{ student.naam }}, {{ student.voornaam }}</span>
-            <span class="manage-meta">{{ student.klas }} | {{ student.stamnummer }} | {{ student.gebruikersnaam }}</span>
+            <span class="manage-meta">{{ student.klas or student.afkorting or ('Leerkracht' if student.is_leerkracht else '') }} | {{ student.stamnummer }} | {{ student.gebruikersnaam }}</span>
+            {% if student.is_leerkracht %}
+            <span class="badge badge-teacher">Leerkracht</span>
+            {% endif %}
             {% if is_old %}
             <span class="badge badge-old">Uitgeschreven</span>
             {% endif %}
@@ -35,5 +41,5 @@
     </div>
 </div>
 {% else %}
-<p style="padding:16px; color:var(--muted);">Geen leerlingen gevonden.</p>
+<p style="padding:16px; color:var(--muted);">Geen leerlingen of leerkrachten gevonden.</p>
 {% endfor %}
