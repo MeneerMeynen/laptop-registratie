@@ -211,7 +211,11 @@ def test_index_shows_teacher_import_and_filters(client):
     assert "__leerkrachten__" in html
 
 
-# ── Echte leerkrachten-export (tab-gescheiden) ────────────────────────────────
+# ── Leerkrachten-export (tab-gescheiden) ──────────────────────────────────────
+# LET OP: deze fixture spiegelt de KOLOMSTRUCTUUR van de echte Informat-export,
+# maar alle waarden zijn verzonnen. Plak hier nooit een rij uit een echte export:
+# de kolommen StandaardPaswoord en Pincode bevatten dan werkende inloggegevens.
+# Het domein school.example is gereserveerd (RFC 2606) en bestaat dus nooit echt.
 
 _TEACHER_HEADER = (
     "Instellingsnummers\tNaam\tVoornaam\tRoepnaam\tGebruikersnaam\tStandaardPaswoord\t"
@@ -219,7 +223,7 @@ _TEACHER_HEADER = (
     "Gebruikersnaam AD\tGebruikersnaam O365\tGebruikersnaam Google\tAfkorting"
 )
 _TEACHER_ROW = (
-    "027938\tVoorbeeld\tÉmile\t\temile.voorbeeld\tNietEchtPw1!\t999001\t\t11116\t99900199\t"
+    "099999\tVoorbeeld\tÉmile\t\temile.voorbeeld\tNietEchtPw1!\t999001\t\t99001\t99900199\t"
     "999001\temile.voorbeeld\temile.voorbeeld@school.example\temile.voorbeeld@school.example\t"
     "emile.voorbeeld@\tVOOEM"
 )
@@ -238,7 +242,7 @@ def test_real_teacher_export_is_imported(db_session):
     assert teacher.naam == "Voorbeeld"
     assert teacher.voornaam == "Émile"
     assert teacher.afkorting == "VOOEM"
-    assert teacher.instellingsnummer == "027938"
+    assert teacher.instellingsnummer == "099999"
     assert teacher.pointer == "999001"
 
 
