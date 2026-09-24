@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Laptop Foto's</title>
+    <script src="{{ static_v('js/csrf.js') }}"></script>
+    <!-- photo_app.js moet vóór Alpine geladen worden, anders kan Alpine
+         x-data="photoApp()" niet evalueren. -->
+    <script defer src="{{ static_v('js/photo_app.js') }}"></script>
+    <script defer src="{{ static_v('js/vendor/alpine.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ static_v('css/photos.css') }}">
+</head>
+<body>
+
+
+<div class="app" x-data="photoApp()" x-init="init()">
+
+    <a href="/" class="back-link">&larr; Terug naar registratie</a>
+
+    <div class="app-header">
+        <h1>Laptop Foto's</h1>
+        <p>Scan serienummer en maak foto's</p>
+    </div>
+
+    <!-- Steps indicator -->
+    <div class="steps">
+        <div class="step-dot" :class="step >= 1 ? (step > 1 ? 'done' : 'active') : ''"></div>
+        <div class="step-dot" :class="step >= 2 ? (step > 2 ? 'done' : 'active') : ''"></div>
+        <div class="step-dot" :class="step >= 3 ? 'active' : ''"></div>
+    </div>
+
+    <!-- ── STEP 1: Scan / enter serial number ── -->
+    <div x-show="step === 1" x-cloak>
+        <div class="card">
+            <h2>Stap 1: Identificeer laptop</h2>
+
+            <div x-show="statusMsg.text" class="status" :class="statusMsg.type" x-text="statusMsg.text"></div>
+
+            <!-- Scanner mode -->
+            <div x-show="scanMode === 'camera'" class="camera-container">
+                <video id="scanner-video" autoplay playsinline></video>
+                <div class="scanner-overlay">
+                    <div class="scanner-frame"></div>
+                </div>
+            </div>
+
+            <template x-if="scanMode === 'camera'">
+                <div>
+                    <button class="btn btn-secondary" @click="switchToManual()">Handmatig invoeren</button>
+                </div>
+            </template>
+
+            <template x-if="scanMode === 'manual'">
+                <div>
+                    <div class="field">
+                        <label for="serial-input">Serienummer</label>
+                        <input
+                            id="serial-input"
+                            type="text"
+                            placeholder="Voer serienummer in..."
+                            x-model="serialInput"
+                            @keydown.enter.prevent="confirmSerial()"
+                            autocomplete="off"
+                            autocapitalize="characters"
+                        >
+                    </div>
+                    <button class="btn btn-primary" @click="confirmSerial()">Bevestig</button>
+
+                    <div class="or-divider">of</div>
+
+                    <!-- Live scanner via getUserMedia (HTTPS) -->
+                    <template x-if="_hasGetUserMedia">
+                        <button class="btn btn-scan" @click="startScanner()">
+                            Scan barcode met camera
+                        </button>
+                    </template>
+
+                    <!-- Fallback: native file input (HTTP / no camera permission) -->
+                    <template x-if="!_hasGetUserMedia">
+                        <div>
+                            <input
+                                id="barcode-photo-input"
+                                class="file-capture-input"
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                @change="handleBarcodeScan($event)"
+                            >
+                            <label for="barcode-photo-input" class="btn btn-scan" style="cursor:pointer;">
+                                Scan barcode met camera
+                            </label>
+                        </div>
+                    </template>
+
+                    <div x-show="scanningBarcode" class="status info" style="margin-top:8px;">Barcode herkennen...</div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ── STEP 2: Take photos ── -->
+    <div x-show="step === 2" x-cloak>
+        <div class="laptop-info">
+            Laptop: <strong x-text="serialNumber"></strong>
+            <template x-if="laptopStudent">
+                <span> &mdash; <span x-text="laptopStudent"></span></span>
+            </template>
+        </div>
+
+        <div class="card">
+            <h2>Stap 2: Maak foto's</h2>
+
+            <div x-show="statusMsg.text" class="status" :class="statusMsg.type" x-text="statusMsg.text"></div>
+
+            <!-- Stream camera mode (desktop / HTTPS) -->
+            <template x-if="cameraMode === 'stream'">
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <button class="capture-btn" @click="capturePhoto()" title="Foto nemen">
+                        <div class="capture-btn-inner"></div>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Native file capture mode (iOS / HTTP fallback) -->
+            <template x-if="cameraMode === 'native'">
+                <div class="native-capture-area">
+                    <p>Tik op de knop om een foto te maken met je camera.</p>
+                    <input
+                        id="native-camera-input"
+                        class="file-capture-input"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        @change="handleNativeCapture($event)"
+                    >
+                    <label for="native-camera-input" class="btn-capture">
+                        Maak foto
+                    </label>
+                </div>
+            </template>
+
+            <div class="photo-count" x-text="`${sessionPhotos.length + existingPhotos.length} foto('s) totaal — ${sessionPhotos.length} nieuw`"></div>
+
+            <!-- Session photos (new) -->
+            <div class="photo-grid" x-show="sessionPhotos.length > 0">
+                <template x-for="(photo, idx) in sessionPhotos" :key="photo.id || idx">
+                    <div class="photo-thumb photo-thumb-new">
+                        <img :src="photo.url" :alt="'Foto ' + (idx + 1)">
+                        <button class="photo-thumb-delete" @click="deleteSessionPhoto(photo, idx)" title="Verwijder">&times;</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Existing photos -->
+            <div x-show="existingPhotos.length > 0" style="margin-top: 8px;">
+                <div style="font-size:0.8rem; color:var(--muted); margin-bottom:6px;">Eerder genomen:</div>
+                <div class="photo-grid">
+                    <template x-for="photo in existingPhotos" :key="photo.id">
+                        <div class="photo-thumb">
+                            <img :src="photo.url" :alt="'Foto ' + photo.id">
+                            <button class="photo-thumb-delete" @click="deleteExistingPhoto(photo)" title="Verwijder">&times;</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" @click="finish()" style="margin-top:8px;">
+                Klaar
+            </button>
+            <button class="btn btn-secondary" @click="goBackToScan()">
+                Andere laptop
+            </button>
+        </div>
+    </div>
+
+    <!-- ── STEP 3: Finished ── -->
+    <div x-show="step === 3" x-cloak>
+        <div class="card finish-screen">
+            <div class="finish-icon">&#10003;</div>
+            <h2>Opgeslagen!</h2>
+            <p style="color:var(--muted);">
+                <span x-text="sessionPhotos.length"></span> foto('s) opgeslagen voor
+                <strong x-text="serialNumber"></strong>
+            </p>
+            <button class="btn btn-primary" @click="reset()" style="margin-top:20px;">
+                Volgende laptop
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- ZXing JS library (fallback for non-module environments) -->
+<script src="{{ static_v('js/vendor/zxing-library.min.js') }}"></script>
+
+<!-- zxing-wasm IIFE build: served locally, exposes ZXingWASM global (proper Data Matrix / WebAssembly) -->
+<script src="/static/zxing-wasm/index.js" onload="(function(){
+    try {
+        var api = window.ZXingWASM;
+        if (!api || !api.readBarcodesFromImageData) {
+            console.warn('[zxing-wasm] ZXingWASM global niet gevonden na laden');
+            return;
+        }
+        // Tell zxing-wasm where to find the .wasm file (served locally alongside the JS)
+        api.setZXingModuleOverrides({
+            locateFile: function(path) { return '/static/zxing-wasm/' + path; }
+        });
+        window.__zxingReadBarcodes = api.readBarcodesFromImageData.bind(api);
+        console.log('[zxing-wasm] geladen OK (IIFE, lokaal)');
+    } catch(e) { console.warn('[zxing-wasm] init fout:', e.message); }
+})()" onerror="console.warn('[zxing-wasm] script laden mislukt')"></script>
+
+</body>
+</html>

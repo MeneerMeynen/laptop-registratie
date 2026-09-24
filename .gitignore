@@ -1,16 +1,34 @@
-__pycache__/
-*.pyc
-*.egg-info/
+*.log
 .DS_Store
-.claude/
-# TLS certificates (generated locally via mkcert — not committed)
-certs/
-# Local environment file with secrets — never commit. Use .env.example as template.
 .env
-cert_setup.sh
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
 
-# lege mountpoint voor zxing-wasm volume (dev-override)
-app/static/zxing-wasm/
-
+# ── Projectspecifiek ─────────────────────────────────────────────
+.claude/
 # Leerkrachten-export bevat paswoorden in platte tekst — nooit committen
 teacher_data/
+# Geüploade laptopfoto's (runtime-data, staat in storage/app/uploads)
+/storage/app/uploads/

@@ -1,35 +1,33 @@
-"""E2e-specifieke conftest — geen FastAPI/SQLAlchemy imports nodig.
+"""E2e-tests (Playwright) tegen een draaiende Laravel-app.
 
-pytest-playwright leest de --base-url CLI-optie automatisch in.
+Starten:
+    php artisan serve --port=8000   # met AUTH_USERNAME=admin en AUTH_PASSWORD=test
+    pip install pytest pytest-playwright && playwright install chromium
+    pytest tests/e2e --base-url http://localhost:8000
+
+Inloggegevens via E2E_USERNAME / E2E_PASSWORD (standaard admin / test);
+een eigen Chromium-binary kan via E2E_CHROMIUM.
 """
 import os
-import re
 
 import pytest
 
 
+@pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args):
+    extra = {"executable_path": os.environ["E2E_CHROMIUM"]} if os.environ.get("E2E_CHROMIUM") else {}
+    return {**browser_type_launch_args, **extra}
+
+
 @pytest.fixture(autouse=True)
 def _e2e_login(page, base_url):
-    """Log in via /login zodat elke test een geldige sessiecookie heeft.
-
-    De app zet de sessiecookie met het Secure-attribuut (DEBUG=false). Binnen
-    het Docker-netwerk draait e2e over plain http, dus Chromium zou die cookie
-    weigeren — we registreren hem daarom handmatig zonder Secure-vlag.
-    """
-    username = os.environ.get("E2E_USERNAME", "admin")
-    password = os.environ.get("E2E_PASSWORD", "changeme")
-    response = page.context.request.post(
-        f"{base_url}/login",
-        form={"username": username, "password": password, "next": "/"},
-        max_redirects=0,
-    )
-    # 303 redirect on success (TestClient/HTTPX style); 200 if browser auto-followed.
-    assert response.status in (200, 303), (
-        f"e2e login failed: {response.status} {response.text()}"
-    )
-    match = re.search(r"session=([^;]+)", response.headers.get("set-cookie", ""))
-    assert match, "e2e login: geen sessiecookie in login-response"
-    page.context.add_cookies(
-        [{"name": "session", "value": match.group(1), "url": base_url}]
-    )
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(f"{base_url}/login")
+    page.fill("input[name=username]", os.environ.get("E2E_USERNAME", "admin"))
+    page.fill("input[name=password]", os.environ.get("E2E_PASSWORD", "test"))
+    page.click("button[type=submit]")
+    page.wait_for_url(f"{base_url}/")
+    page.js_errors = errors
     yield
+    assert not errors, f"JavaScript-fouten: {errors}"

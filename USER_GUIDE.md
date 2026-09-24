@@ -390,13 +390,14 @@ Duur: ~3–4 minuten per 30 laptops, afhankelijk van scan-snelheid.
 
 ### V: Waar staan mijn foto's?
 
-**A**: Foto's worden opgeslagen in `/uploads/laptops/<serienummer>/` op de server. Elk bestand krijgt een unieke naam. Ze zijn altijd benaderbaar via de app — handmatige backup is niet vereist maar wel aanbevolen voor bedrijfszekerheid.
+**A**: Foto's worden op de server opgeslagen in `storage/app/uploads/laptops/<serienummer>/` (buiten de publieke webmap; ze zijn alleen zichtbaar na inloggen). Elk bestand krijgt een unieke naam. Neem die map mee in de back-up van Plesk (**Websites & domeinen → Back-up**).
 
 ### V: Kan ik een export maken van alle gegevens?
 
 **A**:
 - **Tickets** → rechter paneel → **Exporteer historiek** (per laptop) of **CSV exporteer** (alles)
-- **Studenten / Laptops** → kopieer de tabel naar Excel via je browser, of gebruik de Alembic-export op database-niveau
+- **Laptops** → **Instellingen → Laptops** → CSV-export (houdt rekening met de actieve filters)
+- **Volledige database** → in Plesk via **Databases → phpMyAdmin → Exporteren**, of via een Plesk-back-up
 
 ---
 

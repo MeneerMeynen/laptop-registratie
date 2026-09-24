@@ -1,180 +1,91 @@
 # Project: Laptop Registratie
 
 ## Tech stack
-- FastAPI + SQLAlchemy ORM
-- MariaDB (productie), SQLite (tests)
-- HTML/CSS/JS UI geserveerd vanuit FastAPI (templates via Jinja2)
-- Alpine.js voor reactieve UI
-- Pytest tests
-- Alembic voor databasemigraties
+- Laravel 13 (PHP 8.3+), Eloquent + query builder
+- MariaDB/MySQL (productie op Plesk), SQLite (lokaal en tests)
+- Blade-templates, HTMX voor partials, Alpine.js voor reactieve UI (geen build-stap: gewone JS/CSS in `public/static/`)
+- PHPUnit-featuretests (`php artisan test`), optionele Playwright-e2e-tests in `tests/e2e/`
+- Hosting: Plesk met Laravel Toolkit (zie README.md)
+
+Versie 2.0.0 is een 1-op-1-port van de FastAPI-versie (v1.1.0, nog te vinden op `main`-historiek):
+zelfde URL's, JSON-velden, statuscodes en databaseschema, zodat de frontend-JS ongewijzigd bleef.
 
 ## UI-tabs
-1. **Registreer** — leerling selecteren, barcode/serienummer scannen en koppelen
-2. **Beheer studenten** — CSV-import, zoeken, filteren, verwijderen
-3. **Laptops** — laptop issue tracker met tijdlijn per laptop
-4. **Foto's** — foto's per laptop uploaden en bekijken
+1. **Tickets** — laptop issue tracker met tijdlijn per laptop
+2. **Laptop info** — rapport per serienummer
+3. **Registreer** — leerling selecteren, barcode/serienummer scannen en koppelen
+4. **Instellingen** — leerlingen (CSV-import), laptops, uitleenkasten en magazijnen
+5. **Foto's** — foto's per laptop bekijken; opnemen via de mobiele pagina `/photos`
 
 ## Kernfunctionaliteit
 
 ### Authenticatie
-- Eén gedeelde login voor de hele applicatie (geen `users`-tabel)
-- Credentials uit env vars: `AUTH_USERNAME`, `AUTH_PASSWORD`, `SESSION_SECRET`
-- `SESSION_SECRET` genereren: `python -c "import secrets; print(secrets.token_hex(32))"`
-- Sessie via signed cookie (Starlette `SessionMiddleware`), 8u geldig
-- `app/auth.py::AuthMiddleware` gate alle requests behalve `/login`, `/logout`, `/static/*` en `/favicon*`
-- HTMX-requests krijgen bij verlopen sessie `204` + `HX-Redirect: /login`; HTML-requests `303` redirect; API-requests `401`
-- Uitloggen via knop rechtsboven in de UI (POST `/logout`)
-- Productie-startup faalt expliciet als `AUTH_PASSWORD` of `SESSION_SECRET` ontbreekt (tenzij `DEBUG=true`)
+- Eén gedeelde login (geen users-tabel): `AUTH_USERNAME` / `AUTH_PASSWORD` in `.env` (`config/laptops.php`); leeg wachtwoord = niemand kan inloggen
+- Sessie (database-driver) 8 u geldig; sessie-ID wordt vernieuwd na inloggen
+- `App\Http\Middleware\RequireLogin` beschermt alles behalve `/login`, `/logout`, `/up` en `public/static/*`
+- Niet ingelogd: HTMX-request → `204` + `HX-Redirect: /login`; HTML (`Accept: text/html`) → `303` naar `/login?next=…`; anders `401 {"detail": "Not authenticated"}`
+- CSRF: `public/static/js/csrf.js` voegt het token uit `<meta name="csrf-token">` toe aan elke niet-GET `fetch()` en elke HTMX-request. Nieuwe pagina's met eigen `<head>` moeten die meta-tag + script ook laden
+- Verlopen sessie/CSRF (419): HTMX → `HX-Redirect: /login`, API → `{"detail": "Sessie verlopen…"}`
+
+### Foutafhandeling
+- Services gooien `App\Support\DetailException(status, detail)` → JSON `{"detail": ...}` (zoals FastAPI's HTTPException). De frontend toont `data.detail`
+- Uitzondering: bij koppelen aan een leerling die al een laptop heeft is `detail` een object met `requires_confirmation`, `existing_serials`, `message`, `stamnummer`
+- Datums in JSON: `Y-m-d\TH:i:s` zonder tijdzone (`Fmt::iso`), datums `Y-m-d`; tijdzone van de app is `Europe/Brussels`
 
 ### Laptop issue tracker (tab: Tickets)
-- Zoeken op serienummer, issues aanmaken/bewerken/verwijderen
-- Entries (tijdlijn) per issue toevoegen/bewerken/verwijderen
-- Status-filter, koppeling aan student, linked_at tracking
+- Zoeken op serienummer, issues aanmaken/bewerken/verwijderen, statussen `aangemeld` / `open` / `gesloten`
+- Opvolgingen (tijdlijn) per issue via HTMX (`/ui/laptop-issues/...`)
+- Reserve-laptop meegeven bij een issue; bij sluiten wordt die automatisch vrijgegeven + tijdlijnregel
+- Sidebar-filter stuurt herhaalde `?statuses=a&statuses=b` — PHP leest dat niet als lijst, daarom `LaptopIssueController::repeatedQueryParam()`
+- Afdrukbare defect-/herstelfiche: `/laptop-issues/{id}/fiche`
 
 ### Leerlingkoppeling (tab: Registreer)
-- Studenten worden uit CSV geïmporteerd in tabel `students`
-- Laptops worden gekoppeld in tabel `laptops`
 - Na koppelen blijft focus op het scanveld; volgende leerling wordt automatisch geselecteerd
-- Navigatiebarcodes: `1UP`, `1DOWN`
-- Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial, uniek per student)
+- Navigatiebarcodes: `1UP`, `1DOWN`; `CLEAR` wist het veld
+- Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial)
+- Opnieuw dezelfde laptop scannen is idempotent (geen nieuw historiekrecord)
+- Laptop uit een **magazijn** mag toegekend worden (hetzelfde record verlaat het magazijn); laptop uit een **kast** niet
+- Inleveren met ontbrekende hoes/oplader maakt automatisch een issue (categorie `Accessoires`)
 
 ### Studentenbeheer (tab: Instellingen)
-- CSV-upload via UI, upsert op `students`
-- `students.last_import` wordt gezet bij elke import; studenten met oudere datum krijgen badge `Uitgeschreven`
-- Leerkrachten staan in dezelfde tabel met `students.is_leerkracht = true`; import via knop `CSV leerkrachten` (`POST /ui/students/import?leerkracht=true`, API: `POST /api/students/import?leerkracht=true`)
-- CSV-scheidingsteken wordt gedetecteerd (`;`, tab of `,`); headers zijn hoofdletterongevoelig, `Instellingsnummers` → `instellingsnummer`
-- Leerkracht zonder `Stamnummer` krijgt de `Gebruikersnaam` als sleutel; kolom `Afkorting` wordt bewaard in `students.afkorting` (zichtbaar in lijsten + zoekbaar)
+- CSV-upload, upsert op `students`; `students.last_import` wordt gezet bij elke import; wie een oudere datum heeft dan de laatste import van dezelfde groep krijgt badge `Uitgeschreven`
+- Leerkrachten staan in dezelfde tabel met `is_leerkracht = true`; import via `POST /ui/students/import?leerkracht=true` (API: `POST /api/students/import?leerkracht=true`)
+- Scheidingsteken wordt gedetecteerd (`;`, tab of `,`); headers hoofdletterongevoelig; `Instellingsnummers` → `instellingsnummer`, `Klasnr` → `klasnummer`
+- Leerkracht zonder `Stamnummer` krijgt `Gebruikersnaam` als sleutel; `Afkorting` → `students.afkorting`
 - Kolommen `StandaardPaswoord`, `Betaalkaart` en `Pincode` worden expliciet genegeerd (nooit opgeslagen)
-- Een import zet nooit een bestaande leerling om in een leerkracht of andersom (zo'n rij wordt overgeslagen)
-- `Uitgeschreven` wordt per groep berekend (laatste leerlingen-import vs. laatste leerkrachten-import)
-- Zoekbalk zoekt op: instellingsnummer, naam, voornaam, klas, klascode, klasnummer, gebruikersnaam, pointer, stamnummer
-- Filterknop `Toon uitgeschreven`, multi-select lijst, `Selecteer alle`, verwijderknop
-- Na verwijderen blijft de UI op tab `Beheer studenten`; zoekopdracht en filter blijven behouden
+- Een import zet nooit een leerling om in een leerkracht of andersom
 
-### Foto's (tab: Foto's)
-- Foto's uploaden per serienummer (file upload of base64 voor iOS)
-- Foto's bekijken in gallery/lightbox, verwijderen
-- Opgeslagen in `uploads/laptops/`, geserveerd via `/uploads/laptops`
+### Foto's
+- Upload per serienummer (multipart `POST /api/photos?serial_number=…` of base64 `POST /api/photos/base64`)
+- Opgeslagen in `storage/app/uploads/laptops/<serial>/<uuid>.<ext>` (`UPLOAD_DIR`), geserveerd via `/uploads/laptops/...` **achter de login**
+- Validatie tegen path traversal: serienummer `^[A-Za-z0-9._-]{1,100}$`, extensies jpg/jpeg/png/webp, max 10 MB
+- Barcode-scanner op `/photos`: BarcodeDetector → zxing-wasm (`public/static/zxing-wasm/`, v1.3.5 uit npm) → ZXing JS
 
-## Databaseschema (belangrijkste velden)
-- `students.last_import` — tijdstip van laatste CSV-import
-- `laptops.eigen_laptop` — boolean, true als leerling eigen laptop heeft
-- `students.is_leerkracht` — boolean, true voor leerkrachten
-- `students.afkorting` — leerkrachtafkorting uit de leerkrachten-export (bv. `ANTCE`)
-- Migraties via Alembic (`alembic upgrade head`)
+## Databaseschema
+- Eén migratie: `database/migrations/2026_09_24_000001_create_laptop_registratie_schema.php` = Alembic-revisie 0013 van de Python-versie
+- Elke tabel wordt alleen aangemaakt als ze nog niet bestaat → werkt ook op een geïmporteerde database van de Python-versie
+- Nieuwe schemawijzigingen: **nieuwe** migratie toevoegen (niet de bestaande aanpassen)
+- Belangrijkste velden: `students.last_import`, `students.is_leerkracht`, `students.afkorting`, `laptops.eigen_laptop`, `laptops.is_reserve`, `laptops.alias`, `laptops.storage_cabinet_id`, `laptops.linked_at`/`unlinked_at` (historiek: een serienummer kan meerdere records hebben, max. één actief), `storage_cabinets.kind` (`kast`/`magazijn`)
 
-## API-routes
+## Structuur
+- `routes/web.php` — alle routes (UI, HTMX-partials en JSON-API)
+- `app/Http/Controllers/` — `UiController`, `AuthController`, `LaptopController`, `LaptopIssueController`, `StudentController`, `StorageCabinetController`, `PhotoController`
+- `app/Services/` — businesslogica (1-op-1 met de vroegere `app/services/*.py`)
+- `app/Support/` — `DetailException`, `Fmt` (formattering), `Sql` (portabele LIKE/CONCAT voor MariaDB én SQLite), `CsvWriter`
+- `resources/views/` — `index.blade.php` (hoofd-UI), `partials/*` (HTMX), `photos`, `barcodes`, `issue_fiche`, `login`
+- `public/static/` — CSS, `laptop_app.js`, `photo_app.js`, `csrf.js`, vendor-libs
 
-| Router | Prefix / route | Doel |
-|--------|---------------|------|
-| `api/students.py` | `GET /api/students` | Alle studenten ophalen |
-| | `POST /api/students/import` | CSV-import |
-| | `DELETE /api/students` | Studenten verwijderen |
-| `api/laptops.py` | `POST /api/laptops/link` | Laptop koppelen |
-| | `POST /api/laptops/{id}/unlink` | Laptop inleveren (ontkoppelen) |
-| | `GET /api/laptops/export` | CSV-export beheeroverzicht |
-| `api/photos.py` | `GET /api/photos/{serial}` | Foto's per serienummer |
-| | `POST /api/photos` | Foto uploaden (file) |
-| | `POST /api/photos/base64` | Foto uploaden (base64, iOS) |
-| | `DELETE /api/photos/{id}` | Foto verwijderen |
-| `api/laptop_issues.py` | `/api/laptop-issues/…` | Issue CRUD + entries CRUD |
-| `api/ui.py` | `GET /` | Hoofdpagina |
-| | Partials voor HTMX-updates | |
+## Aandachtspunten bij Blade
+- Alpine-attributen (`@click`, `@keydown`, …) zijn geen Blade-directives en blijven staan
+- Een Blade-directive vlak na een letter (bv. `Leerkracht@if`) wordt **niet** herkend — bouw zulke tekst in `@php`
+- `{{ }}` escapet (htmlspecialchars); waarden die in inline JS-strings belanden (`'{{ ... }}'`) blijven dus HTML-ge-escaped zoals voorheen
 
-## Belangrijke bestanden
-- `app/main.py` — app factory, router registratie, static mounts
-- `app/api/laptops.py` — koppelen/ontkoppelen
-- `app/api/students.py` — import/verwijderen
-- `app/api/photos.py` — foto-upload en -beheer
-- `app/api/laptop_issues.py` — issue tracker
-- `app/api/ui.py` — UI-routes en partials
-- `app/models/` — Student, Laptop, LaptopIssue, LaptopIssueEntry, LaptopPhoto
-- `app/schemas/` — Pydantic schemas
-- `app/services/` — laptop_service, student_import, student_service, photo_service, laptop_issue_service
-- `app/templates/index.html` — hoofd-UI (Alpine.js, alle tabs)
-- `app/templates/photos.html` — foto-pagina
-- `alembic/` — migratiescripts
-
-## Versie beheren & releases
-
-De versie staat op één plek: `pyproject.toml` (`version = "x.y.z"`).  
-`importlib.metadata` leest die waarde at runtime — `app/main.py` en `app/api/ui.py` gebruiken dit, en de UI toont hem rechtsonder als `vX.Y.Z`.
-
-### Release uitvoeren
-
-```bash
-# 1. Bump de versie in pyproject.toml
-#    Gebruik semantic versioning: MAJOR.MINOR.PATCH
-#    - PATCH: bugfix (1.0.1)
-#    - MINOR: nieuwe functionaliteit, backwards compatible (1.1.0)
-#    - MAJOR: breaking changes (2.0.0)
-
-# 2. Commit
-git add pyproject.toml
-git commit -m "bump version to 1.x.y"
-
-# 3. Tag aanmaken en pushen
-git tag v1.x.y
-git push origin main
-git push origin v1.x.y
-```
-
-> De `*.egg-info/` map is lokaal gegenereerd en staat in `.gitignore` — niet committen.  
-> Docker bouwt de versie correct in via `pip install` tijdens de image-build.
-
-## Docker
-- `Dockerfile`, `compose.yaml` en `entrypoint.sh` staan in de projectroot
-- Gebruik altijd `docker compose up --build` vanuit de root
-- `uploads/` wordt als persistent volume gemount
+## Versie beheren
+- Versie staat in `config/laptops.php` (`version`) en wordt rechtsonder getoond als `vX.Y.Z`
+- Semantic versioning; tag releases als `vX.Y.Z`
 
 ## Tests
-- Pytest, alle tests groen
-- SQLite in-memory voor tests
-- E2e-tests (Playwright) in `tests/e2e/`
-
-## Testen via Docker in Claude-sessies
-
-De Docker stack (nginx + app + MariaDB) is de productieomgeving. Om in Claude de UI te kunnen testen via het preview paneel of met de Claude-in-Chrome tools, gebruik onderstaande workflows.
-
-### Workflow A — Preview paneel (interactieve UI-verificatie)
-
-Gebruik `preview_start` met de `app` config uit `.claude/launch.json`. Deze start `docker compose up --build` onder controle van het preview paneel en koppelt aan poort **8000** (directe FastAPI, geen HTTPS-cert vereist).
-
-**Vereisten vóór starten:**
-1. Controleer of de stack al extern draait: `docker compose ps`
-2. Als containers draaien: `docker compose down` (preview_start kan geen poort claimen die al in gebruik is)
-3. Daarna: `preview_start app`
-
-Na opstarten (ca. 15–30s, langer bij eerste build) zijn deze tools bruikbaar:
-- `preview_snapshot` — DOM-inhoud en structuur
-- `preview_click` / `preview_fill` — interacties testen
-- `preview_console_logs` / `preview_logs` / `preview_network` — fouten opsporen
-- `preview_screenshot` — visueel bewijs voor de gebruiker
-
-De MariaDB healthcheck heeft `retries: 10` met `interval: 5s`, dus de eerste startup kan tot 60s duren.
-
-### Workflow B — E2e-tests draaien in Docker
-
-Voor headless end-to-end tests (Playwright) zonder preview paneel:
-
-```bash
-docker compose run --rm test-e2e
-```
-
-De `test-e2e` service gebruikt het Playwright image en draait alle tests in `tests/e2e/` tegen `http://app:8000` binnen het Docker-netwerk. De `app`-service moet daarvoor draaien (`docker compose up -d app`).
-
-### Workflow C — Unit-tests in Docker
-
-```bash
-docker compose run --rm test
-```
-
-Draait `pytest -v` tegen een `laptops_test` database op de MariaDB container. Gebruikt dezelfde image als de app.
-
-### Poortoverzicht
-| Service | Poort | Protocol | Gebruik |
-|---------|-------|----------|---------|
-| `app`   | 8000  | HTTP     | Direct FastAPI — **gebruik deze voor preview_start** |
-| `nginx` | 80    | HTTP     | Redirect naar HTTPS |
-| `nginx` | 443   | HTTPS    | Mobiele workflow met mkcert-certs (alleen via browser) |
-| `db`    | 3306  | MySQL    | Debug-toegang tot MariaDB |
+- `php artisan test` (SQLite in-memory; `DB_CONNECTION=mariadb …` voor MariaDB) — CI draait beide
+- Testhelpers in `tests/TestCase.php` (`addStudent`, `link`, `unlink`, `createReserve`, `createIssue`); standaard ingelogd, zet `$loggedIn = false` om de login-gate te testen
+- Let op: de Laravel-testclient stuurt standaard `Accept: text/html`; stuur `Accept: */*` om het API-gedrag (401 i.p.v. redirect) te testen
+- E2e: `pytest tests/e2e --base-url http://localhost:8000` tegen een app met lege database

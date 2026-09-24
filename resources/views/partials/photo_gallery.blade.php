@@ -1,0 +1,54 @@
+@php($stamp = fn ($iso) => $iso ? str_replace('T', ' ', substr($iso, 0, 16)) : '')
+@if (! $serial_number)
+<div class="pg-empty">
+  <div class="pg-empty-icon">📷</div>
+  <div class="pg-empty-title">Zoek een laptop</div>
+  <div class="pg-empty-sub">Typ een serienummer of naam om foto's te bekijken.</div>
+</div>
+@elseif ($photos)
+<div class="pg-wrap">
+  <div class="pg-meta">{{ count($photos) }} foto('s) voor <strong>{{ $serial_number }}</strong></div>
+
+  <div class="pg-hero" onclick="openLightbox('{{ $photos[0]['url'] }}')">
+    <img src="{{ $photos[0]['url'] }}" alt="Meest recente foto" draggable="false">
+    <span class="pg-hero-badge">Meest recent</span>
+    <span class="pg-hero-date">{{ $stamp($photos[0]['created_at']) }}</span>
+    <button class="pg-delete"
+            onclick="event.stopPropagation(); deleteGalleryPhoto({{ $photos[0]['id'] }}, '{{ $serial_number }}')"
+            title="Verwijder foto" aria-label="Verwijder foto">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+      </svg>
+    </button>
+  </div>
+
+  @if (count($photos) > 1)
+  <div class="pg-thumbs">
+    @foreach (array_slice($photos, 1) as $photo)
+    <div class="pg-thumb" onclick="openLightbox('{{ $photo['url'] }}')">
+      <img src="{{ $photo['url'] }}" alt="Foto {{ $photo['id'] }}" loading="lazy" draggable="false">
+      <div class="pg-thumb-date">{{ $stamp($photo['created_at']) }}</div>
+      <button class="pg-delete pg-delete--sm"
+              onclick="event.stopPropagation(); deleteGalleryPhoto({{ $photo['id'] }}, '{{ $serial_number }}')"
+              title="Verwijder foto" aria-label="Verwijder foto">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        </svg>
+      </button>
+    </div>
+    @endforeach
+  </div>
+  @endif
+</div>
+@else
+<div class="pg-empty">
+  <div class="pg-empty-icon">📷</div>
+  <div class="pg-empty-title">Geen foto's voor <strong>{{ $serial_number }}</strong></div>
+  <div class="pg-empty-sub">Maak een foto via de mobiele foto-pagina.</div>
+</div>
+@endif
