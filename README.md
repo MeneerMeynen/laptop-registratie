@@ -80,25 +80,56 @@ Plesk-back-up.
 ## Overstappen van de Python-versie
 
 De tabellen hebben exact dezelfde namen en kolommen, dus de bestaande gegevens kunnen
-rechtstreeks mee.
+rechtstreeks mee: een database-dump en de fotomap.
 
-1. **Database exporteren** op de oude server:
+> **Belangrijk:** importeer de dump in een **lege** database. Heeft de Laravel-app de
+> tabellen al aangemaakt (`migrate`, of automatisch bij het starten van de Docker-versie),
+> wis ze dan eerst met `php artisan db:wipe --force`. Anders weigert MariaDB de import
+> (*Foreign key constraint is incorrectly formed*), omdat de nieuwe tabellen iets andere
+> kolomtypes hebben.
 
-   ```bash
-   docker exec mariadb-laptop mariadb-dump -uroot -p laptops > laptops.sql
-   ```
+### 1. Exporteren op de oude server
 
-2. **Importeren** in de nieuwe Plesk-database (*Databases → phpMyAdmin → Importeren*, of
-   `mysql -u <gebruiker> -p laptops < laptops.sql`).
-3. **`php artisan migrate --force`** — bestaande tabellen worden overgeslagen; alleen de
-   tabellen `migrations` en `sessions` worden toegevoegd. (De tabel `alembic_version` mag
-   blijven staan of verwijderd worden.)
-4. **Foto's kopiëren** uit het Docker-volume naar `storage/app/uploads/laptops/`:
+In de map van de oude (Python/Docker) installatie:
 
-   ```bash
-   docker cp $(docker compose ps -q app):/app/uploads/laptops ./laptops
-   # upload de map ./laptops naar storage/app/uploads/laptops/ (via Plesk Bestanden of SFTP)
-   ```
+```bash
+# database (gebruikt het root-wachtwoord dat al in de database-container staat)
+docker exec mariadb-laptop sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction laptops' > laptops.sql
+
+# foto's
+docker compose cp app:/app/uploads/laptops ./laptops-fotos
+```
+
+Neem `laptops.sql` en de map `laptops-fotos` mee naar de nieuwe omgeving.
+
+### 2a. Importeren in de lokale Docker-versie
+
+In de map van de nieuwe (Laravel) versie, terwijl `docker compose up` draait:
+
+```bash
+docker compose exec app php artisan db:wipe --force
+docker compose cp laptops.sql db:/tmp/laptops.sql
+docker compose exec db sh -c "mariadb -ulaptops -plaptops laptops < /tmp/laptops.sql"
+docker compose exec app php artisan migrate --force
+
+docker compose cp laptops-fotos/. app:/var/www/html/storage/app/uploads/laptops/
+docker compose exec app chown -R www-data:www-data storage/app/uploads
+```
+
+Log daarna opnieuw in (het wissen verwijdert ook de sessies).
+
+### 2b. Importeren op Plesk
+
+1. Tabellen wissen als `migrate` al gelopen heeft: Laravel Toolkit → *Artisan* → `db:wipe --force`
+   (of in phpMyAdmin alle tabellen verwijderen).
+2. *Databases → phpMyAdmin → Importeren* → `laptops.sql`. Gebruikt Plesk **MySQL** in plaats
+   van MariaDB, verwijder dan eerst de eerste regel van `laptops.sql`
+   (`/*M!999999\- enable the sandbox mode */`); MySQL kent die niet.
+3. Laravel Toolkit → *Artisan* → `migrate --force` — voegt alleen de tabellen `migrations`
+   en `sessions` toe. (De tabel `alembic_version` mag blijven staan.)
+4. Upload de inhoud van `laptops-fotos` naar `storage/app/uploads/laptops/` (Plesk
+   *Bestanden* of SFTP), zodat bv. `storage/app/uploads/laptops/<serienummer>/<bestand>.jpg`
+   ontstaat.
 
 > **Tijdzone:** de Python-versie draaide in een Docker-container in UTC; de Laravel-versie
 > bewaart tijden in `Europe/Brussels`. Oude tijdstempels (koppel-/inleverdatum,
@@ -113,6 +144,7 @@ Git te installeren; PHP en de database draaien in containers.
 git clone https://github.com/MeneerMeynen/laptop-registratie.git
 cd laptop-registratie
 docker compose up --build
+# (andere mapnaam: voeg die toe na de URL van git clone)
 ```
 
 De eerste keer duurt dit een paar minuten. Open daarna **http://localhost:8000** en log in
