@@ -32,3 +32,7 @@ Thumbs.db
 teacher_data/
 # Geüploade laptopfoto's (runtime-data, staat in storage/app/uploads)
 /storage/app/uploads/
+# Python-cache van de e2e-tests
+__pycache__/
+*.pyc
+.pytest_cache/
