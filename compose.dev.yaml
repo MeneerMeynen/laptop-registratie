@@ -1,0 +1,16 @@
+# Dev-only overlay: mount de repository in de app-container zodat wijzigingen
+# meteen actief zijn. Wordt NIET automatisch geladen (dat was het gevaar van de
+# oude naam compose.override.yaml — een gewone `docker compose up` op de server
+# pakte hem op en zette daar --reload en een code-mount aan).
+#
+# Lokaal inschakelen via COMPOSE_FILE in je .env (zie .env.example), of expliciet:
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+services:
+  app:
+    environment:
+      UVICORN_RELOAD: "1"
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      # Behoud de in de image gedownloade zxing-wasm bestanden (anders verborgen door de mount)
+      - /app/app/static/zxing-wasm
