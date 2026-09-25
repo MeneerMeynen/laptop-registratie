@@ -13,6 +13,7 @@ LOGOUT_PATH = "/logout"
 SESSION_USER_KEY = "user"
 
 PUBLIC_PREFIXES: tuple[str, ...] = (
+    "/health",
     "/login",
     "/logout",
     "/static",

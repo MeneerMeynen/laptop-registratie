@@ -122,9 +122,29 @@ git push origin v1.x.y
 > De `*.egg-info/` map is lokaal gegenereerd en staat in `.gitignore` — niet committen.  
 > Docker bouwt de versie correct in via `pip install` tijdens de image-build.
 
+## Diagnose bij problemen
+
+- `GET /health` — publiek (geen login), geeft versie, databasestatus, alembic-revisie
+  (huidig vs. verwacht), aantallen en of de uploadmap beschrijfbaar is.
+  Antwoordt `200` bij ok, `503` bij `degraded`/`error`. Wachtwoorden worden gemaskeerd.
+- `./diagnose.sh` — verzamelt containers, resolveerde DATABASE_URL, `/health` rechtstreeks
+  én via nginx, en de laatste logs van app/nginx/db. Uitvoer is gemaskeerd en deelbaar.
+- `entrypoint.sh` logt elke opstartstap met `[entrypoint]`, wacht tot de database
+  bereikbaar is (30 pogingen) en toont de alembic-revisie voor en na de upgrade.
+- De app logt bij opstarten versie, gemaskeerde database-URL, migratiestatus en aantallen;
+  onverwerkte fouten worden gelogd met request-methode en pad. Niveau via `LOG_LEVEL`.
+- **nginx en de app-container:** `proxy_pass` gebruikt een variabele plus
+  `resolver 127.0.0.11`, zodat nginx het IP van de app-container opnieuw opzoekt.
+  Zonder dat geeft nginx `502` zodra de app-container opnieuw is aangemaakt (nieuw IP),
+  ook al draait de app. `update.sh` herstart nginx en test de site ook via HTTPS.
+
 ## Docker
 - `Dockerfile`, `compose.yaml` en `entrypoint.sh` staan in de projectroot
 - Gebruik altijd `docker compose up --build` vanuit de root
+- `compose.dev.yaml` is een dev-only overlay (code-mount + `--reload`). Hij wordt
+  alleen geladen als `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in je `.env` staat.
+  Op de server hoort die regel er niet te staan; `update.sh` geeft bovendien
+  expliciet `-f compose.yaml` mee.
 - `uploads/` wordt als persistent volume gemount
 
 ## Tests
