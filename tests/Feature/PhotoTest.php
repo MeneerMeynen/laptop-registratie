@@ -76,7 +76,9 @@ class PhotoTest extends TestCase
 
     public function test_upload_list_serve_and_delete_photo(): void
     {
-        $file = UploadedFile::fake()->image('foto.PNG', 10, 10);
+        // 1×1 PNG (geen GD-extensie nodig); hoofdletterextensie wordt genormaliseerd.
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        $file = UploadedFile::fake()->createWithContent('foto.PNG', $png);
         $photo = $this->post('/api/photos?serial_number=PH-001', ['file' => $file], ['Accept' => '*/*'])
             ->assertCreated()->assertJson(['serial_number' => 'PH-001'])->json();
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/', $photo['filename']);
@@ -87,7 +89,7 @@ class PhotoTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', $list[0]['created_at']);
         $this->getJson('/api/photos/latest/serial')->assertExactJson(['serial_number' => 'PH-001']);
 
-        $this->assertStringStartsWith('image/', $this->get($photo['url'])->assertOk()->headers->get('Content-Type'));
+        $this->get($photo['url'])->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->assertStringContainsString('PH-001', $this->get('/ui/photos/gallery?serial=PH-001')->getContent());
 
         $this->deleteJson("/api/photos/{$photo['id']}")->assertNoContent();
