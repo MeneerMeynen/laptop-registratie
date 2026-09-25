@@ -51,8 +51,12 @@ fi
 section "App rechtstreeks (http://localhost:8000/health)"
 curl -sS -m 10 http://localhost:8000/health 2>&1 | mask || echo "(app antwoordt niet op poort 8000)"
 
-section "App via nginx (https://localhost/health)"
-curl -sSk -m 10 https://localhost/health 2>&1 | mask || echo "(nginx antwoordt niet)"
+section "App via nginx (https://localhost/login)"
+# /health is in nginx geblokkeerd (zie nginx/default.conf). /login bewijst
+# evengoed waar deze check voor bedoeld is: dat nginx de app-container bereikt
+# en geen 502 geeft na het opnieuw aanmaken van die container.
+curl -sSk -m 10 -o /dev/null -w 'HTTP %{http_code}\n' https://localhost/login 2>&1 \
+  | mask || echo "(nginx antwoordt niet)"
 
 section "Laatste 60 regels app-log"
 $DC logs --tail=60 app 2>&1 | mask
