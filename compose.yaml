@@ -1,0 +1,51 @@
+# Lokaal testen met Docker Desktop:
+#   docker compose up --build
+# en open http://localhost:8000 (login: admin / test).
+services:
+  app:
+    build: .
+    ports:
+      - "8000:80"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-test}
+      DB_CONNECTION: mariadb
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laptops
+      DB_USERNAME: laptops
+      DB_PASSWORD: laptops
+      SESSION_SECURE_COOKIE: "false"
+    volumes:
+      # Foto's en de gegenereerde APP_KEY blijven bewaard.
+      - storage_data:/var/www/html/storage/app
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:lts
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: laptops
+      MARIADB_USER: laptops
+      MARIADB_PASSWORD: laptops
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      # Optioneel: database bekijken met bv. HeidiSQL of DBeaver op localhost:3307.
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  storage_data:

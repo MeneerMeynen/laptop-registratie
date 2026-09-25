@@ -104,7 +104,31 @@ rechtstreeks mee.
 > bewaart tijden in `Europe/Brussels`. Oude tijdstempels (koppel-/inleverdatum,
 > opvolgingen) worden daardoor 1–2 uur vroeger getoond dan ze in Belgische tijd waren.
 
-## Lokaal ontwikkelen
+## Lokaal testen met Docker Desktop
+
+Hiervoor hoef je alleen [Docker Desktop](https://www.docker.com/products/docker-desktop/) en
+Git te installeren; PHP en de database draaien in containers.
+
+```bash
+git clone https://github.com/MeneerMeynen/laptop-registratie.git
+cd laptop-registratie
+docker compose up --build
+```
+
+De eerste keer duurt dit een paar minuten. Open daarna **http://localhost:8000** en log in
+met **admin / test**. Een voorbeeld-CSV met leerlingen staat in `students_data/`.
+
+- Stoppen: `Ctrl+C` (of `docker compose down`). Gegevens en foto's blijven bewaard in
+  Docker-volumes.
+- Alles wissen en opnieuw beginnen: `docker compose down -v`
+- Na een `git pull` de nieuwe versie starten: `docker compose up --build`
+- Ander wachtwoord: maak naast `compose.yaml` een bestand `.env` met `AUTH_PASSWORD=...`
+- De database is bereikbaar op `localhost:3307` (gebruiker/wachtwoord `laptops`/`laptops`),
+  bv. met HeidiSQL of DBeaver.
+- De camera op de fotopagina werkt op `localhost` in je browser, maar niet vanaf je gsm
+  (daarvoor is HTTPS nodig — test dat op Plesk).
+
+## Lokaal ontwikkelen (zonder Docker)
 
 ```bash
 composer install

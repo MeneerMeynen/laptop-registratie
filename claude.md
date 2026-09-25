@@ -6,6 +6,7 @@
 - Blade-templates, HTMX voor partials, Alpine.js voor reactieve UI (geen build-stap: gewone JS/CSS in `public/static/`)
 - PHPUnit-featuretests (`php artisan test`), optionele Playwright-e2e-tests in `tests/e2e/`
 - Hosting: Plesk met Laravel Toolkit (zie README.md)
+- Lokaal testen: `docker compose up --build` → http://localhost:8000 (admin / test). `Dockerfile` = PHP 8.3 + Apache; `docker/entrypoint.sh` voert migraties uit en bewaart een gegenereerde `APP_KEY` in het storage-volume
 
 Versie 2.0.0 is een 1-op-1-port van de FastAPI-versie (v1.1.0, nog te vinden op `main`-historiek):
 zelfde URL's, JSON-velden, statuscodes en databaseschema, zodat de frontend-JS ongewijzigd bleef.
@@ -74,6 +75,7 @@ zelfde URL's, JSON-velden, statuscodes en databaseschema, zodat de frontend-JS o
 - `app/Support/` — `DetailException`, `Fmt` (formattering), `Sql` (portabele LIKE/CONCAT voor MariaDB én SQLite), `CsvWriter`
 - `resources/views/` — `index.blade.php` (hoofd-UI), `partials/*` (HTMX), `photos`, `barcodes`, `issue_fiche`, `login`
 - `public/static/` — CSS, `laptop_app.js`, `photo_app.js`, `csrf.js`, vendor-libs
+- `Dockerfile`, `compose.yaml`, `docker/` — lokale testomgeving (niet nodig voor Plesk)
 
 ## Aandachtspunten bij Blade
 - Alpine-attributen (`@click`, `@keydown`, …) zijn geen Blade-directives en blijven staan
@@ -86,6 +88,7 @@ zelfde URL's, JSON-velden, statuscodes en databaseschema, zodat de frontend-JS o
 
 ## Tests
 - `php artisan test` (SQLite in-memory; `DB_CONNECTION=mariadb …` voor MariaDB) — CI draait beide
+- Dependencies zijn vastgelegd voor PHP 8.3 (`config.platform.php` in composer.json); verhoog dat pas als Plesk overal 8.4 heeft
 - Testhelpers in `tests/TestCase.php` (`addStudent`, `link`, `unlink`, `createReserve`, `createIssue`); standaard ingelogd, zet `$loggedIn = false` om de login-gate te testen
 - Let op: de Laravel-testclient stuurt standaard `Accept: text/html`; stuur `Accept: */*` om het API-gedrag (401 i.p.v. redirect) te testen
 - E2e: `pytest tests/e2e --base-url http://localhost:8000` tegen een app met lege database
