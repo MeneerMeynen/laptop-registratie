@@ -5,6 +5,8 @@ function laptopApp() {
     activeTab:          'laptops',
     selectedStamnummer: null,
     selectedLaptopId:   null,
+    selectedEigen:      false,
+    selectedLeerkracht: false,
     selectedLabel:      'Geen leerling geselecteerd.',
     laptopSearch:       '',
     serialValue:        '',
@@ -204,6 +206,8 @@ function laptopApp() {
       }
       this.selectedStamnummer = stamnummer;
       this.selectedLaptopId   = option?.dataset.laptopId ? parseInt(option.dataset.laptopId) : null;
+      this.selectedEigen      = option?.dataset.eigen === '1';
+      this.selectedLeerkracht = option?.dataset.leerkracht === '1';
       this.selectedLabel      = `Geselecteerd: ${label}`;
       this.$nextTick(() => document.getElementById('serial_number').focus());
     },
@@ -293,8 +297,10 @@ function laptopApp() {
         const serialStr = data.eigen_laptop ? 'eigen laptop eigen toestel' : (data.serial_number || '');
         option.dataset.filter = `${baseFilter} ${serialStr}`.trim();
         option.dataset.laptopId = data.id || '';
+        option.dataset.eigen = data.eigen_laptop ? '1' : '';
       }
       this.selectedLaptopId = data.id || null;
+      this.selectedEigen = !!data.eigen_laptop;
 
       const statusSerial = data.eigen_laptop ? 'eigen laptop' : data.serial_number;
       this.linkStatus = { text: `✓ Laptop "${statusSerial}" gekoppeld.`, type: 'success' };
@@ -483,6 +489,7 @@ function laptopApp() {
           if (serialEl) serialEl.textContent = 'Laptop serienummer: Niet gekoppeld';
           option.querySelector('.badge-own')?.remove();
           option.dataset.laptopId = '';
+          option.dataset.eigen = '';
           const baseFilter = option.dataset.baseFilter || '';
           option.dataset.filter = baseFilter;
         }
@@ -699,6 +706,11 @@ function laptopApp() {
     },
 
     closeNewIssueModal() { this.showNewIssueModal = false; this.newIssueCreatedId = null; },
+
+    printContract() {
+      if (!this.selectedStamnummer) return;
+      window.open(`/contract/${encodeURIComponent(this.selectedStamnummer)}`, '_blank');
+    },
 
     printIssueFiche(id) { window.open(`/laptop-issues/${id}/fiche`, '_blank'); },
 

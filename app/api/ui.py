@@ -3,12 +3,13 @@ import io
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.services.contract_service import ContractError, get_contract_context
 from app.services.laptop_service import (
     get_all_laptops,
     import_laptops_csv,
@@ -72,6 +73,16 @@ def index(request: Request, db: Session = Depends(get_db)):
 @router.get("/barcodes", response_class=HTMLResponse)
 def barcodes_print(request: Request):
     return templates.TemplateResponse(request, "barcodes.html", {})
+
+
+@router.get("/contract/{stamnummer}", response_class=HTMLResponse)
+def contract_print(request: Request, stamnummer: str, db: Session = Depends(get_db)):
+    """Printable gebruiksovereenkomst for a student (not for teachers)."""
+    try:
+        context = get_contract_context(db, stamnummer)
+    except ContractError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    return templates.TemplateResponse(request, "contract.html", context)
 
 
 # ── HTMX partials ─────────────────────────────────────────────────────────

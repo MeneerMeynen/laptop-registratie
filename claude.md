@@ -37,6 +37,10 @@
 - Na koppelen blijft focus op het scanveld; volgende leerling wordt automatisch geselecteerd
 - Navigatiebarcodes: `1UP`, `1DOWN`
 - Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial, uniek per student)
+- Knop `Contract` (zichtbaar als de geselecteerde leerling een actieve schoollaptop heeft; niet bij eigen laptop
+  en niet voor leerkrachten) opent `GET /contract/{stamnummer}`: printbare gebruiksovereenkomst
+  (`app/templates/contract.html`). Leerkrachten krijgen bewust geen contract (juridisch niet passend; beslist 2026-10-01).
+  Datum = `linked_at`, schooljaar start in augustus.
 
 ### Studentenbeheer (tab: Instellingen)
 - CSV-upload via UI, upsert op `students`
@@ -79,6 +83,7 @@
 | | `DELETE /api/photos/{id}` | Foto verwijderen |
 | `api/laptop_issues.py` | `/api/laptop-issues/…` | Issue CRUD + entries CRUD |
 | `api/ui.py` | `GET /` | Hoofdpagina |
+| | `GET /contract/{stamnummer}` | Printbare gebruiksovereenkomst (enkel leerlingen) |
 | | Partials voor HTMX-updates | |
 
 ## Belangrijke bestanden
@@ -90,7 +95,7 @@
 - `app/api/ui.py` — UI-routes en partials
 - `app/models/` — Student, Laptop, LaptopIssue, LaptopIssueEntry, LaptopPhoto
 - `app/schemas/` — Pydantic schemas
-- `app/services/` — laptop_service, student_import, student_service, photo_service, laptop_issue_service
+- `app/services/` — laptop_service, student_import, student_service, photo_service, laptop_issue_service, contract_service
 - `app/templates/index.html` — hoofd-UI (Alpine.js, alle tabs)
 - `app/templates/photos.html` — foto-pagina
 - `alembic/` — migratiescripts

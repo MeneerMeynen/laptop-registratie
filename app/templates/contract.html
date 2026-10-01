@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% set volledige_naam = ((student.voornaam or '') ~ ' ' ~ (student.naam or '')) | trim %}
+  <title>Gebruiksovereenkomst – {{ volledige_naam }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #3dc6b2;
+      --ink:    #14161a;
+      --dim:    #767b85;
+      --line:   #9aa0a8;
+      --paper:  #ffffff;
+    }
+
+    body {
+      font-family: Calibri, 'Segoe UI', system-ui, sans-serif;
+      background: #f4f5f7;
+      color: var(--ink);
+      padding: 32px;
+      font-size: 10.5pt;
+      line-height: 1.35;
+    }
+
+    /* ── Screen header (hidden when printing) ── */
+    .screen-header {
+      width: 210mm; max-width: 100%;
+      margin: 0 auto 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .screen-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    .screen-header p { font-size: 13px; color: var(--dim); margin-top: 2px; }
+    .btn-print {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent); color: #fff;
+      font-size: 14px; font-weight: 600;
+      border: none; border-radius: 8px; padding: 10px 20px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-print:hover { opacity: .88; }
+
+    /* ── A4 sheet ── */
+    .sheet {
+      width: 210mm; max-width: 100%;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 14mm 18mm 16mm;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10);
+    }
+
+    .logos { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8mm; }
+    .logos .left  { height: 15mm; }
+    .logos .right { height: 17mm; }
+
+    h1.title { text-align: center; font-size: 18pt; letter-spacing: .04em; }
+    .subtitle { text-align: center; font-size: 12pt; margin-bottom: 7mm; }
+
+    .party-label { font-weight: 700; margin: 5mm 0 2mm; }
+
+    table.kv { width: 100%; border-collapse: collapse; }
+    table.kv td { border: 1px solid var(--line); padding: 2mm 3mm; vertical-align: top; }
+    table.kv td.k { width: 38%; font-weight: 700; background: #f2f3f5; }
+    .fill { font-weight: 600; font-size: 11.5pt; }
+    .blank { display: block; min-height: 5mm; }
+    .lines {
+      min-height: 22mm;
+      background-image: repeating-linear-gradient(
+        to bottom, transparent, transparent 7mm,
+        var(--line) 7mm, var(--line) calc(7mm + 1px)
+      );
+    }
+    ul.checks { list-style: none; }
+    ul.checks li::before { content: "☐"; margin-right: 2mm; }
+
+    h2 { font-size: 11.5pt; margin: 6mm 0 2mm; break-after: avoid; }
+    h3 { font-size: 10.5pt; margin: 3mm 0 1mm; break-after: avoid; }
+    ul.clauses { padding-left: 6mm; }
+    ul.clauses li { margin-bottom: 1.2mm; }
+    ul.clauses ul { padding-left: 6mm; margin-top: 1mm; list-style: circle; }
+    p { margin-bottom: 2mm; }
+
+    .closing { margin-top: 7mm; }
+
+    table.sign { width: 100%; border-collapse: collapse; margin-top: 5mm; break-inside: avoid; }
+    table.sign td { border: 1px solid var(--line); padding: 2mm 3mm; vertical-align: top; text-align: center; }
+    table.sign tr.head td { font-weight: 700; background: #f2f3f5; }
+    table.sign tr.space td { height: 30mm; vertical-align: bottom; }
+    table.sign tr.foot td { font-size: 9pt; color: var(--dim); }
+
+    .doc-footer { margin-top: 8mm; font-size: 8.5pt; color: var(--dim); text-align: center; }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 12mm 0 14mm;
+        @bottom-center {
+          content: "Gebruiksovereenkomst ICT-toestel leerlingen – SGPSOL – p. " counter(page) "/" counter(pages);
+          font-size: 8pt; color: #767b85;
+        }
+      }
+      body { background: none; padding: 0; }
+      .screen-header { display: none; }
+      .sheet { box-shadow: none; width: auto; padding: 0 18mm; }
+      .doc-footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="screen-header">
+  <div>
+    <h1>Gebruiksovereenkomst leerling</h1>
+    <p>{{ volledige_naam }} · {{ laptop.serial_number }} · schooljaar {{ schooljaar }}</p>
+  </div>
+  <button class="btn-print" onclick="window.print()">🖨 Afdrukken</button>
+</div>
+
+<div class="sheet">
+  <div class="logos">
+    <img class="left" src="{{ static_v('img/logo-geniaal-provinciaal.png') }}" alt="Geniaal Provinciaal">
+    <img class="right" src="{{ static_v('img/logo-provil-ion.png') }}" alt="Provil ION">
+  </div>
+
+  <h1 class="title">GEBRUIKSOVEREENKOMST</h1>
+  <div class="subtitle">ICT-toestel in eigendom van de school · schooljaar {{ schooljaar }}</div>
+
+  <div class="party-label">Tussen de uitlener:</div>
+  <table class="kv">
+    <tr><td class="k">School/vestiging</td><td>Provil ION<br>Duinenstraat 1<br>3920 Lommel</td></tr>
+    <tr><td class="k">Vertegenwoordigd door</td><td>Jasper Vandeweyer en Toon Meynen</td></tr>
+  </table>
+
+  <div class="party-label">En de gebruiker:</div>
+  <table class="kv">
+        <tr><td class="k">Ouder/wettelijke vertegenwoordiger, van</td><td><span class="blank"></span></td></tr>
+    <tr><td class="k">Leerling</td><td class="fill">{{ volledige_naam }}</td></tr>
+    <tr><td class="k">Klas</td><td class="fill">{{ student.klas or '' }}<span class="blank"></span></td></tr>
+      </table>
+
+  <div class="party-label">Met betrekking tot volgend toestel en eventuele toebehoren:</div>
+  <table class="kv">
+    <tr><td class="k">Merk en type</td><td>
+      <ul class="checks"><li>Dell Latitude 3420</li><li>Lenovo ThinkBook 14 G7</li></ul>
+    </td></tr>
+    <tr><td class="k">Serienummer</td><td class="fill">{{ laptop.serial_number }}</td></tr>
+    <tr><td class="k">Toebehoren</td><td>
+      <ul class="checks"><li>Beschermhoes Easy4u</li><li>Beschermhoes Caselogic</li><li>Oplader toestel</li></ul>
+    </td></tr>
+    <tr><td class="k">Eventuele beschadigingen</td><td><div class="lines"></div></td></tr>
+  </table>
+
+  <p style="margin-top:5mm;"><strong>Wordt het volgende overeengekomen:</strong></p>
+
+  <h2>1. Eigendom en bestemming</h2>
+  <ul class="clauses">
+    <li>Het toestel en toebehoren blijven eigendom van de school of het schoolbestuur, tenzij schriftelijk anders is overeengekomen.</li>
+        <li>Het toestel wordt ter beschikking gesteld voor schoolse, pedagogische en administratieve toepassingen die verband houden met de opleiding van de leerling.</li>
+        <li>De uitlener stelt het toestel in goede staat ter beschikking aan de gebruiker. Eventuele zichtbare beschadigingen of opmerkingen bij uitgifte zijn hierboven omschreven.</li>
+  </ul>
+
+  <h2>2. Duur en opzegging</h2>
+  <ul class="clauses">
+        <li>De gebruiksovereenkomst gaat in op de datum dat het toestel en toebehoren in ontvangst zijn genomen door de gebruiker en dient in volledige staat en met toebehoren terug worden ingeleverd op de afgesproken einddatum. Bij verzuim hiertoe, verbindt de gebruiker zich tot betaling van de vervangingswaarde van het ter beschikking gestelde goed.</li>
+    <li>Toestellen die in de 1ste graad ter beschikking worden gesteld, moeten worden ingeleverd in de maand juni van het 2de jaar. Toestellen die in de 2de en 3de graad ter beschikking worden gesteld moeten worden ingeleverd in de maand juni van het 6de jaar. De precieze einddatum van de overeenkomst en hieruit volgend de laatste datum van inlevering wordt gecommuniceerd door de ICT-dienst.</li>
+    <li>De gebruiksovereenkomst is gedurende de looptijd niet tussentijds opzegbaar door de gebruiker, behalve wanneer de leerling tijdens deze periode de school verlaat, om welke reden ook. In dit geval kan de gebruiksovereenkomst te allen tijde worden opgezegd zonder opzegtermijn.</li>
+        <li>De uitlener is bevoegd deze overeenkomst zonder gerechtelijke tussenkomst of ingebrekestelling tussentijds met onmiddellijke ingang te beëindigen, indien:
+      <ul>
+        <li>de uitlener reden heeft om te vrezen dat de gebruiker het ter beschikking gestelde goed verwaarloost, misbruikt of voor een ander doel gebruikt dan waarvoor deze bestemd is;</li>
+        <li>de gebruiker in strijd handelt met de bepalingen van deze overeenkomst of met de op hem rustende wettelijke verplichtingen met betrekking tot het gebruik van het toestel;</li>
+        <li>de gebruiker niet langer verbonden is aan de onderwijsinstelling.</li>
+      </ul>
+    </li>
+  </ul>
+  <p>In het geval dat de uitlener de bruikleenovereenkomst beëindigt, zal de gebruiker het ter beschikking gestelde goed zo snel mogelijk en uiterlijk binnen 1 week inleveren. Als de uitlener schade ontdekt, zal de gebruiker een prijsopgave ontvangen en is hij verplicht de schade te betalen.</p>
+
+  <h2>3. Vergoeding</h2>
+  <ul class="clauses">
+    <li>De gebruiker is elk schooljaar een gebruiksvergoeding ten behoeve van €100 verschuldigd aan de uitlener. De vergoeding wordt aangerekend via de schoolrekening.</li>
+    <li>Voor meerkosten (schade, diefstal…) ontvangt de gebruiker een prijsopgave van de uitlener en is hij/zij verplicht deze te betalen.</li>
+  </ul>
+
+  <h2>4. Zorgvuldig gebruik door de gebruiker</h2>
+  <ul class="clauses">
+    <li>De gebruiker beheert het toestel als een voorzichtig en redelijk persoon, volgt de aanwijzingen van directie, leraren, ICT-dienst, ondersteunend personeel en gebruikt het toestel waarvoor het bedoeld is: gebruik in het onderwijsprogramma.</li>
+    <li>De gebruiker brengt het toestel elke schooldag mee en zorgt ervoor dat de batterij voldoende is opgeladen. Opladen gebeurt met de originele lader.</li>
+    <li>Tijdens vervoer wordt het toestel uitgeschakeld of vergrendeld en opgeborgen in de beschermhoes of tas. De gebruiker beschermt het toestel tegen schokken, druk, vocht, extreme temperaturen, brand, verlies en diefstal.</li>
+    <li>De gebruiker laat het toestel niet onbeheerd achter op publieke plaatsen, in voertuigen, sportzalen, speelplaatsen of andere plaatsen met verhoogd risico. Het toestel wordt niet uitgeleend aan andere leerlingen, familieleden of derden.</li>
+    <li>De gebruiker brengt geen esthetische (stickers, verf, tekeningen, gravures, …) of technische wijzigingen (verwijderen van assetlabels, openmaken van de behuizing, manipulatie van beveiligingsinstellingen, …) aan het toestel aan.</li>
+    <li>De gebruiker neemt het toestel niet mee op (buitenlandse) reizen.</li>
+  </ul>
+
+  <h2>5. Schade, defect, verlies of diefstal</h2>
+  <ul class="clauses">
+    <li>De gebruiker meldt defect, schade, verlies of diefstal onmiddellijk en uiterlijk op de eerstvolgende schooldag aan de ICT-dienst.</li>
+    <li>Bij schade of defect brengt de gebruiker het toestel en toebehoren zo snel mogelijk binnen bij de ICT-dienst. De gebruiker laat geen herstelling uitvoeren door derden.</li>
+    <li>De school organiseert herstellingen via de eigen ICT-dienst, leverancier, hersteller of verzekeraar. De gebruiker werkt mee aan diagnose en herstelling en geeft alle noodzakelijke informatie over de oorzaak en omstandigheden van het incident.</li>
+    <li>Schade door productiefouten, normale slijtage en normaal gebruik wordt niet aangerekend aan de gebruiker, in tegenstelling tot schade die het gevolg is van verkeerd gebruik, nalatigheid, opzet of schending van deze overeenkomst.</li>
+    <li>De school zal tijdens de herstellingsperiode een vervangtoestel ter beschikking stellen volgens beschikbaarheid en schoolafspraken. Voor het vervangtoestel gelden dezelfde voorwaarden als voor het oorspronkelijke toestel.</li>
+    <li>De school is niet aansprakelijk voor verlies van lokale of persoonlijke gegevens bij defect, herstelling, reset, herinstallatie of vervanging. De gebruiker is zelf verantwoordelijk voor het bewaren van bestanden in de door de school aangeboden opslagomgeving(en).</li>
+    <li>Bij diefstal doet de gebruiker of ouder/wettelijke vertegenwoordiger zo snel mogelijk aangifte bij de politie en bezorgt hij/zij een kopie of referentie van het proces-verbaal aan de school. De school kan bijkomende informatie vragen voor verzekering of schadeafhandeling.</li>
+    <li>Bij verlies of diefstal neemt de school de noodzakelijke veiligheidsmaatregelen, zoals blokkeren van accounts, blokkeren van het toestel of wissen van schoolgegevens, voor zover dit technisch mogelijk en proportioneel is.</li>
+  </ul>
+
+  <h2>6. Aansprakelijkheid en kosten bij schade, verlies of diefstal</h2>
+  <ul class="clauses">
+    <li>De gebruiker is niet aansprakelijk voor schade ten gevolge van normale slijtage, productiefouten of schade die ondanks normaal en zorgvuldig gebruik is ontstaan. Deze schade valt onder garantie. Hiervoor worden geen kosten aangerekend.</li>
+    <li>De gebruiker is wel aansprakelijk voor schade, verlies, diefstal of kosten die voortvloeien uit opzettelijke schade, grove onzorgvuldigheid, nalatigheid, onbeheerd achterlaten, verkeerd gebruik, niet-naleving van deze overeenkomst, niet-naleving van het ICT-reglement, niet tijdig melden, gebruik door derden of onbevoegde herstelling.</li>
+    <li>Kosten worden aangerekend op basis van de werkelijke herstelkost, vervangingskost, de kost van ontbrekende toebehoren, de redelijke restwaarde van het toestel of de vrijstelling van de verzekering met toepassing van de schoolafspraken.</li>
+    <li>Als de verzekering tussenkomt, betaalt de gebruiker alleen het bedrag dat volgens de schoolafspraken ten laste blijft van de gebruiker, namelijk de vrijstelling van de verzekering, tenzij er sprake is van opzet, uitgesloten risico, verlies, diefstal zonder dekking of een andere niet-gedekte situatie.</li>
+    <li>Bij niet-gedekte schade, verlies of niet-gedekte diefstal zal de school de kosten aanrekenen zoals opgenomen in het overzicht in de overeenkomst.</li>
+    <li>Bij door de verzekering gedekte schade bedraagt de franchise voor rekening van de verzekerde €50 per gebeurtenis.</li>
+    <li>De school is niet verplicht om opnieuw een toestel ter beschikking te stellen:
+      <ul>
+        <li>Na de 1ste gebeurtenis bij opzettelijke schade of grove nalatigheid, verlies of diefstal zonder proces-verbaal met aantoning braak.</li>
+        <li>Na de 2de gebeurtenis bij andere schade (met uitzondering van schade binnen garantie)</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Overzicht van schade en kosten</h3>
+  <p>Schade binnen garantie: €0.</p>
+  <p style="margin-bottom:1mm;"><em>Verzekerde schade buiten garantie</em></p>
+  <ul class="clauses">
+    <li>Onopzettelijke schade: Franchise van €50 incl. btw.</li>
+    <li>Diefstal met proces-verbaal, met aantonen braak: Franchise van €50 incl. btw.</li>
+  </ul>
+  <p style="margin-bottom:1mm;"><em>Niet-verzekerde schade buiten garantie</em></p>
+  <ul class="clauses">
+    <li>Schade door onzorgvuldig of verkeerd gebruik: Werkelijke herstelkost.</li>
+    <li>Cosmetische schade die herstel of reiniging vereist: Werkelijke herstel- of reinigingskost.</li>
+    <li>Ontbrekende originele oplader of beschermhoes/sleeve: Werkelijke vervangingskost van de originele lader of beschermhoes/sleeve.</li>
+    <li>Opzettelijke schade of grove nalatigheid: Werkelijke herstel- of vervangingskost.</li>
+    <li>Verlies van toestel of diefstal zonder proces-verbaal met aantoning braak: Vervangingskost van een gelijkwaardig toestel, rekening houdend met leeftijd, staat en servicecontract.</li>
+  </ul>
+
+  <h2>7. Software, opslag en gegevens van de gebruiker</h2>
+  <ul class="clauses">
+    <li>Als zelf geïnstalleerde software, wijzigingen of lokaal opgeslagen gegevensproblemen veroorzaken, mag de school het toestel herstellen, resetten, herinstalleren of terugzetten naar de standaardconfiguratie. Daarbij kunnen lokale bestanden, apps en instellingen verloren gaan.</li>
+    <li>De gebruiker bewaart schoolbestanden bij voorkeur in de door de school aangeboden cloud- of leeromgeving, bijvoorbeeld Google Drive of Smartschool. De school is niet verantwoordelijk voor verlies van lokale of persoonlijke bestanden.</li>
+  </ul>
+
+  <h2>8. Beheer van het toestel door de school</h2>
+  <ul class="clauses">
+    <li>De school kan het toestel centraal beheren om onderwijs, ondersteuning, beveiliging, inventarisatie en naleving van het ICT-beleid mogelijk te maken. Het toestelbeheer is niet bedoeld voor voortdurende inhoudelijke controle van persoonlijke bestanden, berichten, camera, microfoon of privécommunicatie. De school activeert geen camera of microfoon op afstand.</li>
+    <li>Een inhoudelijke controle of inzage in bestanden gebeurt alleen als dit noodzakelijk en proportioneel is, bijvoorbeeld bij een technisch probleem, veiligheidsincident, vermoeden van ernstig misbruik of wettelijke verplichting. De school beperkt die controle tot wat nodig is en volgt de interne bevoegdheids- en privacy procedure.</li>
+    <li>Waar mogelijk wordt de gebruiker vooraf of uiterlijk achteraf geïnformeerd over ingrijpende beheersmaatregelen, zoals blokkeren, wissen of lokaliseren van een toestel, tenzij dit het doel van de maatregel zou ondermijnen of wettelijk niet aangewezen is.</li>
+  </ul>
+
+  <h2>9. Teruggaveplicht van het toestel en toebehoren</h2>
+  <ul class="clauses">
+    <li>De gebruiker geeft het toestel en alle toebehoren terug op het einde van de overeenkomst, bij schoolverlaten, bij vervanging, bij opvraging door de school of wanneer de school dit volgens deze overeenkomst vraagt.</li>
+    <li>Teruggave gebeurt uiterlijk binnen 1 week na het einde van de overeenkomst of na de eerste schriftelijke vraag van de school, tenzij de school een andere termijn meedeelt.</li>
+    <li>Het toestel wordt teruggegeven in de staat zoals het was bij de aanvang van de bruikleen, rekening houdend met normale slijtage. De gebruiker meldt eventuele defecten of schade eerlijk bij teruggave.</li>
+    <li>De school controleert bij teruggave het toestel, de toebehoren, zichtbare schade, assetlabels en werking een eerste keer. Ontbrekende toebehoren of schade buiten normale slijtage kunnen volgens het overzicht in de overeenkomst worden aangerekend.</li>
+    <li>De school behoudt zich het recht om na teruggave van het toestel en toebehoren het toestel aan een grondigere inspectie te onderwerpen. Ontbrekende toebehoren of schade buiten normale slijtage kunnen volgens het overzicht in de overeenkomst worden aangerekend.</li>
+    <li>Als het toestel of toebehoren niet tijdig wordt teruggegeven, stuurt de school een herinnering met een redelijke bijkomende termijn. Bij blijvende niet-teruggave rekent de school de restwaarde of vervangingswaarde aan, inclusief invorderings- of recuperatiekosten en kan zij, indien nodig, verdere stappen ondernemen.</li>
+    <li>De gebruiker heeft geen recht op enige vorm van eigenaarschap na afloop van de gebruiksovereenkomst.</li>
+  </ul>
+
+  <h2>10. Privacy en bescherming van persoonsgegevens</h2>
+  <ul class="clauses">
+    <li>De school verwerkt persoonsgegevens in het kader van deze overeenkomst, waaronder identificatie- en contactgegevens van leerling en ouder(s), toestelgegevens, inventarisgegevens, afgifte- en retourgegevens, supporttickets, schade- en herstellingsinformatie, betalingsgegevens voor zover van toepassing, verzekeringsinformatie en technische beheergegevens van het toestel.</li>
+    <li>De verwerking gebeurt voor de terbeschikkingstelling, administratie, ondersteuning, beveiliging, inventarisatie, facturatie, verzekering, schadeafhandeling, naleving van schoolafspraken en uitvoering van het ICT-beleid.</li>
+    <li>De verwerking gebeurt op basis van de uitvoering van deze overeenkomst, de wettelijke en onderwijsopdracht van de school, wettelijke verplichtingen en/of het gerechtvaardigd belang van de school om haar ICT-infrastructuur veilig en correct te beheren, telkens voor zover toepasselijk.</li>
+    <li>De school kan voor ICT-beheer, cloudopslag, MDM, herstelling, verzekering, facturatie of ondersteuning beroep doen op verwerkers of ontvangers. Zij ontvangen alleen gegevens die noodzakelijk zijn voor hun opdracht en moeten passende vertrouwelijkheids- en beveiligingsafspraken naleven.</li>
+    <li>Persoonsgegevens worden niet langer bewaard dan noodzakelijk voor de doeleinden hierboven. Een langere bewaring is mogelijk voor wettelijke verplichtingen, facturatie, verzekering, betwisting of archivering volgens het beleid van het schoolbestuur.</li>
+    <li>De leerling, ouder of wettelijke vertegenwoordiger kan, volgens de toepasselijke privacywetgeving, vragen om inzage, verbetering, beperking, verwijdering, overdraagbaarheid of bezwaar, voor zover die rechten in de concrete situatie van toepassing zijn.</li>
+  </ul>
+
+  <h2>11. Schorsing of beëindiging bij misbruik</h2>
+  <ul class="clauses">
+    <li>Bij ernstig of herhaald misbruik, opzettelijke beschadiging, veiligheidsincidenten, het omzeilen van beheer of beveiliging, het weigeren van noodzakelijke updates of herstellingen, of andere zware schendingen van deze overeenkomst, kan de school het gebruik beperken, het toestel opvragen of de overeenkomst beëindigen.</li>
+        <li>De school past daarbij het schoolreglement, het ICT-reglement en de interne tucht- of begeleidingsprocedures toe. Waar mogelijk wordt eerst met leerling en ouder/wettelijke vertegenwoordiger overlegd.</li>
+        <li>Beëindiging van de overeenkomst ontslaat de gebruiker niet van de verplichting tot teruggave van het toestel en toebehoren of van betaling van verschuldigde bedragen volgens deze overeenkomst.</li>
+  </ul>
+
+  <h2>12. Slotbepalingen</h2>
+  <ul class="clauses">
+    <li>Wijzigingen aan deze overeenkomst zijn alleen geldig als ze schriftelijk of via het officiële schoolkanaal aan de gebruiker worden meegedeeld, met respect voor het schoolreglement en de toepasselijke regelgeving.</li>
+    <li>Als een bepaling ongeldig of niet-afdwingbaar zou zijn, blijven de andere bepalingen gelden. De ongeldige bepaling wordt dan vervangen door een geldige bepaling die zo dicht mogelijk aansluit bij het doel ervan.</li>
+    <li>Op deze overeenkomst is Belgisch recht van toepassing. Geschillen worden eerst besproken met de school.</li>
+  </ul>
+
+  <div class="closing">
+    <p>Voor de volledige rechten en plichten met betrekking tot het gebruik van het toestel wordt verwezen naar het schoolreglement en de ICT-reglementering van de school.</p>
+    <p>Deze overeenkomst wordt opgemaakt in 2 exemplaren. Elke partij ontvangt een exemplaar.</p>
+    <p style="margin-top:4mm;">Opgemaakt te Lommel, op {{ opgemaakt_op }}</p>
+  </div>
+
+  <table class="sign">
+        <tr class="head"><td>Voor de school</td><td>Ouder/wettelijke vertegenwoordiger</td><td>Leerling</td></tr>
+    <tr class="space"><td>Kim Van Braband<br><br><br>_____________________</td><td>_____________________</td><td>{{ volledige_naam }}<br><br><br>_____________________</td></tr>
+    <tr class="foot"><td>Handtekening</td><td>Handtekening voor akkoord</td><td>Handtekening voor kennisname en naleving</td></tr>
+      </table>
+
+  <div class="doc-footer">Gebruiksovereenkomst ICT-toestel leerlingen – SGPSOL</div>
+</div>
+
+</body>
+</html>

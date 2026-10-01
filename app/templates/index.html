@@ -301,6 +301,10 @@
             <button type="button" class="btn sm"
                     x-show="selectedLaptopId"
                     @click="unlinkLaptop(selectedLaptopId)">Inleveren</button>
+            <button type="button" class="btn sm"
+                    x-show="selectedLaptopId && !selectedEigen && !selectedLeerkracht"
+                    title="Gebruiksovereenkomst genereren en afdrukken"
+                    @click="printContract()">🖨 Contract</button>
             <button type="button" class="btn sm accent"
                     @click="submitLink()">Link laptop</button>
           </div>

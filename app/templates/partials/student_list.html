@@ -11,6 +11,8 @@
     class="student-option"
     data-stamnummer="{{ student.stamnummer }}"
     data-laptop-id="{{ laptop.id if laptop and laptop.is_active else '' }}"
+    data-eigen="{{ '1' if laptop and laptop.eigen_laptop else '' }}"
+    data-leerkracht="{{ '1' if is_teacher else '' }}"
     data-label="{{ student.naam }}, {{ student.voornaam }} – {{ group_label }} ({{ student.stamnummer }})"
     data-base-filter="{{ base_filter }}"
     data-filter="{{ base_filter }} {{ filter_extra }}"
