@@ -8,6 +8,7 @@ from app.models.laptop import Laptop
 from app.models.laptop_issue import LaptopIssue
 from app.models.laptop_issue_entry import LaptopIssueEntry
 from app.models.student import Student
+from app.services.serial_utils import normalize_serial
 
 VALID_STATUSES = ("aangemeld", "open", "gesloten")
 VALID_CATEGORIES = (
@@ -121,7 +122,7 @@ def create_issue(
         reserve_laptop = _validate_reserve_laptop(db, reserve_laptop_id)
 
     issue = LaptopIssue(
-        serial_number=serial_number.strip(),
+        serial_number=normalize_serial(serial_number),
         description=description.strip(),
         reported_date=reported_date,
         status="aangemeld",

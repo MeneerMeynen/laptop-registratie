@@ -10,6 +10,7 @@ from app.models.laptop import Laptop
 from app.models.laptop_issue import LaptopIssue
 from app.models.storage_cabinet import StorageCabinet
 from app.models.student import Student
+from app.services.serial_utils import normalize_serial
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +91,8 @@ def link_laptop_to_student(
             ``overwrite_existing`` is False.
     """
     normalized_stamnummer = stamnummer.strip()
-    normalized_serial = serial_number.strip()
-    is_own = is_eigen_laptop_scan(normalized_serial)
+    is_own = is_eigen_laptop_scan(serial_number)
+    normalized_serial = serial_number.strip() if is_own else normalize_serial(serial_number)
 
     # 1. Student must exist.
     student = session.get(Student, normalized_stamnummer, options=[selectinload(Student.laptops)])
@@ -492,7 +493,7 @@ def create_laptop(
     - Reserve laptop: ``is_reserve=True`` and ``alias`` required; no stamnummer/cabinet.
     - Cabinet laptop: ``storage_cabinet_id`` and ``serial_number`` required; no stamnummer/reserve.
     """
-    normalized_serial = (serial_number or "").strip() or None
+    normalized_serial = normalize_serial(serial_number) or None
     normalized_stamnummer = (stamnummer or "").strip() or None
     normalized_alias = (alias or "").strip() or None
 
@@ -607,11 +608,11 @@ def bulk_create_laptops(
     next_alias = _next_reserve_alias_number(session) if is_reserve else 0
 
     for raw in serials:
-        serial = (raw or "").strip()
+        serial = normalize_serial(raw)
         if not serial:
             continue
         if not _SERIAL_RE.fullmatch(serial):
-            errors.append(f"Ongeldig serienummer: {serial}")
+            errors.append(f"Ongeldig serienummer: {(raw or '').strip()}")
             continue
         if serial in seen:
             skipped += 1
@@ -715,7 +716,7 @@ def update_laptop(
         laptop.stamnummer = normalized
 
     if serial_number is not None:
-        normalized = serial_number.strip() or None
+        normalized = normalize_serial(serial_number) or None
         if normalized:
             conflict = session.scalars(
                 select(Laptop).where(
@@ -766,7 +767,7 @@ def import_laptops_csv(session: Session, stream: TextIO) -> dict:
 
     reader = csv.DictReader(stream)
     for i, row in enumerate(reader, start=2):
-        serial = (row.get("serial_number") or row.get("Serienummer") or "").strip()
+        serial = normalize_serial(row.get("serial_number") or row.get("Serienummer"))
         stamnummer = (row.get("stamnummer") or row.get("Stamnummer") or "").strip()
 
         if not serial or not stamnummer:

@@ -36,6 +36,10 @@
 - Laptops worden gekoppeld in tabel `laptops`
 - Na koppelen blijft focus op het scanveld; volgende leerling wordt automatisch geselecteerd
 - Navigatiebarcodes: `1UP`, `1DOWN`
+- Gescande codes worden genormaliseerd (`app/services/serial_utils.py` + `app/static/js/serial.js`, in sync houden):
+  Lenovo-QR (`https://support.lenovo.com/qrcode?sn=PW0P8KG5&mtm=…`) en de lange barcode
+  (`PW0P8KG5PW90B6321007`, regel: exact 20 tekens beginnend met `P` → eerste 8) worden `PW0P8KG5`; altijd hoofdletters.
+  Geldt bij registreren, defect melden, foto's, bulk toevoegen en zoekvelden (zoekvelden met namen: `scannedSerial`).
 - Speciale barcode `eigen laptop` zet `laptops.eigen_laptop = true` (lege serial, uniek per student)
 - Knop `Contract` (zichtbaar als de geselecteerde leerling een actieve schoollaptop heeft; niet bij eigen laptop
   en niet voor leerkrachten) opent `GET /contract/{stamnummer}`: printbare gebruiksovereenkomst

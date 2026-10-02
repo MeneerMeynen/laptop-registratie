@@ -13,6 +13,7 @@ from app.services.photo_service import (
     list_photos,
     save_photo,
 )
+from app.services.serial_utils import normalize_serial
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
 
@@ -48,7 +49,7 @@ def upload_photo(file: UploadFile, serial_number: str, db: Session = Depends(get
             ext = f".{parts[1].lower()}"
 
     try:
-        photo = save_photo(db, serial_number.strip(), content, ext)
+        photo = save_photo(db, normalize_serial(serial_number), content, ext)
     except PhotoValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {
@@ -76,7 +77,7 @@ def upload_photo_base64(req: PhotoBase64Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Ongeldige base64 data.")
 
     try:
-        photo = save_photo(db, req.serial_number.strip(), file_bytes, ".jpg")
+        photo = save_photo(db, normalize_serial(req.serial_number), file_bytes, ".jpg")
     except PhotoValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {

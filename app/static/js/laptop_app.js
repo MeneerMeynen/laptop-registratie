@@ -171,7 +171,7 @@ function laptopApp() {
 
     // ── Global scanbar ─────────────────────────────────────
     handleGlobalScan() {
-      const val = this.globalScanValue.trim();
+      const val = normalizeSerial(this.globalScanValue);
       if (!val) return;
       this.openNewIssueModal(val);
       this.globalScanValue = '';
@@ -250,6 +250,8 @@ function laptopApp() {
       if (['1UP', '1DOWN', 'CLEAR', 'INLEVEREN'].includes(upper)) {
         this.handleScanInput(); return;
       }
+      // Lenovo QR code / long barcode → bare serial (see serial.js).
+      if (upper !== 'EIGEN LAPTOP') this.serialValue = normalizeSerial(serial);
       await this._doLink(false);
     },
 
@@ -511,6 +513,7 @@ function laptopApp() {
     },
 
     refreshLaptopSidebar() {
+      this.ltSearch = scannedSerial(this.ltSearch);
       const params = new URLSearchParams({ search: this.ltSearch });
       this.ltStatusFilter.forEach(s => params.append('statuses', s));
       htmx.ajax('GET', `/ui/laptop-tracker/sidebar?${params}`, {
@@ -571,7 +574,7 @@ function laptopApp() {
 
     // ── Laptop info (rapport) tab ──────────────────────────
     async fetchRapportSuggestions() {
-      const q = (this.rapportSearch || '').trim();
+      const q = this.rapportSearch = scannedSerial(this.rapportSearch);
       if (q.length < 2) { this.rapportSuggestions = []; return; }
       try {
         const r = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
@@ -582,7 +585,7 @@ function laptopApp() {
     },
 
     async loadRapport(input) {
-      const raw = (input || '').trim();
+      const raw = scannedSerial(input);
       if (!raw) { this.rapportData = null; this.rapportStatus = { text: '', type: '' }; return; }
       // If user typed/selected a name rather than a serial, resolve via search
       let serial = raw;
@@ -670,7 +673,7 @@ function laptopApp() {
     },
 
     openNewIssueModal(serial = '') {
-      this.newIssueSerial            = serial || '';
+      this.newIssueSerial            = scannedSerial(serial);
       this.newIssueDescription       = '';
       this.newIssueDate              = new Date().toISOString().slice(0, 10);
       this.newIssueCategory          = '';
@@ -715,14 +718,14 @@ function laptopApp() {
     printIssueFiche(id) { window.open(`/laptop-issues/${id}/fiche`, '_blank'); },
 
     async fetchLaptopSuggestions() {
-      const q = this.newIssueSerial.trim();
+      const q = this.newIssueSerial = scannedSerial(this.newIssueSerial);
       if (q.length < 2) { this.newIssueSuggestions = []; return; }
       const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
       this.newIssueSuggestions = res.ok ? await res.json() : [];
     },
 
     async submitNewIssue() {
-      const serial = this.newIssueSerial.trim();
+      const serial = this.newIssueSerial = scannedSerial(this.newIssueSerial);
       const desc   = this.newIssueDescription.trim();
       if (!serial) { this.issueStatus = { text: 'Serienummer is verplicht.', type: 'error' }; return; }
       if (!desc)   { this.issueStatus = { text: 'Beschrijving is verplicht.', type: 'error' }; return; }
@@ -825,14 +828,14 @@ function laptopApp() {
 
     // ── Photo tab ──────────────────────────────────────────
     async fetchPhotoSuggestions() {
-      const q = this.photoSearch.trim();
+      const q = this.photoSearch = scannedSerial(this.photoSearch);
       if (q.length < 2) { this.photoSuggestions = []; return; }
       const res = await fetch(`/api/laptops/search?q=${encodeURIComponent(q)}`);
       this.photoSuggestions = res.ok ? await res.json() : [];
     },
 
     loadPhotoGallery() {
-      const serial = this.photoSearch.trim();
+      const serial = this.photoSearch = scannedSerial(this.photoSearch);
       if (!serial) { this.photoStatus = { text: 'Voer een serienummer in.', type: 'error' }; return; }
       this.photoStatus = { text: '', type: '' };
       htmx.ajax('GET', `/ui/photos/gallery?serial=${encodeURIComponent(serial)}`, {
@@ -883,6 +886,7 @@ function laptopApp() {
     },
 
     refreshLaptopManage() {
+      this.laptopManageSearch = scannedSerial(this.laptopManageSearch);
       htmx.ajax('GET', `/ui/laptops/manage?${this.laptopManageParams()}`, {
         target: '#manage-laptop-list', swap: 'innerHTML',
       });
@@ -951,7 +955,7 @@ function laptopApp() {
     async bulkCreateLaptops() {
       const serials = (this.bulkLaptopSerials || '')
         .split('\n')
-        .map(s => s.trim())
+        .map(s => normalizeSerial(s))
         .filter(Boolean);
       const type = this.bulkLaptopType;
       const isReserve = type === 'reserve';

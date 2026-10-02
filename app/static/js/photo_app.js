@@ -266,7 +266,7 @@ function photoApp() {
                 reader.setHints(hints);
 
                 const result = reader.decode(bitmap);
-                const text = result.getText().trim();
+                const text = normalizeSerial(result.getText());
 
                 if (text) {
                     this.serialInput = text;
@@ -286,7 +286,8 @@ function photoApp() {
 
         // ── Confirm serial ───────────────────────────────────
         async confirmSerial() {
-            const serial = this.serialInput.trim();
+            const serial = normalizeSerial(this.serialInput);
+            this.serialInput = serial;
             if (!serial) {
                 this.statusMsg = { text: 'Voer een serienummer in.', type: 'error' };
                 return;

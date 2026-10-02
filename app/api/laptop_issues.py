@@ -31,6 +31,7 @@ from app.services.laptop_issue_service import (
 )
 from app.services.laptop_service import get_assignment_history
 from app.services.photo_service import list_photos
+from app.services.serial_utils import normalize_serial
 
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -139,7 +140,7 @@ def laptop_info(serial: str, db: Session = Depends(get_db)):
 @router.get("/api/laptops/report")
 def laptop_report(serial: str, db: Session = Depends(get_db)):
     """Bundled report data for the 'Laptop info' tab."""
-    serial = (serial or "").strip()
+    serial = normalize_serial(serial)
     if not serial:
         return {
             "serial": "",
