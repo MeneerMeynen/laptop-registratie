@@ -99,6 +99,11 @@ function laptopApp() {
     newLaptopAlias:     '',
     newLaptopCabinetId: '',
     newLaptopMagazijnId:'',
+    // Personenkiezer in het Nieuw-formulier: leerlingen én leerkrachten.
+    newLaptopPersonQuery: '',
+    showPersonDropdown:   false,
+    peopleOptions:        [],
+    peopleLoaded:         false,
     // Oud toestel dat pas bij het inleveren geregistreerd wordt.
     newLaptopReturned:   false,
     newLaptopReturnedAt: '',
@@ -381,6 +386,8 @@ function laptopApp() {
     // ── HTMX import callback ───────────────────────────────
     onImportComplete(event) {
       if (event.detail.successful) {
+        // De personenkiezer heeft een gecachte lijst; die is na een import verouderd.
+        this.peopleLoaded = false;
         htmx.ajax('GET', '/ui/students/list',   { target: '#student-list',        swap: 'innerHTML' });
         htmx.ajax('GET', '/ui/students/manage', { target: '#manage-student-list', swap: 'innerHTML' });
         this.$nextTick(() => { this._countVisible(); this.filterManage(); this._computeStuCounts(); });
@@ -985,6 +992,60 @@ function laptopApp() {
       if (event.detail.successful) this.refreshLaptopManage();
     },
 
+    // ── Personenkiezer (Nieuw-formulier) ───────────────────
+    async ensurePeopleLoaded() {
+      if (this.peopleLoaded) return;
+      try {
+        const res = await fetch('/api/students');
+        if (!res.ok) return;
+        this.peopleOptions = await res.json();
+        this.peopleLoaded = true;
+      } catch (_) { /* veld blijft bruikbaar als vrij invoerveld */ }
+    },
+
+    personMatches() {
+      const q = this.newLaptopPersonQuery.trim().toLowerCase();
+      if (!q) return [];
+      return this.peopleOptions
+        .filter(p => [p.naam, p.voornaam, p.stamnummer, p.gebruikersnaam, p.afkorting, p.klas]
+          .filter(Boolean).join(' ').toLowerCase().includes(q))
+        .slice(0, 8);
+    },
+
+    personLabel(p) {
+      const naam = [p.naam, p.voornaam].filter(Boolean).join(', ');
+      const groep = p.klas || p.afkorting || (p.is_leerkracht ? 'Leerkracht' : '');
+      // Leerkrachten zonder stamnummer zijn gesleuteld op hun gebruikersnaam;
+      // toon dan de pointer, net als in de beheerlijst.
+      const nummer = (p.gebruikersnaam && p.stamnummer === p.gebruikersnaam)
+        ? (p.pointer || p.stamnummer) : p.stamnummer;
+      return [naam, groep, nummer].filter(Boolean).join(' — ');
+    },
+
+    pickPerson(p) {
+      this.newLaptopStamnummer = p.stamnummer;
+      this.newLaptopPersonQuery = this.personLabel(p);
+      this.showPersonDropdown = false;
+    },
+
+    onPersonInput() {
+      // Typen maakt een eerdere keuze ongeldig, zodat er nooit een oude sleutel meegaat.
+      this.newLaptopStamnummer = '';
+      this.showPersonDropdown = true;
+      this.ensurePeopleLoaded();
+    },
+
+    resolvePersonKey() {
+      const picked = (this.newLaptopStamnummer || '').trim();
+      if (picked) return picked;
+      // Niets uit de lijst gekozen: aanvaard een exact getypte of geplakte sleutel.
+      const typed = (this.newLaptopPersonQuery || '').trim();
+      if (!typed) return '';
+      const exact = this.peopleOptions.find(
+        p => p.stamnummer === typed || (p.gebruikersnaam && p.gebruikersnaam === typed));
+      return exact ? exact.stamnummer : typed;
+    },
+
     todayISO() {
       // Lokale datum, niet UTC: toISOString() zou 's avonds de vorige dag geven.
       const d = new Date();
@@ -996,7 +1057,7 @@ function laptopApp() {
       const serial = this.newLaptopSerial.trim();
       const type = this.newLaptopType || 'normal';
       const alias = this.newLaptopAlias.trim();
-      const stamnummer = this.newLaptopStamnummer.trim();
+      const stamnummer = this.resolvePersonKey();
       const cabinetId = this.newLaptopCabinetId;
 
       let payload;
@@ -1022,7 +1083,7 @@ function laptopApp() {
         label = serial;
       } else {
         if (!serial || !stamnummer) {
-          this.newLaptopStatus = { text: 'Serienummer en stamnummer zijn verplicht.', type: 'error' }; return;
+          this.newLaptopStatus = { text: 'Serienummer en een persoon zijn verplicht.', type: 'error' }; return;
         }
         payload = { serial_number: serial, stamnummer };
         label = serial;
@@ -1057,6 +1118,7 @@ function laptopApp() {
       };
       this.newLaptopSerial = '';
       this.newLaptopStamnummer = '';
+      this.newLaptopPersonQuery = '';
       this.newLaptopAlias = '';
       this.newLaptopCabinetId = '';
       this.newLaptopMagazijnId = '';

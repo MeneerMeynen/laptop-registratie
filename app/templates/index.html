@@ -499,9 +499,26 @@
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
             <input class="input" type="text" placeholder="bijv. ABC123" x-model="newLaptopSerial" @keydown.enter="createLaptop()">
           </div>
-          <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'normal'">
-            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer</label>
-            <input class="input" type="text" placeholder="bijv. 12345" x-model="newLaptopStamnummer" @keydown.enter="createLaptop()">
+          <div style="flex:1; min-width:240px; position:relative;" x-show="newLaptopType === 'normal'"
+               @click.outside="showPersonDropdown = false">
+            <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Leerling of leerkracht</label>
+            <input class="input" type="text" id="new-laptop-person"
+                   placeholder="Zoek op naam, stamnummer, gebruikersnaam of afkorting…"
+                   x-model="newLaptopPersonQuery"
+                   @input="onPersonInput()"
+                   @focus="ensurePeopleLoaded(); showPersonDropdown = true"
+                   @keydown.escape="showPersonDropdown = false"
+                   @keydown.enter.prevent="personMatches().length === 1 ? pickPerson(personMatches()[0]) : createLaptop()">
+            <div class="lt-person-dropdown" x-show="showPersonDropdown && personMatches().length" x-cloak>
+              <template x-for="p in personMatches()" :key="p.stamnummer">
+                <button type="button" class="lt-person-option" @click="pickPerson(p)" x-text="personLabel(p)"></button>
+              </template>
+            </div>
+            {# De sleutel van een leerkracht is zijn gebruikersnaam, niet het getoonde
+               nummer. Daarom tonen we expliciet waar het toestel aan gekoppeld wordt. #}
+            <div style="font-size:11px; color:var(--muted); margin-top:3px;" x-show="newLaptopStamnummer" x-cloak>
+              Koppelt aan: <strong x-text="newLaptopStamnummer"></strong>
+            </div>
           </div>
           <div style="width:100%; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding-top:10px; border-top:1px solid var(--border);"
                x-show="newLaptopType === 'normal' && newLaptopReturned" x-cloak>

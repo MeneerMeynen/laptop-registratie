@@ -169,3 +169,17 @@ def test_oud_toestel_verschijnt_in_de_tijdlijn_van_het_serienummer(client, db_se
     assert history[0]["stamnummer"] == "S911"
     assert history[0]["naam"] == "Jansen"
     assert history[0]["is_active"] is False
+
+
+def test_oud_toestel_werkt_ook_voor_een_leerkracht(client, db_session):
+    """Leerkrachten staan in dezelfde tabel; de sleutel is hun gebruikersnaam."""
+    client.post(
+        "/api/students/import?leerkracht=true",
+        files={"file": ("l.csv", b"Naam;Voornaam;Gebruikersnaam\nPeeters;An;an.peeters\n", "text/csv")},
+    )
+
+    resp = _register_old(client, "an.peeters", "OUD-LK-1")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["stamnummer"] == "an.peeters"
+    assert resp.json()["unlinked_at"] is not None

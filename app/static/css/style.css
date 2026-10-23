@@ -1416,3 +1416,18 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
   .t-head span:nth-child(2), .t-row .t-sn { display: none; }
   .t-head span:nth-child(6), .t-row td:nth-child(6) { display: none; }
 }
+
+/* Personenkiezer in het Nieuw-laptopformulier */
+.lt-person-dropdown {
+  position: absolute; z-index: 30; left: 0; right: 0; top: 100%; margin-top: 2px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .28); overflow: hidden; max-height: 280px; overflow-y: auto;
+}
+.lt-person-option {
+  display: block; width: 100%; text-align: left; padding: 8px 12px;
+  background: none; border: 0; border-bottom: 1px solid var(--border);
+  color: var(--text); font-size: .85rem; cursor: pointer;
+}
+.lt-person-option:last-child { border-bottom: none; }
+.lt-person-option:hover,
+.lt-person-option:focus-visible { background: var(--surface2); }
