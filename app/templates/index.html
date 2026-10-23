@@ -659,11 +659,14 @@
                            aria-label="Filter op type of leerling"
                            x-model="laptopManageCols.student" @input.debounce.300ms="refreshLaptopManage()">
                     <datalist id="lt-filter-type">
-                      <option value="Leerling"><option value="Reserve"><option value="Kast">
-                      <option value="Magazijn"><option value="Eigen laptop">
+                      <option value="Leerling"><option value="Leerkracht"><option value="Reserve">
+                      <option value="Kast"><option value="Magazijn"><option value="Eigen laptop">
                     </datalist></th>
-                <th><input class="input" type="search" placeholder="Klas…" aria-label="Filter op klas"
-                           x-model="laptopManageCols.klas" @input.debounce.300ms="refreshLaptopManage()"></th>
+                <th><input class="input" type="search" placeholder="Klas of Leerkracht…" list="lt-filter-klas"
+                           aria-label="Filter op klas"
+                           x-model="laptopManageCols.klas" @input.debounce.300ms="refreshLaptopManage()">
+                    {# Klassen zijn vrije tekst, dus alleen de berekende waarde als suggestie. #}
+                    <datalist id="lt-filter-klas"><option value="Leerkracht"></datalist></th>
                 <th><input class="input" type="search" placeholder="Actief…" list="lt-filter-status"
                            aria-label="Filter op status"
                            x-model="laptopManageCols.status" @input.debounce.300ms="refreshLaptopManage()">

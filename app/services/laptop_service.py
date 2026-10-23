@@ -298,8 +298,13 @@ def _apply_column_filters(stmt, columns: dict[str, str]):
     if term := columns.get("student"):
         pattern = f"%{term}%"
         term_l = term.lower()
+        aan_persoon = and_(Laptop.is_reserve.is_(False), Laptop.storage_cabinet_id.is_(None))
         type_labels = {
-            "leerling": and_(Laptop.is_reserve.is_(False), Laptop.storage_cabinet_id.is_(None)),
+            # Leerling en leerkracht zijn beide "aan een persoon gekoppeld"; het
+            # onderscheid zit in students.is_leerkracht. Wie "leer" typt krijgt
+            # allebei, wie voluit typt krijgt precies één groep.
+            "leerling": and_(aan_persoon, Student.is_leerkracht.is_(False)),
+            "leerkracht": and_(aan_persoon, Student.is_leerkracht.is_(True)),
             "reserve": Laptop.is_reserve.is_(True),
             "kast": and_(Laptop.storage_cabinet_id.isnot(None), StorageCabinet.kind == "kast"),
             "magazijn": and_(
@@ -320,7 +325,13 @@ def _apply_column_filters(stmt, columns: dict[str, str]):
         stmt = stmt.where(or_(*conditions))
 
     if klas := columns.get("klas"):
-        stmt = stmt.where(Student.klas.ilike(f"%{klas}%"))
+        # De kolom toont de klas, of "Leerkracht" als die leeg is (zie
+        # get_all_laptops). Filter daarom op wat er staat, niet op het veld.
+        cond = Student.klas.ilike(f"%{klas}%")
+        if klas.lower() in "leerkracht":
+            zonder_klas = or_(Student.klas.is_(None), Student.klas == "")
+            cond = or_(cond, and_(Student.is_leerkracht.is_(True), zonder_klas))
+        stmt = stmt.where(cond)
 
     if term := columns.get("status"):
         term_l = term.lower()

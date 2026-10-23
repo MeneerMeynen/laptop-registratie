@@ -510,3 +510,62 @@ def test_export_laptops_respects_column_filters(client, db_session):
 
     assert "EXPCOL-ONE" in body
     assert "EXPCOL-TWO" not in body
+
+
+# ── Filteren op leerkrachten in het beheeroverzicht ───────────────────────────
+
+def _add_teacher(client, gebruikersnaam: str, naam: str, voornaam: str = "An"):
+    csv = f"Naam;Voornaam;Gebruikersnaam\n{naam};{voornaam};{gebruikersnaam}\n".encode()
+    resp = client.post(
+        "/api/students/import?leerkracht=true",
+        files={"file": ("lk.csv", csv, "text/csv")},
+    )
+    assert resp.status_code == 200
+    return gebruikersnaam
+
+
+def _setup_mixed(client, db_session):
+    """Eén leerling met laptop en één leerkracht met laptop."""
+    _add_student(db_session, "S600", naam="Jansen", voornaam="Lotte")
+    _link(client, "S600", "LRL-600")
+    _add_teacher(client, "an.peeters", "Peeters")
+    _link(client, "an.peeters", "LKR-600")
+
+
+def test_klaskolom_filtert_op_leerkracht(client, db_session):
+    """De klaskolom toont 'Leerkracht' bij een leerkracht, dus daar moet je ook
+    op kunnen filteren."""
+    _setup_mixed(client, db_session)
+
+    body = _manage(client, c_klas="leerkracht")
+
+    assert "LKR-600" in body
+    assert "LRL-600" not in body
+
+
+def test_typekolom_filtert_op_leerkracht(client, db_session):
+    _setup_mixed(client, db_session)
+
+    body = _manage(client, c_student="leerkracht")
+
+    assert "LKR-600" in body
+    assert "LRL-600" not in body
+
+
+def test_typekolom_leerling_sluit_leerkrachten_uit(client, db_session):
+    _setup_mixed(client, db_session)
+
+    body = _manage(client, c_student="leerling")
+
+    assert "LRL-600" in body
+    assert "LKR-600" not in body
+
+
+def test_klasfilter_op_echte_klas_blijft_werken(client, db_session):
+    """Regressie: filteren op een gewone klas mag geen leerkrachten binnenhalen."""
+    _setup_mixed(client, db_session)
+
+    body = _manage(client, c_klas="3A")
+
+    assert "LRL-600" in body
+    assert "LKR-600" not in body
