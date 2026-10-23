@@ -14,3 +14,7 @@ app/static/zxing-wasm/
 
 # Leerkrachten-export bevat paswoorden in platte tekst — nooit committen
 teacher_data/
+
+# Word-brondocumenten (bv. de gebruiksovereenkomst per schooljaar) — werkbestanden,
+# geen code. De app genereert het contract zelf via app/templates/contract.html.
+*.docx
