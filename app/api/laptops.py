@@ -147,6 +147,10 @@ def create(payload: LaptopCreate, db: Session = Depends(get_db)):
             is_reserve=payload.is_reserve,
             alias=payload.alias,
             storage_cabinet_id=payload.storage_cabinet_id,
+            linked_at=payload.linked_at,
+            unlinked_at=payload.unlinked_at,
+            hoes_ingeleverd=payload.hoes_ingeleverd,
+            oplader_ingeleverd=payload.oplader_ingeleverd,
         )
     except LaptopValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

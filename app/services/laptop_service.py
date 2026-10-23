@@ -212,21 +212,7 @@ def unlink_laptop(
     laptop.hoes_ingeleverd = hoes_ingeleverd
     laptop.oplader_ingeleverd = oplader_ingeleverd
 
-    if (not hoes_ingeleverd or not oplader_ingeleverd) and laptop.serial_number:
-        missing: list[str] = []
-        if not hoes_ingeleverd:
-            missing.append("hoes")
-        if not oplader_ingeleverd:
-            missing.append("oplader")
-        session.add(
-            LaptopIssue(
-                serial_number=laptop.serial_number,
-                description=f"Bij inlevering ontbraken: {', '.join(missing)}.",
-                reported_date=date.today(),
-                status="aangemeld",
-                category="Accessoires",
-            )
-        )
+    _register_missing_accessories(session, laptop, hoes_ingeleverd, oplader_ingeleverd)
 
     session.commit()
     session.refresh(laptop)
@@ -477,6 +463,47 @@ def get_all_laptops(
     return results
 
 
+def _as_datetime(value: date | None) -> datetime | None:
+    """Een datum uit een formulier naar een datetime. Vandaag krijgt de echte tijd,
+    zodat de volgorde binnen vandaag klopt; een oudere datum wordt middernacht."""
+    if value is None:
+        return None
+    if value == date.today():
+        return datetime.now()
+    return datetime.combine(value, datetime.min.time())
+
+
+def _register_missing_accessories(
+    session: Session,
+    laptop: Laptop,
+    hoes_ingeleverd: bool,
+    oplader_ingeleverd: bool,
+    reported_on: date | None = None,
+) -> None:
+    """Maak een issue aan wanneer hoes of oplader ontbreekt bij inlevering.
+
+    Gedeeld door unlink_laptop (gewone inlevering) en create_laptop (oud toestel
+    dat achteraf als reeds ingeleverd wordt geregistreerd), zodat beide wegen
+    dezelfde opvolging krijgen.
+    """
+    if (hoes_ingeleverd and oplader_ingeleverd) or not laptop.serial_number:
+        return
+    missing: list[str] = []
+    if not hoes_ingeleverd:
+        missing.append("hoes")
+    if not oplader_ingeleverd:
+        missing.append("oplader")
+    session.add(
+        LaptopIssue(
+            serial_number=laptop.serial_number,
+            description=f"Bij inlevering ontbraken: {', '.join(missing)}.",
+            reported_date=reported_on or date.today(),
+            status="aangemeld",
+            category="Accessoires",
+        )
+    )
+
+
 def create_laptop(
     session: Session,
     serial_number: str | None = None,
@@ -485,6 +512,10 @@ def create_laptop(
     is_reserve: bool = False,
     alias: str | None = None,
     storage_cabinet_id: int | None = None,
+    linked_at: date | None = None,
+    unlinked_at: date | None = None,
+    hoes_ingeleverd: bool = True,
+    oplader_ingeleverd: bool = True,
 ) -> Laptop:
     """Create a new laptop record.
 
@@ -492,6 +523,12 @@ def create_laptop(
     - Regular laptop: ``stamnummer`` and ``serial_number`` required.
     - Reserve laptop: ``is_reserve=True`` and ``alias`` required; no stamnummer/cabinet.
     - Cabinet laptop: ``storage_cabinet_id`` and ``serial_number`` required; no stamnummer/reserve.
+
+    Met ``unlinked_at`` wordt het toestel meteen als ingeleverd vastgelegd. Dat is
+    bedoeld voor een oud toestel dat nooit geregistreerd was en pas bij het
+    inleveren in het systeem komt: het is dus nooit actief geweest en botst niet
+    met het nieuwe toestel dat de persoon intussen heeft. ``linked_at`` mag dan
+    leeg blijven wanneer niet meer bekend is wanneer het toestel is uitgeleend.
     """
     normalized_serial = normalize_serial(serial_number) or None
     normalized_stamnummer = (stamnummer or "").strip() or None
@@ -500,6 +537,22 @@ def create_laptop(
     if is_reserve and storage_cabinet_id is not None:
         raise LaptopValidationError(
             "Een laptop kan niet tegelijk reserve en in een uitleenkast zijn."
+        )
+
+    if unlinked_at is not None and (is_reserve or storage_cabinet_id is not None):
+        raise LaptopValidationError(
+            "Alleen een leerling- of leerkrachttoestel kan als reeds ingeleverd "
+            "worden geregistreerd."
+        )
+
+    today = date.today()
+    if linked_at is not None and linked_at > today:
+        raise LaptopValidationError("De koppeldatum kan niet in de toekomst liggen.")
+    if unlinked_at is not None and unlinked_at > today:
+        raise LaptopValidationError("De inleverdatum kan niet in de toekomst liggen.")
+    if linked_at is not None and unlinked_at is not None and unlinked_at < linked_at:
+        raise LaptopValidationError(
+            "De inleverdatum ligt voor de koppeldatum."
         )
 
     if storage_cabinet_id is not None:
@@ -530,7 +583,10 @@ def create_laptop(
         if student is None:
             raise StudentNotFoundError(f"Student {normalized_stamnummer} bestaat niet.")
 
-    if normalized_serial and not is_reserve:
+    # Een reeds ingeleverd toestel is nooit actief, dus het kan nooit botsen met
+    # een actieve koppeling. Hetzelfde serienummer mag meerdere keren in de
+    # geschiedenis voorkomen (zie get_assignment_history).
+    if normalized_serial and not is_reserve and unlinked_at is None:
         existing = session.scalars(
             select(Laptop).where(
                 Laptop.serial_number == normalized_serial,
@@ -543,6 +599,13 @@ def create_laptop(
                 f"Serienummer {normalized_serial} is al actief gekoppeld."
             )
 
+    returned_at = _as_datetime(unlinked_at)
+    if returned_at is not None:
+        # Historisch record: de koppeldatum mag onbekend zijn en blijft dan leeg.
+        started_at = _as_datetime(linked_at)
+    else:
+        started_at = None if is_reserve else (_as_datetime(linked_at) or datetime.now())
+
     laptop = Laptop(
         serial_number=normalized_serial,
         stamnummer=None if (is_reserve or storage_cabinet_id is not None) else normalized_stamnummer,
@@ -550,9 +613,17 @@ def create_laptop(
         is_reserve=is_reserve,
         alias=normalized_alias,
         storage_cabinet_id=storage_cabinet_id,
-        linked_at=None if is_reserve else datetime.now(),
+        linked_at=started_at,
+        unlinked_at=returned_at,
+        hoes_ingeleverd=hoes_ingeleverd if returned_at is not None else True,
+        oplader_ingeleverd=oplader_ingeleverd if returned_at is not None else True,
     )
     session.add(laptop)
+    session.flush()
+    if returned_at is not None:
+        _register_missing_accessories(
+            session, laptop, hoes_ingeleverd, oplader_ingeleverd, reported_on=unlinked_at
+        )
     session.commit()
     session.refresh(laptop)
     return laptop

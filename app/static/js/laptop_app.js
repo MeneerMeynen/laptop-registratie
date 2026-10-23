@@ -1,3 +1,29 @@
+// Sorteerbare beheerlijsten: rijen dragen hun sorteerwaarde in data-sort-<key>.
+const SORT_LISTS = {
+  laptops:    { target: 'manage-laptop-list',   dateKeys: ['linkedAt'],   numberKeys: [] },
+  students:   { target: 'manage-student-list',  dateKeys: ['lastImport'], numberKeys: [] },
+  kasten:     { target: 'manage-cabinet-list',  dateKeys: [],             numberKeys: ['laptopCount', 'capacity'] },
+  magazijnen: { target: 'manage-magazijn-list', dateKeys: [],             numberKeys: ['laptopCount', 'capacity'] },
+};
+const SORT_COLLATOR = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
+
+function loadManageSort() {
+  const sort = Object.fromEntries(Object.keys(SORT_LISTS).map(k => [k, { key: '', dir: 'asc' }]));
+  try {
+    const saved = JSON.parse(localStorage.getItem('manageSort') || '{}');
+    for (const k of Object.keys(sort)) {
+      if (saved[k] && typeof saved[k].key === 'string') {
+        sort[k] = { key: saved[k].key, dir: saved[k].dir === 'desc' ? 'desc' : 'asc' };
+      }
+    }
+  } catch (_) { /* geen opgeslagen sortering */ }
+  return sort;
+}
+
+function saveManageSort(sort) {
+  try { localStorage.setItem('manageSort', JSON.stringify(sort)); } catch (_) { /* negeren */ }
+}
+
 function laptopApp() {
   return {
     // ── State ──────────────────────────────────────────────
@@ -73,6 +99,12 @@ function laptopApp() {
     newLaptopAlias:     '',
     newLaptopCabinetId: '',
     newLaptopMagazijnId:'',
+    // Oud toestel dat pas bij het inleveren geregistreerd wordt.
+    newLaptopReturned:   false,
+    newLaptopReturnedAt: '',
+    newLaptopLinkedAt:   '',
+    newLaptopHoes:       true,
+    newLaptopOplader:    true,
     newLaptopStatus:    { text: '', type: '' },
     // Bulk laptops toevoegen
     showBulkLaptopForm: false,
@@ -104,6 +136,8 @@ function laptopApp() {
     newMagazijn:          { name: '', location: '', description: '', capacity: '' },
     newMagazijnStatus:    { text: '', type: '' },
     showHelpModal:        false,
+    // Sortering lijsten in Instellingen (key '' = standaardvolgorde van de server)
+    manageSort: loadManageSort(),
 
     // ── Lifecycle ──────────────────────────────────────────
     toggleTheme() {
@@ -115,7 +149,13 @@ function laptopApp() {
     init() {
       // Laat de losse ltManage*-functies de lijst herladen mét actieve filters.
       window.ltRefreshManage = () => this.refreshLaptopManage();
+      // Na elke HTMX-refresh van een beheerlijst de gekozen sortering opnieuw toepassen.
+      document.body.addEventListener('htmx:afterSwap', (e) => {
+        const list = Object.keys(SORT_LISTS).find(k => SORT_LISTS[k].target === e.detail.target.id);
+        if (list) this.applySort(list);
+      });
       document.documentElement.setAttribute('data-theme', this.theme);
+      this.newLaptopReturnedAt = this.todayISO();
       this.activeTab         = sessionStorage.getItem('activeTab') || 'laptops';
       this.manageSearch      = sessionStorage.getItem('manageSearch') || '';
       this.showUitgeschreven = sessionStorage.getItem('showUitgeschreven') === 'true';
@@ -124,6 +164,7 @@ function laptopApp() {
         this._countVisible();
         this.filterManage();
         this._computeStuCounts();
+        this.applySort('students');
         renderAllBarcodes();
       });
 
@@ -863,6 +904,54 @@ function laptopApp() {
       } catch (_) { /* ignore */ }
     },
 
+    // ── Sorteren beheerlijsten (Instellingen) ──────────────
+    setSort(list, key) {
+      const sort = this.manageSort[list];
+      if (sort.key === key) {
+        sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sort.key = key;
+        sort.dir = 'asc';
+      }
+      this.applySort(list);
+    },
+
+    toggleSortDir(list) {
+      const sort = this.manageSort[list];
+      sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+      this.applySort(list);
+    },
+
+    sortIcon(list, key) {
+      const sort = this.manageSort[list];
+      if (sort.key !== key) return '↕';
+      return sort.dir === 'asc' ? '▲' : '▼';
+    },
+
+    sortDirLabel(list) {
+      const { key, dir } = this.manageSort[list];
+      if (SORT_LISTS[list].dateKeys.includes(key)) return dir === 'asc' ? '▲ Oud → nieuw' : '▼ Nieuw → oud';
+      if (SORT_LISTS[list].numberKeys.includes(key)) return dir === 'asc' ? '▲ Laag → hoog' : '▼ Hoog → laag';
+      return dir === 'asc' ? '▲ A → Z' : '▼ Z → A';
+    },
+
+    applySort(list) {
+      saveManageSort(this.manageSort);
+      const { key, dir } = this.manageSort[list];
+      const container = document.getElementById(SORT_LISTS[list].target);
+      if (!container || !key) return;
+      const attr = 'sort' + key.charAt(0).toUpperCase() + key.slice(1);
+      const rows = [...container.children].filter(el => attr in el.dataset);
+      const factor = dir === 'asc' ? 1 : -1;
+      rows.sort((a, b) => {
+        const va = a.dataset[attr], vb = b.dataset[attr];
+        // Lege waarden altijd achteraan, ongeacht de richting.
+        if (!va || !vb) return (va ? 0 : 1) - (vb ? 0 : 1);
+        return factor * SORT_COLLATOR.compare(va, vb);
+      });
+      rows.forEach(row => container.appendChild(row));
+    },
+
     // ── Laptop management (Instellingen) ───────────────────
     laptopManageParams() {
       const params = new URLSearchParams({
@@ -894,6 +983,13 @@ function laptopApp() {
 
     onLaptopImportComplete(event) {
       if (event.detail.successful) this.refreshLaptopManage();
+    },
+
+    todayISO() {
+      // Lokale datum, niet UTC: toISOString() zou 's avonds de vorige dag geven.
+      const d = new Date();
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 10);
     },
 
     async createLaptop() {
@@ -930,6 +1026,16 @@ function laptopApp() {
         }
         payload = { serial_number: serial, stamnummer };
         label = serial;
+        if (this.newLaptopReturned) {
+          const returnedAt = this.newLaptopReturnedAt || this.todayISO();
+          if (this.newLaptopLinkedAt && this.newLaptopLinkedAt > returnedAt) {
+            this.newLaptopStatus = { text: 'De inleverdatum ligt voor de koppeldatum.', type: 'error' }; return;
+          }
+          payload.unlinked_at = returnedAt;
+          payload.linked_at = this.newLaptopLinkedAt || null;
+          payload.hoes_ingeleverd = this.newLaptopHoes;
+          payload.oplader_ingeleverd = this.newLaptopOplader;
+        }
       }
 
       this.newLaptopStatus = { text: 'Bezig…', type: '' };
@@ -942,13 +1048,25 @@ function laptopApp() {
       if (!res.ok) {
         this.newLaptopStatus = { text: data.detail || 'Aanmaken mislukt.', type: 'error' }; return;
       }
-      this.newLaptopStatus = { text: `✓ Laptop "${label}" aangemaakt.`, type: 'success' };
+      const wasReturned = type === 'normal' && this.newLaptopReturned;
+      this.newLaptopStatus = {
+        text: wasReturned
+          ? `✓ Oud toestel "${label}" geregistreerd als ingeleverd.`
+          : `✓ Laptop "${label}" aangemaakt.`,
+        type: 'success',
+      };
       this.newLaptopSerial = '';
       this.newLaptopStamnummer = '';
       this.newLaptopAlias = '';
       this.newLaptopCabinetId = '';
       this.newLaptopMagazijnId = '';
-      this.newLaptopType = 'normal';
+      // newLaptopReturned en de inleverdatum blijven staan: tijdens een
+      // inleverronde registreer je er meerdere na elkaar. De koppeldatum en de
+      // accessoires verschillen wel per toestel.
+      this.newLaptopLinkedAt = '';
+      this.newLaptopHoes = true;
+      this.newLaptopOplader = true;
+      if (!wasReturned) this.newLaptopType = 'normal';
       this.refreshLaptopManage();
     },
 

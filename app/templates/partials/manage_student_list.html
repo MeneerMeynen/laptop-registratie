@@ -20,6 +20,11 @@
     data-gebruikersnaam="{{ student.gebruikersnaam or '' }}"
     data-pointer="{{ student.pointer or '' }}"
     data-afkorting="{{ student.afkorting or '' }}"
+    data-sort-naam="{{ student.naam or '' }} {{ student.voornaam or '' }}"
+    data-sort-voornaam="{{ student.voornaam or '' }} {{ student.naam or '' }}"
+    data-sort-klas="{{ student.klas or student.afkorting or '' }}"
+    data-sort-stamnummer="{{ student.stamnummer }}"
+    data-sort-last-import="{{ student.last_import.isoformat() if student.last_import else '' }}"
 >
     <label class="manage-row-main">
         <input class="manage-checkbox" type="checkbox" value="{{ student.stamnummer }}">

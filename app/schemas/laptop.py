@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -36,6 +36,13 @@ class LaptopCreate(BaseModel):
     is_reserve: bool = False
     alias: str | None = None
     storage_cabinet_id: int | None = None
+    # Oud toestel dat pas bij het inleveren geregistreerd wordt: zet unlinked_at
+    # en het record wordt meteen als ingeleverd aangemaakt (nooit actief).
+    # linked_at mag leeg blijven als niet meer bekend is wanneer het uitgeleend is.
+    linked_at: date | None = None
+    unlinked_at: date | None = None
+    hoes_ingeleverd: bool = True
+    oplader_ingeleverd: bool = True
 
 
 class LaptopUpdate(BaseModel):

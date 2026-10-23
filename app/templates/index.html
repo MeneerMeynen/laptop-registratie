@@ -486,6 +486,15 @@
               <input type="radio" name="newLaptopType" value="magazijn" x-model="newLaptopType" @change="ensureMagazijnenLoaded()" style="margin:0;"> Magazijn
             </label>
           </div>
+          <!-- Oud toestel dat nooit geregistreerd was en pas bij het inleveren
+               in het systeem komt. Het wordt meteen als ingeleverd aangemaakt en
+               is dus nooit actief, zodat het niet botst met het nieuwe toestel. -->
+          <div style="width:100%; margin:0;" x-show="newLaptopType === 'normal'">
+            <label style="display:flex; align-items:center; gap:6px; margin:0; font-size:12px; color:var(--muted);">
+              <input type="checkbox" x-model="newLaptopReturned" style="margin:0;">
+              Oud toestel — meteen als ingeleverd registreren
+            </label>
+          </div>
           <div style="flex:1; min-width:160px;">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Serienummer</label>
             <input class="input" type="text" placeholder="bijv. ABC123" x-model="newLaptopSerial" @keydown.enter="createLaptop()">
@@ -493,6 +502,27 @@
           <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'normal'">
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Stamnummer</label>
             <input class="input" type="text" placeholder="bijv. 12345" x-model="newLaptopStamnummer" @keydown.enter="createLaptop()">
+          </div>
+          <div style="width:100%; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding-top:10px; border-top:1px solid var(--border);"
+               x-show="newLaptopType === 'normal' && newLaptopReturned" x-cloak>
+            <div style="flex:1; min-width:150px;">
+              <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Ingeleverd op</label>
+              <input class="input" type="date" x-model="newLaptopReturnedAt" :max="todayISO()">
+            </div>
+            <div style="flex:1; min-width:150px;">
+              <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">
+                Gekoppeld op <span style="opacity:.7;">— leeg als onbekend</span>
+              </label>
+              <input class="input" type="date" x-model="newLaptopLinkedAt" :max="todayISO()">
+            </div>
+            <div style="display:flex; gap:14px; align-items:center; font-size:12px; color:var(--muted); padding-bottom:6px;">
+              <label style="display:flex; align-items:center; gap:6px; margin:0;">
+                <input type="checkbox" x-model="newLaptopHoes" style="margin:0;"> Hoes ingeleverd
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; margin:0;">
+                <input type="checkbox" x-model="newLaptopOplader" style="margin:0;"> Oplader ingeleverd
+              </label>
+            </div>
           </div>
           <div style="flex:1; min-width:160px;" x-show="newLaptopType === 'reserve'" x-cloak>
             <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:4px;">Alias</label>
@@ -592,12 +622,17 @@
           <table class="lt-manage-table">
             <thead>
               <tr>
-                <th>Serienummer</th>
-                <th>Type / Leerling</th>
-                <th>Klas</th>
-                <th>Status</th>
+                <th class="sortable" :class="manageSort.laptops.key === 'serial' && 'sorted'"
+                    @click="setSort('laptops', 'serial')">Serienummer <span x-text="sortIcon('laptops', 'serial')"></span></th>
+                <th class="sortable" :class="manageSort.laptops.key === 'student' && 'sorted'"
+                    @click="setSort('laptops', 'student')">Type / Leerling <span x-text="sortIcon('laptops', 'student')"></span></th>
+                <th class="sortable" :class="manageSort.laptops.key === 'klas' && 'sorted'"
+                    @click="setSort('laptops', 'klas')">Klas <span x-text="sortIcon('laptops', 'klas')"></span></th>
+                <th class="sortable" :class="manageSort.laptops.key === 'status' && 'sorted'"
+                    @click="setSort('laptops', 'status')">Status <span x-text="sortIcon('laptops', 'status')"></span></th>
                 <th title="Hoes / Oplader bij laatste inlevering">Accessoires</th>
-                <th>Gekoppeld op</th>
+                <th class="sortable" :class="manageSort.laptops.key === 'linkedAt' && 'sorted'"
+                    @click="setSort('laptops', 'linkedAt')">Gekoppeld op <span x-text="sortIcon('laptops', 'linkedAt')"></span></th>
                 <th style="width:200px;"></th>
               </tr>
               <tr class="lt-manage-filter-row">
@@ -748,6 +783,17 @@
                   @click="toggleUitgeschreven"
                   x-text="showUitgeschreven ? 'Toon alle' : 'Uitgeschreven'"></button>
           <button type="button" class="btn sm" @click="selectAllVisible">Selecteer alle</button>
+          <select class="input" aria-label="Sorteer op"
+                  x-model="manageSort.students.key" @change="applySort('students')">
+            <option value="">Sorteer: standaard</option>
+            <option value="naam">Naam</option>
+            <option value="voornaam">Voornaam</option>
+            <option value="klas">Klas / afkorting</option>
+            <option value="stamnummer">Stamnummer</option>
+            <option value="lastImport">Laatste import</option>
+          </select>
+          <button type="button" class="btn sm" x-show="manageSort.students.key" x-cloak
+                  @click="toggleSortDir('students')" x-text="sortDirLabel('students')"></button>
         </div>
 
         <div id="manage-student-list" class="manage-list">
@@ -823,6 +869,16 @@
                  placeholder="🔍 Zoek op naam of lokaal…"
                  x-model="cabinetSearch"
                  @input.debounce.200ms="refreshCabinetManage()">
+          <select class="input" aria-label="Sorteer op"
+                  x-model="manageSort.kasten.key" @change="applySort('kasten')">
+            <option value="">Sorteer: standaard</option>
+            <option value="name">Naam</option>
+            <option value="location">Lokaal</option>
+            <option value="laptopCount">Bezetting</option>
+            <option value="capacity">Capaciteit</option>
+          </select>
+          <button type="button" class="btn sm" x-show="manageSort.kasten.key" x-cloak
+                  @click="toggleSortDir('kasten')" x-text="sortDirLabel('kasten')"></button>
         </div>
 
         <div id="manage-cabinet-list" class="manage-list"
@@ -886,6 +942,16 @@
                  placeholder="🔍 Zoek op naam of lokaal…"
                  x-model="magazijnSearch"
                  @input.debounce.200ms="refreshMagazijnManage()">
+          <select class="input" aria-label="Sorteer op"
+                  x-model="manageSort.magazijnen.key" @change="applySort('magazijnen')">
+            <option value="">Sorteer: standaard</option>
+            <option value="name">Naam</option>
+            <option value="location">Lokaal</option>
+            <option value="laptopCount">Bezetting</option>
+            <option value="capacity">Capaciteit</option>
+          </select>
+          <button type="button" class="btn sm" x-show="manageSort.magazijnen.key" x-cloak
+                  @click="toggleSortDir('magazijnen')" x-text="sortDirLabel('magazijnen')"></button>
         </div>
 
         <div id="manage-magazijn-list" class="manage-list"></div>

@@ -680,8 +680,14 @@ a { color: inherit; text-decoration: none; }
 .stu-top-actions { display: flex; gap: 8px; }
 
 .stu-search {
-  display: grid; grid-template-columns: 1fr auto auto;
+  display: grid; grid-template-columns: 1fr;
+  grid-auto-flow: column; grid-auto-columns: max-content;
   gap: 8px; margin-bottom: 14px;
+}
+.stu-search select.input { width: auto; padding: 0 10px; }
+@media (max-width: 600px) {
+  .stu-search { grid-auto-flow: row; grid-template-columns: 1fr 1fr; }
+  .stu-search > :first-child { grid-column: 1 / -1; }
 }
 
 /* Students table */
@@ -938,6 +944,9 @@ button:not(.btn):not(.chrome-tabs button):not(.icon-btn):not(.lt-icon-btn):not(.
 .lt-manage-table tr:last-child td { border-bottom: none; }
 .lt-manage-table tr:hover td { background: var(--surface2); }
 .lt-manage-table .input { padding: 4px 8px; font-size: .82rem; width: 100%; }
+.lt-manage-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.lt-manage-table th.sortable:hover { color: var(--text); }
+.lt-manage-table th.sortable.sorted { color: var(--accent); }
 .lt-manage-filter-row th { padding: 4px 12px 8px; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .lt-manage-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 

@@ -7,6 +7,10 @@
     data-description="{{ cabinet.description or '' }}"
     data-capacity="{{ cabinet.capacity if cabinet.capacity is not none else '' }}"
     data-laptop-count="{{ cabinet.laptop_count }}"
+    data-sort-name="{{ cabinet.name or '' }}"
+    data-sort-location="{{ cabinet.location or '' }}"
+    data-sort-laptop-count="{{ cabinet.laptop_count }}"
+    data-sort-capacity="{{ cabinet.capacity if cabinet.capacity is not none else '' }}"
 >
     <label class="manage-row-main">
         <input class="manage-checkbox" type="checkbox" value="{{ cabinet.id }}">

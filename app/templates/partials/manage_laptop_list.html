@@ -4,7 +4,12 @@
     data-id="{{ laptop.id }}"
     data-is-reserve="{{ '1' if laptop.is_reserve else '0' }}"
     data-in-cabinet="{{ '1' if in_cabinet else '0' }}"
-    data-cabinet-id="{{ laptop.storage_cabinet_id or '' }}">
+    data-cabinet-id="{{ laptop.storage_cabinet_id or '' }}"
+    data-sort-serial="{{ laptop.serial_number or '' }}"
+    data-sort-student="{% if in_cabinet %}{{ laptop.cabinet_name }}{% elif laptop.is_reserve %}{{ laptop.alias or '' }}{% elif laptop.naam %}{{ laptop.naam }} {{ laptop.voornaam }}{% endif %}"
+    data-sort-klas="{% if not (laptop.is_reserve or in_cabinet) %}{{ laptop.klas or '' }}{% endif %}"
+    data-sort-status="{{ 'Actief' if laptop.is_active else 'Inactief' }}"
+    data-sort-linked-at="{{ laptop.linked_at.isoformat() if laptop.linked_at else '' }}">
   <td class="lt-manage-serial">
     <span class="lt-manage-display">
       {% if laptop.eigen_laptop %}

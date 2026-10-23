@@ -46,6 +46,23 @@
   (`app/templates/contract.html`). Leerkrachten krijgen bewust geen contract (juridisch niet passend; beslist 2026-10-01).
   Datum = `linked_at`, schooljaar start in augustus.
 
+### Laptopbeheer (tab: Instellingen → Beheer laptops)
+- Aanmaken via `+ Nieuw` (types: leerling, reserve, uitleenkast, magazijn), `Bulk toevoegen`,
+  CSV-import en CSV-export van het beheeroverzicht
+- Per kolom filteren met een vrij in te voeren waarde (serienummer, type/leerling, klas,
+  status, accessoires, gekoppeld op). Filters werken samen met de zoekbalk en de dropdowns,
+  blijven staan na bewerken/verwijderen en gaan mee in de CSV-export.
+- **Oud toestel registreren** — bij type `Leerling` staat het vinkje
+  `Oud toestel — meteen als ingeleverd registreren`. Bedoeld voor de overgangsperiode:
+  iemand kreeg al een nieuw toestel en levert zijn nooit-geregistreerde oude toestel pas
+  later in. Het record krijgt meteen een `unlinked_at` en is dus nooit actief, waardoor het
+  niet botst met de regel "één actief toestel per persoon" uit `link_laptop_to_student`.
+  `linked_at` mag leeg blijven wanneer de uitleendatum niet meer bekend is.
+  Ontbrekende hoes of oplader maakt automatisch een issue aan, via dezelfde helper
+  (`_register_missing_accessories`) als de gewone inlevering.
+  API: `POST /api/laptops` met `unlinked_at`, optioneel `linked_at`,
+  `hoes_ingeleverd` en `oplader_ingeleverd`.
+
 ### Studentenbeheer (tab: Instellingen)
 - CSV-upload via UI, upsert op `students`
 - `students.last_import` wordt gezet bij elke import; studenten met oudere datum krijgen badge `Uitgeschreven`
