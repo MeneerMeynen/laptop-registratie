@@ -3,6 +3,12 @@
 {% set is_old = group_latest and student.last_import and student.last_import < group_latest %}
 {% set has_eigen = student.laptops | selectattr('eigen_laptop') | list | length > 0 %}
 {% set has_serial = student.laptops | rejectattr('eigen_laptop') | selectattr('serial_number') | list | length > 0 %}
+{# Leerkrachten staan zonder Stamnummer in de Informat-export en zijn dan
+   gesleuteld op hun gebruikersnaam. Toon in dat geval de pointer, zodat beide
+   groepen een nummer op dezelfde plek hebben. Levert Informat later wel een
+   Stamnummer mee, dan verschijnt dat vanzelf. #}
+{% set key_is_gebruikersnaam = student.gebruikersnaam and student.stamnummer == student.gebruikersnaam %}
+{% set nummer = (student.pointer or student.stamnummer) if key_is_gebruikersnaam else student.stamnummer %}
 {% set laptop_flags = ('eigen ' if has_eigen else '') + ('met ' if has_serial else '') + ('' if has_eigen or has_serial else 'zonder') %}
 <div
     class="manage-row"
@@ -23,14 +29,14 @@
     data-sort-naam="{{ student.naam or '' }} {{ student.voornaam or '' }}"
     data-sort-voornaam="{{ student.voornaam or '' }} {{ student.naam or '' }}"
     data-sort-klas="{{ student.klas or student.afkorting or '' }}"
-    data-sort-stamnummer="{{ student.stamnummer }}"
+    data-sort-stamnummer="{{ nummer }}"
     data-sort-last-import="{{ student.last_import.isoformat() if student.last_import else '' }}"
 >
     <label class="manage-row-main">
         <input class="manage-checkbox" type="checkbox" value="{{ student.stamnummer }}">
         <span>
             <span class="manage-name">{{ student.naam }}, {{ student.voornaam }}</span>
-            <span class="manage-meta">{{ student.klas or student.afkorting or ('Leerkracht' if student.is_leerkracht else '') }} | {{ student.stamnummer }} | {{ student.gebruikersnaam }}</span>
+            <span class="manage-meta">{{ student.klas or student.afkorting or ('Leerkracht' if student.is_leerkracht else '') }} | {{ nummer }}{% if student.gebruikersnaam and student.gebruikersnaam != nummer %} | {{ student.gebruikersnaam }}{% endif %}</span>
             {% if student.is_leerkracht %}
             <span class="badge badge-teacher">Leerkracht</span>
             {% endif %}

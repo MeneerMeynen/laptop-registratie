@@ -275,3 +275,38 @@ def test_semicolon_and_comma_csv_still_work(db_session):
 
     assert db_session.get(Student, "S400").naam == "Doe"
     assert db_session.get(Student, "tom.janssens").naam == "Janssens"
+
+
+# ── Nummerweergave in de beheerlijst ──────────────────────────────────────────
+
+def test_leerkracht_toont_pointer_in_plaats_van_gebruikersnaam(client, db_session):
+    """Zonder Stamnummer in de export is de sleutel de gebruikersnaam; toon dan
+    de pointer, zodat leerkracht en leerling allebei een nummer op die plek hebben."""
+    import_students_from_stream(db_session, _teacher_csv(), is_leerkracht=True)
+
+    html = client.get("/ui/students/manage").text
+
+    assert "999001" in html  # pointer uit de fixture
+    assert "VOOEM | 999001" in html
+
+
+def test_leerling_blijft_het_stamnummer_tonen(client, db_session):
+    """Bij leerlingen verandert er niets: het stamnummer blijft staan, ook al
+    heeft die rij ook een pointer."""
+    import_students_from_stream(db_session, _csv(_row("S500")))
+
+    html = client.get("/ui/students/manage").text
+
+    assert "3A | S500" in html
+    # De pointer staat wel in data-pointer en het zoekfilter, maar niet in de
+    # getoonde regel; daar hoort bij een leerling het stamnummer te staan.
+    assert "3A | PTR1" not in html
+
+
+def test_leerkracht_met_stamnummer_toont_dat_stamnummer(db_session, client):
+    """Levert Informat later wel een Stamnummer mee, dan wint die."""
+    import_students_from_stream(db_session, _csv(_row("L500", klas="")), is_leerkracht=True)
+
+    html = client.get("/ui/students/manage").text
+
+    assert "| L500" in html
