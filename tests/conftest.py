@@ -35,7 +35,26 @@ DATABASE_URL: str = os.environ.get(
 
 # Admin URL: same server, no database selected (used to CREATE the test DB)
 _ADMIN_URL = DATABASE_URL.rsplit("/", 1)[0] + "/"
-_DB_NAME = DATABASE_URL.rsplit("/", 1)[-1]
+# Een eventuele querystring (?charset=…) hoort niet bij de databasenaam.
+_DB_NAME = DATABASE_URL.rsplit("/", 1)[-1].split("?", 1)[0]
+
+
+# ── Veiligheidsslot ───────────────────────────────────────────────────────────
+# De teardown van test_database doet Base.metadata.drop_all(). Wijst DATABASE_URL
+# per ongeluk naar de echte database, dan wist een testrun daar stilletjes alle
+# tabellen; alleen alembic_version blijft staan, omdat die niet in de metadata
+# zit. Alembic meldt daarna "up to date" terwijl er niets meer is, en de app
+# start op om vervolgens op elke query te falen.
+#
+# Daarom hier meteen stoppen zodra de databasenaam niet als testdatabase
+# herkenbaar is. Liever een duidelijke foutmelding dan stil dataverlies.
+if not _DB_NAME.endswith("_test"):
+    raise pytest.UsageError(
+        f"Tests geweigerd: DATABASE_URL wijst naar database '{_DB_NAME}'. "
+        f"Aan het einde van de testsessie worden ALLE tabellen gedropt, dus de "
+        f"naam moet op '_test' eindigen (bijvoorbeeld 'laptops_test'). "
+        f"Draai de tests via: docker compose run --rm test"
+    )
 
 
 # ── Session-scoped: create / drop the test database ──────────────────────────
